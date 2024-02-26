@@ -1,11 +1,8 @@
-# region Import and Init
 import pygame
 from plotly.io import to_image
 from io import BytesIO
 from __main__ import HIDE_PERSONAL_INFO, screen
 from common import colors, fonts
-
-# endregion
 
 def clear_screen():
   screen.fill((255, 255, 255))
