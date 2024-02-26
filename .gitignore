@@ -1,4 +1,4 @@
-saves/
+saves/*
 temp.ipynb
 __pycache__/
 oldVers/
