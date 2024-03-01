@@ -7,7 +7,7 @@ from __main__ import HIDE_PERSONAL_INFO
 from gui_fullscreen import draw_fullscreenSelect, draw_newGameInit, draw_selectSaveFile
 
 def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int):
-  global tilebag, globalStats, board, bank
+  global tilebag, board, globalStats, bank
   acquireSetup = True
   successfullBoot = False
   
@@ -116,7 +116,12 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         elif clicked_save_int != None and load_rect.collidepoint(pos):
           savefile = savefiles[clicked_save_int]
           with open(rf'{saves_path}\{savefile}', 'rb') as file:
-            tilebag, bank, board, players, globalStats = pickle.load(file)
+            data = pickle.load(file)
+            datarem, tilebag = pickle.loads(data)
+            datarem, board = pickle.loads(datarem)
+            datarem, globalStats = pickle.loads(datarem)
+            datarem, players = pickle.loads(datarem)
+            bank = pickle.loads(datarem)
           if HIDE_PERSONAL_INFO:
             personal_info_names = [p.name for p in players]
             for i, p in enumerate(players):

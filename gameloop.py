@@ -13,13 +13,11 @@ def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Pla
     for i, p in enumerate(players):
       p.name = personal_info_names[i]
   currentOrderP = players[players.index(currentP):] + players[:players.index(currentP)]
-  saveData = (
-    tilebag,
-    bank,
-    board,
-    currentOrderP,
-    globalStats,
-    )
+  saveData = (bank,
+              currentOrderP,
+              globalStats,
+              board,
+              tilebag) # reverse unpack priority
   if HIDE_PERSONAL_INFO:
     for i, p in enumerate(players):
       p.name = f"Player {i+1}"

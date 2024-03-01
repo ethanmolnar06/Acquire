@@ -70,5 +70,8 @@ def write_save(dir_path, currentOrderP, globalStats, saveData, quicksave = False
     with open(rf'{dir_path}\saves\{save_file_new}', 'x') as file:
       pass
   with open(rf'{dir_path}\saves\{save_file_new}', 'wb') as file:
-    pickle.dump(saveData, file)
+    prevdata = None
+    for data in saveData:
+      prevdata = pickle.dumps((prevdata, data))
+    pickle.dump(prevdata, file)
   return

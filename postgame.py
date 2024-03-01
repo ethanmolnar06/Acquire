@@ -1,11 +1,13 @@
 import pygame
 from plotly import graph_objects as ptgo
+from __main__ import HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES
 from common import write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalStats, saveData):
   pygame.display.set_caption('Postgame')
   postGaming = True
+  askMakeSave = True
   askShowStats = True
   selectStatsGraph = False
   popup_open = False
@@ -15,7 +17,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
     # Clear the screen
     screen.fill((255, 255, 255))
     #Draw ask to make savestate
-    if ALLOW_SAVES:
+    if ALLOW_SAVES and askMakeSave:
       yesandno_rects = draw_fullscreenSelect('makeSave')
     elif askShowStats:
       yesandno_rects = draw_fullscreenSelect('endGameStats')
@@ -35,7 +37,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
     # endregion
     
-    if ALLOW_SAVES:
+    if ALLOW_SAVES and askMakeSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = pygame.mouse.get_pos()
@@ -43,7 +45,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
           # Check if makeSave was clicked
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
-              ALLOW_SAVES = False
+              askMakeSave = False
               if i == 1:
                 write_save(dir_path, currentOrderP, globalStats, saveData)
               else:
