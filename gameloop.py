@@ -60,7 +60,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
         globalStats.bankTilesDrawn += [globalStats.bankTilesDrawn[-1]]
       saveData, currentOrderP = make_savestate(tilebag, board, bank, players, personal_info_names, p, globalStats)
       if ALLOW_QUICKSAVES:
-        write_save(dir_path, currentOrderP, globalStats, saveData)
+        write_save(dir_path, currentOrderP, globalStats, saveData, quicksave=True)
       # endregion
       
       while currentTurn:
