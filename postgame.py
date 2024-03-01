@@ -5,6 +5,7 @@ from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalStats, saveData):
   pygame.display.set_caption('Postgame')
+  postGaming = True
   askShowStats = True
   selectStatsGraph = False
   popup_open = False
