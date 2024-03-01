@@ -24,7 +24,7 @@ def assignStatVals(players):
     for chain in p.stats.stocks.keys():
       p.stats.stocks[chain] += [p.stocks[chain]]
   return None
-  
+
 def statIncrement(players):
   for p in players:
     for k, v in p.stats.__dict__.items():

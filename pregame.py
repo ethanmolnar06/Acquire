@@ -9,14 +9,14 @@ from gui_fullscreen import draw_fullscreenSelect, draw_newGameInit, draw_selectS
 def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int):
   acquireSetup = True
   successfullBoot = False
-
+  
   askHostJoin = True
   askLoadSave = False
   selectSaveFile = False
   newGameInit = False
   stockSettings = False
   customSettings = False
-
+  
   popup_open = False
   while acquireSetup:
     # print(askLoadSave, selectSaveFile, newGameInit, stockSettings, customSettings)
@@ -40,7 +40,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
     # Update the display
     pygame.display.flip()
     # endregion
-
+    
     # region Handle common events
     event = pygame.event.poll()
     if event.type == pygame.QUIT:
@@ -51,7 +51,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       # Update the window size
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
     # endregion
-
+    
     if askHostJoin:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
@@ -67,7 +67,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
               else:
                 # Host Logic
                 askLoadSave = True
-
+   
     #Waiting to Load Save Y/N
     elif askLoadSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
@@ -91,7 +91,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
                 pygame.key.set_repeat(500, 50) #time in ms
                 clicked_textbox_int = None
                 playerNameTxtbxs = [''] * 6 #this int sets the max number of players
-
+    
     elif selectSaveFile:
       # Get the mouse position
       pos = pygame.mouse.get_pos()
@@ -123,7 +123,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
           else: 
             personal_info_names = None
           selectSaveFile = False
-
+    
     elif newGameInit:
       newGameInit = False
       stockSettings = True
@@ -147,12 +147,12 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
                 customSettings = True
       elif event.type == pygame.KEYDOWN and clicked_textbox_int != None and pygame.key.get_focused():
         playerNameTxtbxs, clicked_textbox_int = text.interface("playerName", (playerNameTxtbxs, clicked_textbox_int))
-
+    
     elif stockSettings:
       from tilebag import TileBag
       tilebag = TileBag(24, 18, 84, 85, 83)
       from stats import Stats
-      globalStats = Stats(tilebag.chainnames, globalStats=True)
+      globalStats = Stats(globalStats=True)
       from board import Board
       board = Board()
       from bank import Bank
