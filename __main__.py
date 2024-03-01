@@ -15,13 +15,14 @@ framerate = 120
 # GLOBAL GAME PERMISSIONS
 HIDE_PERSONAL_INFO = False
 ALLOW_SAVES = False
+ALLOW_QUICKSAVES = True
 
 from pregame import pregame
 successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile = pregame(dir_path, screen, clock, framerate)
 
 if gameStart:
   from gameloop import gameloop
-  saveData, currentOrderP, players, globalStats = gameloop(screen, clock, framerate, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile)
+  saveData, currentOrderP, players, globalStats = gameloop(dir_path, screen, clock, framerate, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile)
 
 if successfullBoot:
   from postgame import postgame

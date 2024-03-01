@@ -1,3 +1,6 @@
+import datetime
+import os
+import pickle
 class Colors:
   def __init__(self):
     self.BLACK = (0, 0, 0)
@@ -56,3 +59,16 @@ def colortest(screen, clock, colors):
         colorLoop = False
         break
       clock.tick(1)
+
+def write_save(dir_path, currentOrderP, globalStats, saveData, quicksave = False):
+  date = datetime.date.isoformat(datetime.date.today())
+  if quicksave:
+    save_file_new = "quicksave"
+  else:
+    save_file_new = f'{date}_{len(currentOrderP)}players_{"".join([p.name for p in currentOrderP])}_turn{globalStats.turnCounter[-1]}'
+  if not os.path.exists(rf'{dir_path}\saves\{save_file_new}'):
+    with open(rf'{dir_path}\saves\{save_file_new}', 'x') as file:
+      pass
+  with open(rf'{dir_path}\saves\{save_file_new}', 'wb') as file:
+    pickle.dump(saveData, file)
+  return

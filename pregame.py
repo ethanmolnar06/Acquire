@@ -182,7 +182,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       sortactiveIDs.sort()
       board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
       stockSettings = False
-
+    
     elif customSettings:
       # TODO setup custom setting options
       stockSettings = True
@@ -195,6 +195,6 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       acquireSetup = False
       successfullBoot = True
       gameStart = True
-
+    
     clock.tick(framerate)
   return successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile

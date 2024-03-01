@@ -1,8 +1,6 @@
-import datetime
-import os
 import pygame
-import pickle
 from plotly import graph_objects as ptgo
+from common import write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalStats, saveData):
@@ -46,14 +44,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
             if yesorno_rect.collidepoint(pos):
               ALLOW_SAVES = False
               if i == 1:
-                date = datetime.date.isoformat(datetime.date.today())
-                save_file_new = f'{date}_{len(currentOrderP)}players_{"".join([p.name for p in currentOrderP])}_turn{globalStats.turnCounter[-1]}'
-                # save_file_new = "quicksave"
-                if not os.path.exists(rf'{dir_path}\saves\{save_file_new}'):
-                  with open(rf'{dir_path}\saves\{save_file_new}', 'x') as file:
-                    pass
-                with open(rf'{dir_path}\saves\{save_file_new}', 'wb') as file:
-                  pickle.dump(saveData, file)
+                write_save(dir_path, currentOrderP, globalStats, saveData)
               else:
                 askShowStats = True
     

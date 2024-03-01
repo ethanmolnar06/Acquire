@@ -1,13 +1,12 @@
 import pygame
-from __main__ import HIDE_PERSONAL_INFO, ALLOW_SAVES
+from __main__ import HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES
+from common import write_save
 from gui import draw_grid, draw_player_info, draw_tilehider, draw_tiles, draw_popup, draw_popup_selects
 from tilebag import TileBag
 from board import Board
 from bank import Bank
 from stats import Stats, statIncrement, assignStatVals
 from player import Player
-
-tuple[bool, bool, TileBag, Board, Bank, tuple[Player], list[str], bool, Stats, bool]
 
 def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], currentP: Player, globalStats: Stats):
   if HIDE_PERSONAL_INFO:
@@ -26,7 +25,7 @@ def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Pla
       p.name = f"Player {i+1}"
   return saveData, currentOrderP
 
-def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, framerate: int,
+def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int,
              tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], globalStats: Stats, loadedSaveFile: bool):
   gameRunning = True
   while gameRunning:
@@ -60,6 +59,8 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, framerate: int,
         globalStats.turnCounter += [globalStats.turnCounter[-1] + 1]
         globalStats.bankTilesDrawn += [globalStats.bankTilesDrawn[-1]]
       saveData, currentOrderP = make_savestate(tilebag, board, bank, players, personal_info_names, p, globalStats)
+      if ALLOW_QUICKSAVES:
+        write_save(dir_path, currentOrderP, globalStats, saveData)
       # endregion
       
       while currentTurn:
