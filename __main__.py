@@ -12,6 +12,7 @@ pygame.display.set_caption('Game Setup')
 clock = pygame.time.Clock()
 framerate = 120
 
+# GLOBAL GAME PERMISSIONS
 HIDE_PERSONAL_INFO = False
 ALLOW_SAVES = False
 
