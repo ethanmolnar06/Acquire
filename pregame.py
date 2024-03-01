@@ -7,6 +7,7 @@ from __main__ import HIDE_PERSONAL_INFO
 from gui_fullscreen import draw_fullscreenSelect, draw_newGameInit, draw_selectSaveFile
 
 def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int):
+  global tilebag, globalStats, board, bank
   acquireSetup = True
   successfullBoot = False
   

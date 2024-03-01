@@ -11,7 +11,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
   selectStatsGraph = False
   popup_open = False
   
-  while successfullBoot:
+  while postGaming:
     # region Render Process
     # Clear the screen
     screen.fill((255, 255, 255))
@@ -29,7 +29,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
     # region Handle common events
     event = pygame.event.poll()
     if event.type == pygame.QUIT:
-      successfullBoot = False
+      postGaming = False
       break
     elif event.type == pygame.VIDEORESIZE:
       # Update the window size
@@ -73,7 +73,7 @@ def postgame(dir_path, screen, clock, framerate, players, currentOrderP, globalS
                 statlist = list(p.stats.__dict__.keys())
                 hover_stat_int, clicked_stat_int = [None]*2
               else:
-                successfullBoot = False
+                postGaming = False
     
     elif selectStatsGraph:
       # Get the mouse position
