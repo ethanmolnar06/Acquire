@@ -121,7 +121,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
             datarem, board = pickle.loads(datarem)
             datarem, globalStats = pickle.loads(datarem)
             datarem, players = pickle.loads(datarem)
-            bank = pickle.loads(datarem)
+            _, bank = pickle.loads(datarem)
           if HIDE_PERSONAL_INFO:
             personal_info_names = [p.name for p in players]
             for i, p in enumerate(players):

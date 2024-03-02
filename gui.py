@@ -385,12 +385,13 @@ def draw_newChain(popupInfo, outlinedChain):
     header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font, font_size, pos_y, chaingroup, spacer_allocated)
   
     longest_chain_name = max([len(chain) for chain in chaingroup])
-    chain_color_rect_width = int(2 * (popup_width - popup_width//20)/(longest_chain_name * len(chaingroup)**.5) )
+    chain_color_rect_width = int( (popup_width - popup_width//20) / (len(chaingroup) + 2) + longest_chain_name)
+    # chain_color_rect_width = int(2 * (popup_width - popup_width//20)/(longest_chain_name * len(chaingroup)**.5) )
     # chain_color_rect_width = int(875 * popup_width/(longest_chain_name * (len(chaingroup)**1.85) * (header_font_size**1.05)))
     # chain_color_rect_width = int((23*popup_width//30)//longest_chain_name)
     chain_color_rect_height = int((popup_height // (len(unopenedchainsgrouped)+1)) * np.sqrt(header_font_size)/11)
     # chain_color_rect_height = int(popup_height // 10)
-    print(len(chaingroup), longest_chain_name, chain_color_rect_width)
+    # print(len(chaingroup), longest_chain_name, chain_color_rect_width)
 
     # Calculate the position of the chain group
     for j, chain in enumerate(chaingroup):
