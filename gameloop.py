@@ -226,18 +226,17 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
         
         #bankdrawntile handler
         elif bankdrawntile != None:
-          deadcheck = board.deadduckcheck(p, bankdrawntile)
-          if deadcheck == True:
+          if board.deadduckcheck(bankdrawntile):
             bankdrawntile = None
-          elif len(deadcheck[0]) == 0 or len(deadcheck[1]) <= 1:
+          else:
+            mode, chain = board.tileplaymode(bankdrawntile)
             bank.playtile(bankdrawntile)
-            if len(deadcheck[1]) == 1:
-              pendingTileHandler = (bankdrawntile, deadcheck[1][0])
-            bankdrawntile = None
-          else: #recursive merger troubles!
-            bank.playtile(bankdrawntile)
-            pendingTileHandler = bankdrawntile
-            bankdrawntile = None
+            if mode == 'expand':
+              pendingTileHandler = (bankdrawntile, chain)
+            elif mode == "merge":
+              #recursive merger troubles!
+              pendingTileHandler = bankdrawntile
+          bankdrawntile = None
         
         #Waiting to player to dismiss all merge payout popups
         elif defunctPayoutMode:
@@ -428,7 +427,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       assignStatVals(players)
       if gameRunning == True:
         p.drawtile()
-        board.deadduckcheck(p)
+        p.deadduckremoval()
       if not gameRunning: 
         break
       clock.tick(framerate)

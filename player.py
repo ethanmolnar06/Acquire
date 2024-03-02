@@ -28,3 +28,17 @@ class Player:
     sortactiveIDs.sort()
     board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
     return None
+  
+  def deadduckremoval(self):
+    checked = set()
+    unchecked = set(self.tiles)
+    while len(unchecked) != 0:
+      for tile in unchecked:
+        if board.deadduckcheck(tile):
+          self.tiles.remove(tile)
+          self.stats.deadDucksTrashed[-1] += 1
+          self.drawtile()
+        checked.add(tile)
+      unchecked = set(self.tiles)
+      unchecked.difference_update(checked)
+    return None

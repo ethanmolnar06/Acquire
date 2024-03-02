@@ -8,15 +8,6 @@ class Board:
     self.deadducks = set()
     self.chaindict = {}
 
-  def fetchadjacent(self, tile): #tiles in play order may
-    tileID = tilebag.tilesToIDs([tile])[0]
-    adjacentIDs = [tileID - tilebag.rows, tileID-1, tileID+1, tileID+tilebag.rows]
-    adjacent = tilebag.tileIDinterp([ID for ID in adjacentIDs if ID >= 0 and ID <= len(tilebag.alltiles)-1])
-    numbqnt = len([char for char in tile if char in "1234567890"])
-    adjacent = [check for check in adjacent if (check[:numbqnt] == tile[:numbqnt] or check[numbqnt:] == tile[numbqnt:])]
-    adjinplay = [adj for adj in adjacent if adj in self.tilesinplay]
-    return adjinplay
-
   def fetchchainsize(self, chain):
     return sum(chainvalue == chain for chainvalue in self.chaindict.values())
 
@@ -35,10 +26,31 @@ class Board:
     chainsizepairs.sort(key=lambda x: x[1])
     return chainsizepairs[-1]
 
+  def fetchadjacent(self, tile): #tiles in play order may
+    tileID = tilebag.tilesToIDs([tile])[0]
+    adjacentIDs = [tileID - tilebag.rows, tileID-1, tileID+1, tileID+tilebag.rows]
+    adjacent = tilebag.tileIDinterp([ID for ID in adjacentIDs if ID >= 0 and ID <= len(tilebag.alltiles)-1])
+    numbqnt = len([char for char in tile if char in "1234567890"])
+    adjacent = [check for check in adjacent if (check[:numbqnt] == tile[:numbqnt] or check[numbqnt:] == tile[numbqnt:])]
+    adjinplay = [adj for adj in adjacent if adj in self.tilesinplay]
+    return adjinplay
+
   def chainsContained(self, tiles):
     tileandchains = [self.chaindict[tile] for i, tile in enumerate(tiles) if tile in self.chaindict]
     tileflavors = list(set(tileandchains))
     return tileflavors
+
+  def tileplaymode(self, tile, bankdrawn = False) -> tuple[str, str | None]:
+    adjinplay = self.fetchadjacent(tile)
+    connectedChains = self.chainsContained(adjinplay)
+    if len(adjinplay) == 0 or (bankdrawn and len(connectedChains) == 0):
+      return "place", None
+    elif not bankdrawn and len(connectedChains) == 0:
+      return "create", None
+    elif len(connectedChains) == 1:
+      return "expand", connectedChains[0]
+    else:
+      return "merge", None
 
   def tileprop(self, tile, chainToSpread, targetChain = None, ignoreTile = None): #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
     ignoreTile = ignoreTile[0] if type(ignoreTile) == tuple else ignoreTile
@@ -56,7 +68,7 @@ class Board:
       unchecked.update(iterToCheck)
       unchecked.difference_update(checked)
     return self.fetchchainsize(chainToSpread) - oldchainsize #growth of chain (new vs old)
-  
+
   def mergeCart_init(self, tile, chainedonly):
     chainsizepairs = [ [self.fetchchainsize(chain), chain] for chain in chainedonly ]
     chainsizepairs.sort(key=lambda x: x[0], reverse=True)
@@ -76,27 +88,10 @@ class Board:
     toobig = [self.fetchchainsize(chain) >= 11 for chain in self.fetchactivechains()]
     return toobig if toobig != [] else [False]
 
-  def deadduckcheck(self, p, bankdrawntile = None):
-    if bankdrawntile != None:
-      adjinplay = self.fetchadjacent(bankdrawntile)
-      connectedChains = self.chainsContained(adjinplay)
-      if len([chain for chain in connectedChains if chain in self.toobigtofail()]) > 1:
-        return True
-      return (adjinplay, connectedChains)
-    checked = set()
-    unchecked = set(p.tiles)
-    while len(unchecked) != 0:
-      for tile in unchecked:
-        adjinplay = self.fetchadjacent(tile)
-        connectedChains = self.chainsContained(adjinplay)
-        if len([chain for chain in connectedChains if chain in self.toobigtofail()]) > 1:
-          p.tiles.remove(tile)
-          p.stats.deadDucksTrashed[-1] += 1
-          p.drawtile()
-        checked.add(tile)
-      unchecked = set(p.tiles)
-      unchecked.difference_update(checked)
-    return None
+  def deadduckcheck(self, tile):
+    adjinplay = self.fetchadjacent(tile)
+    connectedChains = self.chainsContained(adjinplay)
+    return len([chain for chain in connectedChains if chain in self.toobigtofail()]) > 1
 
   def contraceptcheck(self, tiles, checkChainAvail = False):
     makeBabies = [False]*len(tiles)

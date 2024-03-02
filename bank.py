@@ -89,7 +89,7 @@ class Bank:
       stockstats = [ [p, p.stocks[chain] ] for p in players if p.stocks[chain] > 0]
       if len(players) < 3: 
         bankstocktileID = tilebag.drawtile()
-        bankstocks = (bankstocktileID // tilebag.cols) + 1 # TODO check this math
+        bankstocks = bankstocktileID // tilebag.rows + 1
         bankdrawntile = tilebag.tileIDinterp([bankstocktileID])[0]
         globalStats.bankTilesDrawn[-1] += 1
         bankStatement = f'The Bank drew {bankdrawntile}, which means it holds {bankstocks} stocks in {chain}.'
