@@ -26,6 +26,7 @@ def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Pla
 def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int,
              tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], globalStats: Stats, loadedSaveFile: bool):
   gameRunning = True
+  gameCompleted = False
   while gameRunning:
     for p in players:
       # region StateMap Declarations and Game Init
@@ -365,6 +366,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                   if i == 1:
                     currentTurn = False
                     gameRunning = False
+                    gameCompleted = True
                     # TODO sell all stock and determine winner
                     break
         
@@ -430,4 +432,4 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       if not gameRunning: 
         break
       clock.tick(framerate)
-  return saveData, currentOrderP, players, globalStats
+  return saveData, currentOrderP, players, globalStats, gameCompleted

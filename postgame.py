@@ -4,13 +4,15 @@ from __main__ import HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES
 from common import write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
-def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int, players: list, saveData: tuple, currentOrderP: list, globalStats):
+def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int, players: list, saveData: tuple, currentOrderP: list, globalStats, gameCompleted: bool):
   pygame.display.set_caption('Postgame')
   postGaming = True
-  askMakeSave = True
+  forceRender = True
+
+  askMakeSave = not gameCompleted
   askShowStats = True
   selectStatsGraph = False
-  forceRender = False
+  
   popup_open = False
   
   while postGaming:

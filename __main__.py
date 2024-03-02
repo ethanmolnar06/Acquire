@@ -22,11 +22,11 @@ successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, 
 
 if gameStart:
   from gameloop import gameloop
-  saveData, currentOrderP, players, globalStats = gameloop(dir_path, screen, clock, framerate, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile)
+  saveData, currentOrderP, players, globalStats, gameCompleted = gameloop(dir_path, screen, clock, framerate, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile)
 
 if successfullBoot:
   from postgame import postgame
-  postgame(dir_path, screen, clock, framerate, players, saveData, currentOrderP, globalStats)
+  postgame(dir_path, screen, clock, framerate, players, saveData, currentOrderP, globalStats, gameCompleted)
 
 # Shut down Pygame
 pygame.quit()
