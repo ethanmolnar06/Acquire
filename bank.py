@@ -3,7 +3,7 @@ from pregame import tilebag, board, globalStats
 
 class Bank:
   def __init__(self, startingStockNumber = 25,
-               sizeCostFunc = "classic", smallSize = 5, largeSize=40, sizeCostRate = 100, 
+               sizeCostFunc = "classic", smallSize = 5, largeSize = 41, sizeCostRate = 100, 
                theDadTax = 600, maxSizeCost = 1000, fancyCostRate = 100,
                linMaxFrac = 3/4,
                logMultiplier = 1.5, logBase = 2.6,
@@ -36,9 +36,10 @@ class Bank:
     def classicCost(chain, size):
       if size <= self.smallSize:
         sizecost = self.sizeCostRate*size
-      elif size > self.smallSize and size <= self.largeSize:
-        sizecost = ((size-1)//10)*self.sizeCostRate + self.theDadTax #TODO double check this math, i swear it could cost up to $4100...
-      else: sizecost = self.maxSizeCost
+      elif size > self.smallSize and size < self.largeSize:
+        sizecost = ((size-1)//10)*self.sizeCostRate + self.theDadTax
+      else:
+        sizecost = self.maxSizeCost
       if chain in tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
       elif chain in tilebag.chainTierGrouped['med']:
