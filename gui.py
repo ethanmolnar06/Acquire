@@ -391,7 +391,6 @@ def draw_newChain(popupInfo, outlinedChain):
     # chain_color_rect_width = int((23*popup_width//30)//longest_chain_name)
     chain_color_rect_height = int((popup_height // (len(unopenedchainsgrouped)+1)) * np.sqrt(header_font_size)/11)
     # chain_color_rect_height = int(popup_height // 10)
-    # print(len(chaingroup), longest_chain_name, chain_color_rect_width)
 
     # Calculate the position of the chain group
     for j, chain in enumerate(chaingroup):
@@ -471,7 +470,6 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
 
   mergeChain_rects = []
   # Draw the chain information
-  # print(chainoptions)
   for i, chain in enumerate(chainoptions):
     # pos_x = (popup_width // 15) * (4*i+2)
     pos_x = (popup_width - (tile_chunk_width*len(chainoptions) + (popup_width//15)*(len(chainoptions)-1)))/2 + tile_chunk_width*i + (popup_width//15)*i
@@ -699,7 +697,6 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   for i, chaingroup in enumerate(buyablechainsgrouped):
     # Calculate the position of the chain group
     for j, chain in enumerate(chaingroup):
-      # print(buyablechainsgrouped, i, chaingroup, j, chain)
       pos_x = (popup_width // 15) * (4*j+2) if len(chaingroup) == 3 else popup_width // 5 * (2*j+1)
       pos_y = popup_height // 4 * (i+1)
       pos_x, pos_y = int(pos_x), int(pos_y)

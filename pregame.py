@@ -20,7 +20,6 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
   
   popup_open = False
   while acquireSetup:
-    # print(askLoadSave, selectSaveFile, newGameInit, stockSettings, customSettings)
     # region Render Process
     # Clear the screen
     screen.fill((255, 255, 255))

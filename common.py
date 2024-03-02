@@ -74,6 +74,5 @@ def write_save(dir_path, currentOrderP, globalStats, saveData, quicksave = False
     prevdata = None
     for data in saveData:
       prevdata = pickle.dumps((prevdata, data))
-      print
     pickle.dump(prevdata, file)
   return

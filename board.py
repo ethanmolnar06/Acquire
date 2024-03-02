@@ -102,7 +102,6 @@ class Board:
         chainedonly = self.chainsContained(adjinplay)
         if len(chainedonly) == 0 and (self.fetchactivechains() == tilebag.chainnames if checkChainAvail else True): #would found new chain
           makeBabies[i] = True
-      # print(tile, adjinplay, chainedonly, makeBabies[i])
     return makeBabies
   
   def endgamecheck(self):

@@ -35,7 +35,7 @@ def crunch_playernames(currentTextState):
         playerNameTxtbxs[clicked_textbox_int] = ''
       elif keyNameAsStr == 'tab' or keyNameAsStr == 'return':
         clicked_textbox_int = (clicked_textbox_int + 1) % len(playerNameTxtbxs)
-      # add printable characters to type box
+      # add characters to type box
       elif len(keyNameAsStr) == 1 and ord(keyNameAsStr) < 128:
         # handle caps
         if modifierKeyBoolMap & pygame.KMOD_SHIFT:
@@ -60,7 +60,7 @@ def crunch_customSettings(currentTextState):
         settingsTxtbxs[clicked_textbox_int] = ''
       elif keyNameAsStr == 'tab' or keyNameAsStr == 'return':
         clicked_textbox_int = (clicked_textbox_int + 1) % len(settingsTxtbxs)
-      # add printable characters to type box
+      # add characters to type box
       elif len(keyNameAsStr) == 1 and ord(keyNameAsStr) < 128:
         # handle caps
         if modifierKeyBoolMap & pygame.KMOD_SHIFT:
