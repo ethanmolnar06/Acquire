@@ -64,6 +64,7 @@ def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
             if yesorno_rect.collidepoint(pos):
               askShowStats = False
               if i == 1:
+                forceRender = True
                 selectStatsGraph = True
                 viewmode = "STATS"
                 graphrends = {}

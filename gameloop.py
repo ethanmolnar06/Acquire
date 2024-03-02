@@ -365,6 +365,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                   if i == 1:
                     currentTurn = False
                     gameRunning = False
+                    # TODO sell all stock and determine winner
                     break
         
         #Waiting for Player to Choose to Buy Stocks

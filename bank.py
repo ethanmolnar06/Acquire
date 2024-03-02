@@ -38,7 +38,7 @@ class Bank:
         sizecost = self.sizeCostRate*size
       elif size > self.smallSize and size <= self.largeSize:
         sizecost = ((size-1)//10)*self.sizeCostRate + self.theDadTax #TODO double check this math, i swear it could cost up to $4100...
-      else: sizecost = self.maxCost
+      else: sizecost = self.maxSizeCost
       if chain in tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
       elif chain in tilebag.chainTierGrouped['med']:

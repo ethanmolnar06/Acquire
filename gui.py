@@ -528,6 +528,9 @@ def draw_defunctPayout(popupInfo, statementsTup_vec):
 def draw_defuncter(popupInfo, drawinfo):
   popup, popup_width, popup_height, font, font_size = popupInfo
   knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctChain, bigchain = drawinfo
+  keepnumb = int(knob1_x)
+  tradenumb = int((defunctingStocks - knob2_x) / 2)
+  sellnumb = int(defunctingStocks - (keepnumb + tradenumb))
   
   # Draw title
   pos_x = popup_width // 2
@@ -547,8 +550,6 @@ def draw_defuncter(popupInfo, drawinfo):
   knob_height = knob_width * 4
   knob1_x = slider_x + knob1_x * (slider_width / defunctingStocks) #convert from stock-scale to pixel sale
   knob2_x = slider_x + knob2_x * (slider_width / defunctingStocks) #convert from stock-scale to pixel sale
-  print(knob1_x, knob2_x)
-
   slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
   knob1_rect = pygame.Rect(knob1_x - knob_width//2, slider_y - 3*(knob_height//24), knob_width, knob_height)
   knob2_rect = pygame.Rect(knob2_x - knob_width//2, slider_y - (21*knob_height//24 - slider_height), knob_width, knob_height)
@@ -576,11 +577,14 @@ def draw_defuncter(popupInfo, drawinfo):
       pretty_rect.height = pretty_rect.height//2
       pygame.draw.rect(popup, colors.RED, pretty_rect)
 
-  # # Create and draw knob handles
-  # knob1_circle_rect = pygame.Rect(knob1_x - knob_radius, slider_y - knob_radius * 4, knob_radius * 2, knob_radius * 2)
-  # knob2_circle_rect = pygame.Rect(knob2_x - knob_radius, slider_y + knob_radius * 2, knob_radius * 2, knob_radius * 2)
-  # pygame.draw.circle(popup, WHITE, knob1_circle_rect.center, knob_radius)
-  # pygame.draw.circle(popup, WHITE, knob2_circle_rect.center, knob_radius)
+  # Create and draw numbers for keep, sell, trade
+  pos_x = popup_width // 2
+  pos_y = 4*popup_height // 5
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  label = font.render(f"Keep: {keepnumb} Sell: {sellnumb} Trade: {tradenumb}", 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x, pos_y)
+  popup.blit(label, label_rect)
 
   return [knob1_rect, knob2_rect, slider_rect]
 
