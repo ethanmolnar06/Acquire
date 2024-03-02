@@ -14,7 +14,7 @@ framerate = 120
 
 # GLOBAL GAME PERMISSIONS
 HIDE_PERSONAL_INFO = False
-ALLOW_SAVES = False
+ALLOW_SAVES = True
 ALLOW_QUICKSAVES = True
 
 from pregame import pregame
