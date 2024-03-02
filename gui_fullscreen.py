@@ -1,8 +1,9 @@
 import pygame
-from plotly.io import to_image
+import plotly
 from io import BytesIO
 from __main__ import HIDE_PERSONAL_INFO, screen
 from common import colors, fonts
+plotly.io.kaleido.scope.mathjax = None
 
 def clear_screen():
   screen.fill((255, 255, 255))
@@ -256,7 +257,10 @@ def draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewm
 
   #Create plotly stat Figures
   if clicked_stat_int != None and graphfig != None:
-    graph_png = pygame.image.load(BytesIO(to_image(graphfig, format='png', scale=min(window_width, window_height) / 600)))
+    figBytes = BytesIO(plotly.io.to_image(graphfig, format='png', scale=min(window_width, window_height) / 60))
+    print(figBytes)
+    graph_png = pygame.image.load(figBytes)
+    print(graph_png)
     screen.blit(graph_png, graph_png.get_rect(center = (2*window_width//3, window_height//2)))
 
   # Draw viewmode box and text
