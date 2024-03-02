@@ -1,6 +1,5 @@
 import pygame
 from plotly import graph_objects as ptgo
-import kaleido
 from __main__ import HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES
 from common import write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
@@ -11,32 +10,35 @@ def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
   askMakeSave = True
   askShowStats = True
   selectStatsGraph = False
+  forceRender = False
   popup_open = False
   
   while postGaming:
-    # region Render Process
-    # Clear the screen
-    screen.fill((255, 255, 255))
-    #Draw ask to make savestate
-    if ALLOW_SAVES and askMakeSave:
-      yesandno_rects = draw_fullscreenSelect('makeSave')
-    elif askShowStats:
-      yesandno_rects = draw_fullscreenSelect('endGameStats')
-    elif selectStatsGraph:
-      statswap_rects, viewmode_rect = draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewmode, graphfig)
-    # Update the display
-    pygame.display.flip()
-    # endregion
-    
-    # region Handle common events
+
     event = pygame.event.poll()
-    if event.type == pygame.QUIT:
-      postGaming = False
-      break
-    elif event.type == pygame.VIDEORESIZE:
-      # Update the window size
-      screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-    # endregion
+    if forceRender or event.type:
+      forceRender = False
+      # region Render Process
+      # Clear the screen
+      screen.fill((255, 255, 255))
+      #Draw ask to make savestate
+      if ALLOW_SAVES and askMakeSave:
+        yesandno_rects = draw_fullscreenSelect('makeSave')
+      elif askShowStats:
+        yesandno_rects = draw_fullscreenSelect('endGameStats')
+      elif selectStatsGraph:
+        statswap_rects, viewmode_rect = draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewmode, graphfig)
+      # Update the display
+      pygame.display.flip()
+      # endregion
+      # region Handle common events
+      if event.type == pygame.QUIT:
+        postGaming = False
+        break
+      elif event.type == pygame.VIDEORESIZE:
+        # Update the window size
+        screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+      # endregion
     
     if ALLOW_SAVES and askMakeSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
