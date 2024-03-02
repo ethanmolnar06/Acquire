@@ -154,33 +154,32 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           if turntile != None:
             drawPhase = False
             forceRender = True
-            actingPlacer = p if pendingTileHandler == None else bank
-            actingPlacer.playtile(turntile)
-            adjinplay = board.fetchadjacent(turntile)
-            if len(adjinplay) > 0: 
-              #is actually touchind something, check if/what chain
-              chainedonly = board.chainsContained(adjinplay)
-              if len(chainedonly) == 0: #found new chain, head to New Chain Loop
-                choosingNewChain = True
-                unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
-                p.stats.chainsFounded[-1] += 1
-              elif len(chainedonly) == 1: #expand
-                board.chaindict[turntile] = chainedonly[0]
-                chaingrowth = board.tileprop(turntile, chainedonly[0])
-                p.stats.mostExpandedChain[chainedonly[0]][-1] += chaingrowth
-              else: #prep for merge
-                mergeCartInit = board.mergeCart_init(turntile, chainedonly)
-                if type(mergeCartInit) == list: #Feeds Directly to Defunct Payout
-                  defunctPayoutMode = True
-                  bigchain = mergeCartInit[0]
-                  defunctchains = mergeCartInit[1:]; defunctchains.reverse() #comes largest to smallest, we want to merge smallest to largest
-                  bankdrawntile, statementsList = bank.chainpayout(players, defunctchains)
-                  iofnStatement = [1, len(statementsList)]
-                else: #merge needs player tiebreaking
-                  mergerMode = True
-                  mergeCart = mergeCartInit[0] #mergeCart is sorted in order of size
-                  chainoptions = mergeCartInit[1]
-                  defunctchains = bigchain = None
+            if pendingTileHandler == None:
+              p.playtile(turntile) 
+            mode, chains = board.tileplaymode(turntile)
+            if mode == "place":
+              break
+            elif mode == "create":
+              choosingNewChain = True
+              unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
+              p.stats.chainsFounded[-1] += 1
+            elif mode == "expand":
+              board.chaindict[turntile] = chains
+              chaingrowth = board.tileprop(turntile, chains)
+              p.stats.mostExpandedChain[chains][-1] += chaingrowth
+            else: #prep for merge
+              mergeCartInit = board.mergeCart_init(turntile, chains)
+              if type(mergeCartInit) == list: #Feeds Directly to Defunct Payout
+                defunctPayoutMode = True
+                bigchain = mergeCartInit[0]
+                defunctchains = mergeCartInit[1:]; defunctchains.reverse() #comes largest to smallest, we want to merge smallest to largest
+                bankdrawntile, statementsList = bank.chainpayout(players, defunctchains)
+                iofnStatement = [1, len(statementsList)]
+              else: #merge needs player tiebreaking
+                mergerMode = True
+                mergeCart = mergeCartInit[0] #mergeCart is sorted in order of size
+                chainoptions = mergeCartInit[1]
+                defunctchains = bigchain = None
         
         #Waiting to Choose New Chain
         elif choosingNewChain: 
@@ -229,12 +228,13 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           if board.deadduckcheck(bankdrawntile):
             bankdrawntile = None
           else:
-            mode, chain = board.tileplaymode(bankdrawntile)
+            mode, chains = board.tileplaymode(bankdrawntile)
             bank.playtile(bankdrawntile)
             if mode == 'expand':
-              pendingTileHandler = (bankdrawntile, chain)
+              # push tile through ongoing merge, then propogate
+              pendingTileHandler = (bankdrawntile, chains)
             elif mode == "merge":
-              #recursive merger troubles!
+              # push tile through ongoing merge, recursive merger troubles!
               pendingTileHandler = bankdrawntile
           bankdrawntile = None
         
@@ -314,7 +314,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                   #cycle defunctchains once all players taken their turn
                   if len(defunctchains) > 1:
                     chaingrowth = board.tileprop(turntile, bigchain, defunctchains[0], pendingTileHandler)
-                    p.stats.mostExpandedChain[chainedonly[0]][-1] += chaingrowth
+                    p.stats.mostExpandedChain[chains[0]][-1] += chaingrowth
                     defunctchains = defunctchains[1:]
 
                     pDefunctingLoop = players[players.index(p):] + players[:players.index(p)]
@@ -326,7 +326,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                   else: #exit the defuncting loop!!!
                     defunctMode = False
                     chaingrowth = board.tileprop(turntile, bigchain, ignoreTile=pendingTileHandler)
-                    p.stats.mostExpandedChain[chainedonly[0]][-1] += chaingrowth
+                    p.stats.mostExpandedChain[chains[0]][-1] += chaingrowth
                     board.chaindict[turntile] = bigchain
                     if pendingTileHandler != None:
                       if type(pendingTileHandler) == tuple:

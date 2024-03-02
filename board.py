@@ -40,7 +40,7 @@ class Board:
     tileflavors = list(set(tileandchains))
     return tileflavors
 
-  def tileplaymode(self, tile, bankdrawn = False) -> tuple[str, str | None]:
+  def tileplaymode(self, tile, bankdrawn = False):
     adjinplay = self.fetchadjacent(tile)
     connectedChains = self.chainsContained(adjinplay)
     if len(adjinplay) == 0 or (bankdrawn and len(connectedChains) == 0):
@@ -50,7 +50,7 @@ class Board:
     elif len(connectedChains) == 1:
       return "expand", connectedChains[0]
     else:
-      return "merge", None
+      return "merge", connectedChains
 
   def tileprop(self, tile, chainToSpread, targetChain = None, ignoreTile = None): #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
     ignoreTile = ignoreTile[0] if type(ignoreTile) == tuple else ignoreTile
