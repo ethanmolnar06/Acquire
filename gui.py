@@ -263,7 +263,7 @@ def draw_popup(subdraw_tag, drawinfo):
   
   return close_button_rect, subdraw_output
 
-def horizontal_refontsizer(surface_width, surface_height, font, font_size, pos_y, h_headers, spacer_allocated = 250):
+def horizontal_refontsizer(surface_width, surface_height, font_size, pos_y, h_headers, spacer_allocated = 250):
   # Calc column widths per player number and name length
   header_font_size = font_size
   longestheader = max([len(h) for h in h_headers])
@@ -272,7 +272,7 @@ def horizontal_refontsizer(surface_width, surface_height, font, font_size, pos_y
   header_font = pygame.font.SysFont(fonts.main, header_font_size)
   return header_font, header_font_size
 
-def vertical_refontsizer(surface_width, surface_height, font, font_size, pos_y, v_info, spacer_allocated = 250):
+def vertical_refontsizer(surface_width, surface_height, font_size, pos_y, v_info, spacer_allocated = 250):
   # Calc stock font shrinkage to fit column
   info_font_size = font_size
   col_stand_height = pos_y + (2 + len(v_info)) * font_size * 11/10
@@ -286,10 +286,10 @@ def draw_playerStats(popupInfo, otherplayers):
   pos_y = int(popup_height // 20)
 
   h_headers = [p.name for p in otherplayers]
-  header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font, font_size, pos_y, h_headers)
+  header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font_size, pos_y, h_headers)
 
   v_info = otherplayers[0].stocks.keys()
-  info_font, info_font_size = vertical_refontsizer(popup_width, popup_height, font, font_size, pos_y, v_info)
+  info_font, info_font_size = vertical_refontsizer(popup_width, popup_height, font_size, pos_y, v_info)
 
   # Draw the player information
   for i, player in enumerate(otherplayers):
@@ -360,7 +360,7 @@ def draw_newChain(popupInfo, outlinedChain):
   chaingroup1 = [chain for chain in unopenedchains if chain in tilebag.chainTierGrouped['cheap']]
   chaingroup2 = [chain for chain in unopenedchains if chain in tilebag.chainTierGrouped['med']]
   chaingroup3 = [chain for chain in unopenedchains if chain in tilebag.chainTierGrouped['high']]
-  unopenedchainsgrouped = [chaingroup1, chaingroup2, chaingroup3]
+  unopenedchainsgrouped = [group for group in [chaingroup1, chaingroup2, chaingroup3] if len(group) > 0]
 
   # Draw the title question
   # Calculate the position of the title question
@@ -382,7 +382,7 @@ def draw_newChain(popupInfo, outlinedChain):
     # Calculate the size of each tile_chunk
     pos_y = popup_height // (len(unopenedchainsgrouped)+1) * (i+1)
     pos_y = int(pos_y)
-    header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font, font_size, pos_y, chaingroup, spacer_allocated)
+    header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font_size, pos_y, chaingroup, spacer_allocated)
   
     longest_chain_name = max([len(chain) for chain in chaingroup])
     chain_color_rect_width = int( (popup_width - popup_width//20) / (len(chaingroup) + 2) + longest_chain_name)
@@ -461,7 +461,7 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
     mergecart_rect = pygame.Rect(pos_x, pos_y - label.get_height()//2 + mergePrio_yspacer, mergePrio_width, mergePrio_width)
 
     if mergeCart[i] == '': stockcart_color = colors.WHITE
-    else: stockcart_color = getattr(colors, [mergeCart[i]])
+    else: stockcart_color = getattr(colors, mergeCart[i])
 
     # Draw a stockcart square to screen
     pygame.draw.rect(popup, stockcart_color, mergecart_rect)
@@ -547,6 +547,8 @@ def draw_defuncter(popupInfo, drawinfo):
   knob_height = knob_width * 4
   knob1_x = slider_x + knob1_x * (slider_width / defunctingStocks) #convert from stock-scale to pixel sale
   knob2_x = slider_x + knob2_x * (slider_width / defunctingStocks) #convert from stock-scale to pixel sale
+  print(knob1_x, knob2_x)
+
   slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
   knob1_rect = pygame.Rect(knob1_x - knob_width//2, slider_y - 3*(knob_height//24), knob_width, knob_height)
   knob2_rect = pygame.Rect(knob2_x - knob_width//2, slider_y - (21*knob_height//24 - slider_height), knob_width, knob_height)

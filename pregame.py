@@ -156,7 +156,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
     
     elif stockSettings:
       from tilebag import TileBag
-      tilebag = TileBag(24, 18, 84, 85, 83)
+      tilebag = TileBag(8, 8)
       from stats import Stats
       globalStats = Stats(globalStats=True)
       from board import Board
@@ -164,9 +164,9 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       from bank import Bank
       bank = Bank()
       pTileQuant = 9
-      playernames = ['Ethan', 'Robbie', 'Tommy', 'Ben'] # debug convenience, TODO remove
+      # playernames = ['Ethan', 'Robbie', 'Tommy', 'Ben'] # debug convenience, TODO remove
       # playernames = ['Ethan', 'Robbie', 'Tommy', 'Ben', "ajajjs", "skeiis", "ojjljnj", "yytututy"] # debug convenience, TODO remove
-      # playernames = ['Ethan', 'Robbie'] # debug convenience, TODO remove
+      playernames = ['Ethan', 'Robbie'] # debug convenience, TODO remove
       orderdict = {}
       for name in playernames:
         gamestarttileID = tilebag.drawtile()

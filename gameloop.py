@@ -349,8 +349,8 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           buyPhase = len(board.fetchactivechains()) > 0 and any([bank.stocks[chain] for chain in board.fetchactivechains()]) and p.bal >= bank.fetchcheapeststock()[1]
           if buyPhase:
             askToBuy = True
-          elif not gameEndable:
-            currentTurn = False
+          else:
+            if not gameEndable: currentTurn = False
         
         #Waiting for Player to Choose to End Game
         elif gameEndable:
@@ -362,10 +362,10 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               for i, yesorno_rect in enumerate(yesandno_rects):
                 if yesorno_rect.collidepoint(pos):
                   gameEndable = False
-                  if i == 0:
-                    break
-                  else:
+                  if i == 1:
+                    currentTurn = False
                     gameRunning = False
+                    break
         
         #Waiting for Player to Choose to Buy Stocks
         elif askToBuy:
@@ -379,8 +379,8 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                   askToBuy = False
                   if i == 1:
                     boughtthisturn = 0
-                    buyablechains = [chain for chain in board.fetchactivechains() if bank.stocks[chain] or chain in stockcart]
                     stockcart = []
+                    buyablechains = [chain for chain in board.fetchactivechains() if bank.stocks[chain] or chain in stockcart]
                     preBuyBal = p.bal
                   else:
                     buyPhase = False
@@ -426,6 +426,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       if gameRunning == True:
         p.drawtile()
         board.deadduckcheck(p)
-      if not gameRunning: break
+      if not gameRunning: 
+        break
       clock.tick(framerate)
   return saveData, currentOrderP, players, globalStats

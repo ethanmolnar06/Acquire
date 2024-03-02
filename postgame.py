@@ -14,7 +14,7 @@ def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
   popup_open = False
   
   while postGaming:
-
+    
     event = pygame.event.poll()
     if forceRender or event.type:
       forceRender = False
