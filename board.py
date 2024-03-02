@@ -29,6 +29,11 @@ class Board:
     chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in tilebag.chainnames]
     chainsizepairs.sort(key=lambda x: x[1])
     return chainsizepairs[0]
+  
+  def fetchlargestchain(self):
+    chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in tilebag.chainnames]
+    chainsizepairs.sort(key=lambda x: x[1])
+    return chainsizepairs[-1]
 
   def chainsContained(self, tiles):
     tileandchains = [self.chaindict[tile] for i, tile in enumerate(tiles) if tile in self.chaindict]
@@ -87,7 +92,6 @@ class Board:
         if len([chain for chain in connectedChains if chain in self.toobigtofail()]) > 1:
           p.tiles.remove(tile)
           p.stats.deadDucksTrashed[-1] += 1
-          print(f'{p.name} had the newly dead duck tile {tile}, and will now draw a new tile.')
           p.drawtile()
         checked.add(tile)
       unchecked = set(p.tiles)
