@@ -32,7 +32,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       drawinfo = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
       saveinfo = (saves_path, savefiles)
       save_rects_vec = draw_selectSaveFile(drawinfo, saveinfo)
-      directory_rect, savefile_rects, load_rect = save_rects_vec
+      directory_rect, savefile_rects, load_rect, noload_button_rect = save_rects_vec
     elif newGameInit:
       text_field_rects, yesandno_rects = draw_newGameInit(playerNameTxtbxs, clicked_textbox_int)
     elif customSettings:
@@ -74,20 +74,18 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         # Get the mouse position
         pos = pygame.mouse.get_pos()
         if not popup_open:
-          # Check if askToBuy was clicked
+          # Check if load save was clicked
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
               askLoadSave = False
               if i == 1:
                 selectSaveFile = True
-                loadedSaveFile = True
                 saves_path = dir_path + r'\saves'
                 savefiles = os.listdir(dir_path + r'\saves')
                 hover_directory, clicked_directory = [False]*2
                 hover_save_int, clicked_save_int = [None]*2
               else:
                 newGameInit = True
-                loadedSaveFile = True
                 pygame.key.set_repeat(500, 50) #time in ms
                 clicked_textbox_int = None
                 playerNameTxtbxs = [''] * 6 #this int sets the max number of players
@@ -108,6 +106,11 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         else:
           hover_save_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
+        if noload_button_rect.collidepoint(pos):
+          selectSaveFile = False
+          newGameInit = True
+          clicked_textbox_int = None
+          playerNameTxtbxs = [''] * 6 #this int sets the max number of players
         if hover_directory:
           clicked_directory = not clicked_directory
         elif clicked_directory and hover_save_int is not None:
@@ -201,4 +204,4 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       gameStart = True
     
     clock.tick(framerate)
-  return successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile
+  return successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats

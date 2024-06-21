@@ -33,6 +33,9 @@ class Bank:
     # endregion
   
   def stockcost(self, chain, size):
+    if size == 0:
+      return 0
+    
     def classicCost(chain, size):
       if size <= self.smallSize:
         sizecost = self.sizeCostRate*size

@@ -24,9 +24,10 @@ def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Pla
   return saveData, currentOrderP
 
 def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int,
-             tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], globalStats: Stats, loadedSaveFile: bool):
+             tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], globalStats: Stats):
   gameRunning = True
   gameCompleted = False
+  skipStatIncrem = True
   while gameRunning:
     for p in players:
       # region StateMap Declarations and Game Init
@@ -38,8 +39,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       bankdrawntile = None
       pendingTileHandler = None
       
-      drawPhase = True
-      
+      placePhase = True
       choosingNewChain = False
       mergerMode = False
       defunctPayoutMode = False
@@ -51,8 +51,8 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       popupToClose = False
       dragging_knob1, dragging_knob2 = [False]*2
       
-      if loadedSaveFile:
-        loadedSaveFile = False
+      if skipStatIncrem:
+        skipStatIncrem = False
       else:
         statIncrement(players)
         globalStats.turnCounter += [globalStats.turnCounter[-1] + 1]
@@ -63,9 +63,9 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       # endregion
       
       while currentTurn:
-        print(currentTurn, showTiles, gameEndable)
-        # anyState = any((drawPhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase))
-        # print(drawPhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase)
+        # print(currentTurn, showTiles, gameEndable)
+        # anyState = any((placePhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase))
+        # print(placePhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase)
         
         event = pygame.event.poll()
         if forceRender or event.type:
@@ -119,6 +119,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           gameRunning = False
           currentTurn = False
           gameEndable = False
+          break
         elif event.type == pygame.VIDEORESIZE:
           # Update the window size
           screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
@@ -142,7 +143,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               showTiles = True
               prohibitedTiles = board.contraceptcheck(p.tiles, checkChainAvail=True)
         
-        elif drawPhase:
+        elif placePhase:
           if turntile is None and event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = pygame.mouse.get_pos()
@@ -152,13 +153,13 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                 turntile = p.tiles[i]
                 break
           if turntile is not None:
-            drawPhase = False
+            placePhase = False
             forceRender = True
             if pendingTileHandler is None:
               p.playtile(turntile) 
             mode, chains = board.tileplaymode(turntile)
             if mode == "place":
-              break
+              pass
             elif mode == "create":
               choosingNewChain = True
               unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
@@ -335,7 +336,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                         p.stats.mostExpandedChain[pendingTileHandler[1]][-1] += chaingrowth
                         pendingTileHandler = None
                       else:
-                        drawPhase = True
+                        placePhase = True
                         turntile = pendingTileHandler
                 else:
                   pDefuncting = pDefunctingLoop[pDefunctingLoop.index(pDefuncting)+1]
@@ -347,11 +348,11 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
         elif gameEndable is None:
           gameEndable = board.endgamecheck()
           buyPhase = len(board.fetchactivechains()) > 0 and any([bank.stocks[chain] for chain in board.fetchactivechains()]) and p.bal >= bank.fetchcheapeststock()[1]
-          print(buyPhase)
+          # print(gameEndable, buyPhase)
           if buyPhase:
             askToBuy = True
-          else:
-            if not gameEndable: currentTurn = False
+          elif not gameEndable:
+            currentTurn = False
         
         #Waiting for Player to Choose to End Game
         elif gameEndable:
@@ -422,14 +423,15 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               for buykey in stockcart:
                 p.stats.stockChainsOwned[-1].add(buykey)
               buyPhase = False
-              currentTurn = False
       
       #turn finished handling
+      currentTurn = False
       assignStatVals(players)
-      if gameRunning == True:
+      if gameRunning:
         p.drawtile()
         p.deadduckremoval()
-      if not gameRunning: 
+      else: 
         break
       clock.tick(framerate)
+    
   return saveData, currentOrderP, players, globalStats, gameCompleted

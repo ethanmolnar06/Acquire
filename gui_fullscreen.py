@@ -74,7 +74,7 @@ def draw_fullscreenSelect(drawinfo):
 def draw_selectSaveFile(drawinfo, saveinfo):
   hover_directory, hover_save_int, clicked_directory, clicked_save_int = drawinfo
   saves_path, savefiles = saveinfo
-
+  
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -85,17 +85,17 @@ def draw_selectSaveFile(drawinfo, saveinfo):
   pos_y = window_height // 60
   pos_x, pos_y = int(pos_x), int(pos_y)
   label_text = "Select Save File"
-
+  
   # Draw the title
   label = font.render(label_text, 1, colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   screen.blit(label, label_rect)
-
+  
   # Calc directory text
   font_size = min(2*window_width // 3, 2*window_height // 3) // 30
   font = pygame.font.SysFont(fonts.main, font_size)
-
+  
   # Draw directory box and text
   longeststrlen = max([len(save) for save in savefiles] + [len(saves_path)])
   dd_width = int(font_size * longeststrlen * 10/16)
@@ -105,7 +105,7 @@ def draw_selectSaveFile(drawinfo, saveinfo):
   pygame.draw.rect(screen, colors.GREEN if hover_directory else colors.BLACK, directory_rect, 12)
   msg = font.render(saves_path if not HIDE_PERSONAL_INFO else "Saves Directory", 1, colors.BLACK)
   screen.blit(msg, msg.get_rect(center = directory_rect.center))
-
+  
   savefile_rects = None
   if clicked_directory:
     savefile_rects = []
@@ -118,13 +118,13 @@ def draw_selectSaveFile(drawinfo, saveinfo):
         pygame.draw.rect(screen, colors.GREEN if (not hover_directory and i == hover_save_int) else colors.BLACK, savefile_rect, 8)
       msg = font.render(savefile if not HIDE_PERSONAL_INFO else f"Save {i}", 1, colors.BLACK)
       screen.blit(msg, msg.get_rect(center = savefile_rect.center))
-
+  
   load_rect = None
   if clicked_save_int is not None:
     # Calc load font
     font_size = min(window_width, window_height) // 20
     font = pygame.font.SysFont(fonts.main, font_size)
-
+    
     # Draw directory box and text
     load_width = int(font_size * 4)
     load_height = int(font_size * 2)
@@ -132,8 +132,18 @@ def draw_selectSaveFile(drawinfo, saveinfo):
     pygame.draw.rect(screen, colors.LIGHTGREEN , load_rect, 0)
     msg = font.render("LOAD", 1, colors.BLACK)
     screen.blit(msg, msg.get_rect(center = load_rect.center))
-
-  return (directory_rect, savefile_rects, load_rect)
+  
+  # Create an "x" button to not load a save
+  font_size = min(window_width, window_height) // 25
+  font = pygame.font.Font(fonts.oblivious, font_size)
+  noload_button_rect = pygame.Rect(window_width - font_size, 0, font_size, font_size)
+  pygame.draw.rect(screen, colors.RED, noload_button_rect)
+  label = font.render('x', 1, colors.WHITE)
+  label_rect = label.get_rect()
+  label_rect.center = (noload_button_rect.x + noload_button_rect.width // 2 + 1, noload_button_rect.y + noload_button_rect.height // 2 - 2)
+  screen.blit(label, label_rect)
+  
+  return (directory_rect, savefile_rects, load_rect, noload_button_rect)
 
 def draw_newGameInit(player_names, clicked_textbox_int):
   # Get the current window size and generate title font size

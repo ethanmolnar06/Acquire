@@ -18,11 +18,11 @@ ALLOW_SAVES = True
 ALLOW_QUICKSAVES = True
 
 from pregame import pregame
-successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile = pregame(dir_path, screen, clock, framerate)
+successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats = pregame(dir_path, screen, clock, framerate)
 
 if gameStart:
   from gameloop import gameloop
-  saveData, currentOrderP, players, globalStats, gameCompleted = gameloop(dir_path, screen, clock, framerate, tilebag, board, bank, players, personal_info_names, globalStats, loadedSaveFile)
+  saveData, currentOrderP, players, globalStats, gameCompleted = gameloop(dir_path, screen, clock, framerate, tilebag, board, bank, players, personal_info_names, globalStats)
 
 if successfullBoot:
   from postgame import postgame
