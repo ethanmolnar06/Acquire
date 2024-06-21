@@ -63,7 +63,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       # endregion
       
       while currentTurn:
-        # print(currentTurn, showTiles, gameEndable)
+        print(currentTurn, showTiles, gameEndable)
         # anyState = any((drawPhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase))
         # print(drawPhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase)
         
@@ -143,7 +143,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               prohibitedTiles = board.contraceptcheck(p.tiles, checkChainAvail=True)
         
         elif drawPhase:
-          if turntile == None and event.type == pygame.MOUSEBUTTONDOWN:
+          if turntile is None and event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = pygame.mouse.get_pos()
             # Check if any of the tile_rects were clicked
@@ -151,10 +151,10 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               if (tile_rect.collidepoint(pos) and not prohibitedTiles[i]):
                 turntile = p.tiles[i]
                 break
-          if turntile != None:
+          if turntile is not None:
             drawPhase = False
             forceRender = True
-            if pendingTileHandler == None:
+            if pendingTileHandler is None:
               p.playtile(turntile) 
             mode, chains = board.tileplaymode(turntile)
             if mode == "place":
@@ -203,18 +203,18 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
             # Get the mouse position
             pos = pygame.mouse.get_pos()
             for i, mergeChain_rect in enumerate(mergeChain_rects):
-              if mergeChain_rect != None and mergeChain_rect.collidepoint(pos):
+              if mergeChain_rect is not None and mergeChain_rect.collidepoint(pos):
                 if type(mergeCart) == tuple and '' in mergeCart[i//2] and chainoptions[i//2][i%2] not in mergeCart[i//2]:
                   mergeCart[i//2][mergeCart[i//2].index('')] = chainoptions[i//2][i%2]
                 elif '' in mergeCart and chainoptions[i] not in mergeCart:
                   mergeCart[mergeCart.index('')] = chainoptions[i]
             for i, mergecart_rect in enumerate(mergecart_rects):
-              if mergecart_rect != None and mergecart_rect.collidepoint(pos):
+              if mergecart_rect is not None and mergecart_rect.collidepoint(pos):
                 if type(mergeCart) == tuple and mergeCart[i//2] != '':
                   mergeCart[i//2][i%2] = ''
                 elif mergeCart[i] != '': 
                   mergeCart[i] = ''
-            if stopmerger_button_rect != None and stopmerger_button_rect.collidepoint(pos) and not popup_open:
+            if stopmerger_button_rect is not None and stopmerger_button_rect.collidepoint(pos) and not popup_open:
               mergerMode = False
               defunctPayoutMode = True
               if type(mergeCart) == tuple: mergeCart = mergeCart[0] + mergeCart[1]
@@ -224,7 +224,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               iofnStatement = [1, len(statementsList)]
         
         #bankdrawntile handler
-        elif bankdrawntile != None:
+        elif bankdrawntile is not None:
           if board.deadduckcheck(bankdrawntile):
             bankdrawntile = None
           else:
@@ -248,7 +248,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               if len(statementsList) > 1:
                 statementsList = statementsList[1:]
               else: statementsList = None
-          if statementsList == None:
+          if statementsList is None:
             defunctPayoutMode = False
             defunctMode = True
             pDefunctingLoop = players[players.index(p):] + players[:players.index(p)]
@@ -295,7 +295,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
             # Get the mouse position
             pos = pygame.mouse.get_pos()
             if not popup_open:
-              if stopdefunct_button_rect != None and stopdefunct_button_rect.collidepoint(pos): #player finished
+              if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): #player finished
                 #sell
                 pDefuncting.stocks[defunctchains[0]] -= defunctStockInv['sell']
                 bank.stocks[defunctchains[0]] += defunctStockInv['sell']
@@ -328,7 +328,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                     chaingrowth = board.tileprop(turntile, bigchain, ignoreTile=pendingTileHandler)
                     p.stats.mostExpandedChain[chains[0]][-1] += chaingrowth
                     board.chaindict[turntile] = bigchain
-                    if pendingTileHandler != None:
+                    if pendingTileHandler is not None:
                       if type(pendingTileHandler) == tuple:
                         board.chaindict[pendingTileHandler[0]] = pendingTileHandler[1]
                         chaingrowth = board.tileprop(pendingTileHandler[0], pendingTileHandler[1])
@@ -344,9 +344,10 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                   knob2_x = defunctingStocks
         
         #Post Draw Endgame and Buyability Check
-        elif gameEndable == None:
+        elif gameEndable is None:
           gameEndable = board.endgamecheck()
           buyPhase = len(board.fetchactivechains()) > 0 and any([bank.stocks[chain] for chain in board.fetchactivechains()]) and p.bal >= bank.fetchcheapeststock()[1]
+          print(buyPhase)
           if buyPhase:
             askToBuy = True
           else:
@@ -395,7 +396,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
             pos = pygame.mouse.get_pos()
             for i, stock_plusmin_rect in enumerate(stock_plusmin_rects):
               # print(newchain_rect, pos, newchain_rect.collidepoint(pos))
-              if stock_plusmin_rect != None and stock_plusmin_rect.collidepoint(pos) and not popup_open:
+              if stock_plusmin_rect is not None and stock_plusmin_rect.collidepoint(pos) and not popup_open:
                 buykey = buyablechains[i//2]
                 if i%2 == 0: #minus
                   if buykey in stockcart: 

@@ -91,9 +91,9 @@ def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           if viewmode == "STATS":
             viewmode = "USER"
           else: viewmode = "STATS"
-        elif hover_stat_int != None:
+        elif hover_stat_int is not None:
           clicked_stat_int = (hover_stat_int if clicked_stat_int != hover_stat_int else None)
-          if clicked_stat_int != None:
+          if clicked_stat_int is not None:
             if viewmode == "USER":
               p = players[clicked_stat_int]
               if p.name not in graphrends.keys():

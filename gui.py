@@ -641,29 +641,29 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   chaingroup2 = [chain for chain in buyablechains if chain in tilebag.chainTierGrouped["med"]]
   chaingroup3 = [chain for chain in buyablechains if chain in tilebag.chainTierGrouped["high"]]
   buyablechainsgrouped = [chaingroup1, chaingroup2, chaingroup3]
-
+  
   if len(stockcart) < 3:
     for i in range(3 - len(stockcart)):
       stockcart.append('')
-
+  
   # Calculate the size of each popup_select
   tile_chunk_width = int(popup_width // 5)
   tile_chunk_height = int(popup_height // 10)
   plusmin_width = int(popup_width // (16*2))
   plusmin_height = int(popup_height // (9*2))
-
+  
   # Draw the title question
   # Calculate the position of the title question
   pos_x = popup_width // 2
   pos_y = popup_height // 15
   pos_x, pos_y = int(pos_x), int(pos_y)
-
+  
   # Draw the popup header
   label = font.render('Which Stock Would You Like To Buy?', 1, colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
-
+  
   # Draw the stockcart
   # Calculate the position of stockcart
   x_spacer = popup_width // 50
@@ -671,7 +671,7 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   pos_y = 2*(popup_height // 15)
   pos_x, pos_y = int(pos_x), int(pos_y)
   
-
+  
   # Draw the stockcart header
   label = font.render('Stock Cart:', 1, colors.BLACK)
   label_rect = label.get_rect()
@@ -683,13 +683,13 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   for i in range(3):
     # Create a rectangle for a stockcart square
     stockcart_rect = pygame.Rect(pos_x + (plusmin_width + plusmin_width // 5) * i, pos_y - label.get_height()//2, plusmin_width, plusmin_height)
-
+  
     if stockcart[i] == '': stockcart_color = colors.WHITE
     else: stockcart_color = getattr(colors, stockcart[i])
-
+  
     # Draw a stockcart square to screen
     pygame.draw.rect(popup, stockcart_color, stockcart_rect)
-
+  
   stock_plusmin_rects = []
   # Draw the chain information
   for i, chaingroup in enumerate(buyablechainsgrouped):
@@ -698,19 +698,19 @@ def draw_stockbuy(popupInfo, stock_p_vec):
       pos_x = (popup_width // 15) * (4*j+2) if len(chaingroup) == 3 else popup_width // 5 * (2*j+1)
       pos_y = popup_height // 4 * (i+1)
       pos_x, pos_y = int(pos_x), int(pos_y)
-
+      
       # Create a rectangle for the chain name
       newchain_rect = pygame.Rect(pos_x, pos_y, tile_chunk_width, tile_chunk_height)
-
+      
       # Draw the popup_select
       pygame.draw.rect(popup, getattr(colors, chain), newchain_rect)
-
+      
       # Draw the stock name
       label = font.render(chain, 1, colors.BLACK)
       label_rect = label.get_rect()
       label_rect.center = (pos_x + tile_chunk_width // 2, pos_y + tile_chunk_height // 2)
       popup.blit(label, label_rect)
-
+      
       # Draw the stock's price
       stockprice = bank.stockcost(chain, board.fetchchainsize(chain))
       pricecolor = colors.BLACK if stockprice < p.bal else colors.RED
@@ -718,21 +718,21 @@ def draw_stockbuy(popupInfo, stock_p_vec):
       label2_rect = label2.get_rect()
       label2_rect.center = (pos_x + tile_chunk_width // 2, pos_y - tile_chunk_height // 2 + popup_height // 50)
       popup.blit(label2, label2_rect)
-
+      
       minusplus_iterlist = [-1, 1] if (bank.stocks[chain] and stockprice < p.bal) else [-1]
       for k in minusplus_iterlist: #minus and plus buttons
         offset_x = tile_chunk_width // 2 - plusmin_width // 2  + (popup_width // 25) * k
         offset_y = tile_chunk_height + popup_height // 60
         offset_x, offset_y = int(offset_x), int(offset_y)
-
+        
         # Create a rectangle for the interactive piece and add to output rects list
         stock_plusmin_rect = pygame.Rect(pos_x + offset_x, pos_y + offset_y, plusmin_width, plusmin_height)
         stock_plusmin_rects.append(stock_plusmin_rect)
         if len(minusplus_iterlist) == 1: stock_plusmin_rects.append(None)
-
+        
         # Draw the rect
         pygame.draw.rect(popup, colors.BLACK, stock_plusmin_rect)
-
+        
         # Draw the plus/minus label
         label = font.render('-' if k == -1 else '+', 1, colors.WHITE)
         label_rect = label.get_rect()

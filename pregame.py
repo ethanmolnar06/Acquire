@@ -110,9 +110,9 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       if event.type == pygame.MOUSEBUTTONDOWN:
         if hover_directory:
           clicked_directory = not clicked_directory
-        elif clicked_directory and hover_save_int != None:
+        elif clicked_directory and hover_save_int is not None:
           clicked_save_int = (hover_save_int if clicked_save_int != hover_save_int else None)
-        elif clicked_save_int != None and load_rect.collidepoint(pos):
+        elif clicked_save_int is not None and load_rect.collidepoint(pos):
           savefile = savefiles[clicked_save_int]
           with open(rf'{saves_path}\{savefile}', 'rb') as file:
             data = pickle.load(file)
@@ -150,7 +150,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
                 stockSettings = True
               else:
                 customSettings = True
-      elif event.type == pygame.KEYDOWN and clicked_textbox_int != None and pygame.key.get_focused():
+      elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
         playerNameTxtbxs, clicked_textbox_int = text.interface("playerName", (playerNameTxtbxs, clicked_textbox_int))
     
     elif stockSettings:
@@ -172,14 +172,14 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         orderdict[name] = gamestarttileID
         gamestarttile = tilebag.tileIDinterp([gamestarttileID])
         board.debug_tilesinplayorder.append(gamestarttile[0])
-        print(f'{name} drew {gamestarttile[0]}!')
+        # print(f'{name} drew {gamestarttile[0]}!')
       sortedplayers = [tup[0] for tup in sorted(orderdict.items(), key=operator.itemgetter(1))]
       personal_info_names = sortedplayers
       from player import Player
       players = [Player(pName, tileQuant = pTileQuant) for i, pName in enumerate(sortedplayers)]
       if HIDE_PERSONAL_INFO:
         for i, p in enumerate(players): p.name=f"Player {i+1}" 
-      print('Player order is:', *sortedplayers)
+      # print('Player order is:', *sortedplayers)
       for p in players:
         p.drawtile(p.tileQuant)
       sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)

@@ -16,17 +16,17 @@ def draw_fullscreenSelect(drawinfo):
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
   font = pygame.font.SysFont(fonts.main, font_size)
-
+  
   # Calculate the size of each popup_select
   button_chunk_width = int(window_width // 3)
   button_chunk_height = int(window_height // 3)
-
+  
   # Draw the title question
   # Calculate the position of the title question
   pos_x = window_width // 2
   pos_y = window_height // 15
   pos_x, pos_y = int(pos_x), int(pos_y)
-
+  
   # Decide title text
   if drawinfo == 'hostJoin': label_text = 'Will you Host or Join a Game?'
   elif drawinfo == 'loadSave': label_text = 'Would You Like to Load a Gamestate?'
@@ -36,19 +36,19 @@ def draw_fullscreenSelect(drawinfo):
   elif drawinfo == 'makeSave': label_text = 'Would You Like to Save the Current Game?'
   elif drawinfo == 'endGameStats': label_text = 'Would You Like to Show End Game Stats?'
   else: label_text = 'Default Yes/No Question?'
-
+  
   # Draw the header
   label = font.render(label_text, 1, colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   screen.blit(label, label_rect)
-
+  
   # Decide title text 
   # TODO implement hostJoin comment by actually making the feature
   if drawinfo == 'hostJoin': bianary_choices = ['Yes', 'Yes'] # bianary_choices = ['Host', 'Join']
   elif drawinfo == 'newGameInit': bianary_choices = ['Yes', 'Yes']
   else: bianary_choices = ['No', 'Yes']
-
+  
   button_rects = []
   # Draw the button information
   for i, text in enumerate(bianary_choices):
@@ -56,14 +56,14 @@ def draw_fullscreenSelect(drawinfo):
     pos_x = (window_width // 12)*(6*i+1)
     pos_y = window_height // 3
     pos_x, pos_y = int(pos_x), int(pos_y)
-
+    
     # Create a rectangle for the popup_select and add to popup_select_rects
     button_rect = pygame.Rect(pos_x, pos_y, button_chunk_width, button_chunk_height)
     button_rects.append(button_rect)
-
+    
     # Draw the popup_select
     pygame.draw.rect(screen, [colors.RED, colors.GREEN][i], button_rect)
-
+    
     # Draw the stock name
     label = font.render(text, 1, colors.WHITE)
     label_rect = label.get_rect()
@@ -120,7 +120,7 @@ def draw_selectSaveFile(drawinfo, saveinfo):
       screen.blit(msg, msg.get_rect(center = savefile_rect.center))
 
   load_rect = None
-  if clicked_save_int != None:
+  if clicked_save_int is not None:
     # Calc load font
     font_size = min(window_width, window_height) // 20
     font = pygame.font.SysFont(fonts.main, font_size)
@@ -256,7 +256,7 @@ def draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewm
   font = pygame.font.SysFont(fonts.main, font_size)
 
   #Create plotly stat Figures
-  if clicked_stat_int != None and graphfig != None:
+  if clicked_stat_int is not None and graphfig is not None:
     figBytes = BytesIO(plotly.io.to_image(graphfig, format='png', scale=min(window_width, window_height) / 600))
     graph_png = pygame.image.load(figBytes)
     screen.blit(graph_png, graph_png.get_rect(center = (2*window_width//3, window_height//2)))

@@ -55,15 +55,15 @@ class Board:
   def tileprop(self, tile, chainToSpread, targetChain = None, ignoreTile = None): #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
     ignoreTile = ignoreTile[0] if type(ignoreTile) == tuple else ignoreTile
     oldchainsize = self.fetchchainsize(chainToSpread)
-    checked = {tile} if ignoreTile == None else {tile, ignoreTile}
+    checked = {tile} if ignoreTile is None else {tile, ignoreTile}
     for pairs in self.chaindict.items():
       if pairs[1] == chainToSpread: checked.add(pairs[0])
-    unchecked = set( self.fetchadjacent(tile) if targetChain == None else [t for t in self.fetchadjacent(tile) if t in self.chaindict.keys() and self.chaindict[t] == targetChain] )
+    unchecked = set( self.fetchadjacent(tile) if targetChain is None else [t for t in self.fetchadjacent(tile) if t in self.chaindict.keys() and self.chaindict[t] == targetChain] )
     while len(unchecked) != 0:
       iterToCheck = []
       for adj in unchecked:
         self.chaindict[adj] = chainToSpread
-        iterToCheck.extend( self.fetchadjacent(adj) if targetChain == None else [t for t in self.fetchadjacent(adj) if t in self.chaindict.keys() and self.chaindict[t] == targetChain] )
+        iterToCheck.extend( self.fetchadjacent(adj) if targetChain is None else [t for t in self.fetchadjacent(adj) if t in self.chaindict.keys() and self.chaindict[t] == targetChain] )
         checked.add(adj)
       unchecked.update(iterToCheck)
       unchecked.difference_update(checked)

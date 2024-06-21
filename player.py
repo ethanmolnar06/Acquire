@@ -13,7 +13,7 @@ class Player:
   def drawtile(self, n = 1):
     for i in range(n):
       newtileID = tilebag.drawtile()
-      if newtileID != None: 
+      if newtileID is not None: 
         oldtileIDs = tilebag.tilesToIDs(self.tiles)
         oldtileIDs.append(newtileID)
         oldtileIDs.sort(key=int)
