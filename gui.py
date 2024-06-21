@@ -355,27 +355,27 @@ def draw_tilehider(player, showTiles):
 
 def draw_newChain(popupInfo, outlinedChain):
   popup, popup_width, popup_height, font, font_size = popupInfo
-
+  
   unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
   chaingroup1 = [chain for chain in unopenedchains if chain in tilebag.chainTierGrouped['cheap']]
   chaingroup2 = [chain for chain in unopenedchains if chain in tilebag.chainTierGrouped['med']]
   chaingroup3 = [chain for chain in unopenedchains if chain in tilebag.chainTierGrouped['high']]
   unopenedchainsgrouped = [group for group in [chaingroup1, chaingroup2, chaingroup3] if len(group) > 0]
-
+  
   # Draw the title question
   # Calculate the position of the title question
   pos_x = popup_width // 2
   pos_y = popup_height // 15
   pos_x, pos_y = int(pos_x), int(pos_y)
-
-  # Draw the popup header
+  
+  # Draw the p opup header
   label = font.render('Which Chain Would You Like To Found?', 1, colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
-
+  
   spacer_allocated = 250
-
+  
   newchain_rects = []
   # Draw the chain information
   for i, chaingroup in enumerate(unopenedchainsgrouped):
@@ -383,25 +383,25 @@ def draw_newChain(popupInfo, outlinedChain):
     pos_y = popup_height // (len(unopenedchainsgrouped)+1) * (i+1)
     pos_y = int(pos_y)
     header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font_size, pos_y, chaingroup, spacer_allocated)
-  
+    
     longest_chain_name = max([len(chain) for chain in chaingroup])
     chain_color_rect_width = int( (popup_width - popup_width//20) / (len(chaingroup) + 2) + longest_chain_name)
     chain_color_rect_height = int((popup_height // (len(unopenedchainsgrouped)+1)) * np.sqrt(header_font_size)/11)
     # chain_color_rect_height = int(popup_height // 10)
-
+    
     # Calculate the position of the chain group
     for j, chain in enumerate(chaingroup):
-
+      
       # Calculate the position of the chain
       pos_x = int( ((popup_width // (len(chaingroup)+1) )*(j+1)) - chain_color_rect_width//2)
-
+      
       # Create a rectangle for the popup_select and add to popup_select_rects
       newchain_rect = pygame.Rect(pos_x, pos_y, chain_color_rect_width, chain_color_rect_height)
       newchain_rects.append(newchain_rect)
-
+      
       # Draw the popup_select
       pygame.draw.rect(popup, getattr(colors, chain), newchain_rect)
-
+      
       # Draw the stock name
       label = header_font.render(chain, 1, colors.BLACK)
       label_rect = label.get_rect()
@@ -683,10 +683,10 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   for i in range(3):
     # Create a rectangle for a stockcart square
     stockcart_rect = pygame.Rect(pos_x + (plusmin_width + plusmin_width // 5) * i, pos_y - label.get_height()//2, plusmin_width, plusmin_height)
-  
+    
     if stockcart[i] == '': stockcart_color = colors.WHITE
     else: stockcart_color = getattr(colors, stockcart[i])
-  
+    
     # Draw a stockcart square to screen
     pygame.draw.rect(popup, stockcart_color, stockcart_rect)
   
@@ -738,7 +738,7 @@ def draw_stockbuy(popupInfo, stock_p_vec):
         label_rect = label.get_rect()
         label_rect.center = (pos_x + offset_x + plusmin_width // 2, pos_y + offset_y + plusmin_height // 2)
         popup.blit(label, label_rect)
-
+  
   return stock_plusmin_rects
 
 def draw_slider(popupInfo, slider_vec):
