@@ -17,12 +17,12 @@ class Board:
     return activechains
 
   def fetchsmallestchain(self):
-    chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in tilebag.chainnames]
+    chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in self.fetchactivechains()]
     chainsizepairs.sort(key=lambda x: x[1])
     return chainsizepairs[0]
   
   def fetchlargestchain(self):
-    chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in tilebag.chainnames]
+    chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in self.fetchactivechains()]
     chainsizepairs.sort(key=lambda x: x[1])
     return chainsizepairs[-1]
 

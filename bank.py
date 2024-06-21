@@ -81,7 +81,7 @@ class Bank:
     return costFunc(chain, size) * self.finalCostMultiplier + self.finalCostAdd
 
   def fetchcheapeststock(self):
-    chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in tilebag.chainnames]
+    chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in board.fetchactivechains()]
     chaincostpair.sort(key=lambda x: x[1])
     return chaincostpair[0]
   

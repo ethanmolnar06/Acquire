@@ -425,7 +425,6 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               buyPhase = False
       
       #turn finished handling
-      currentTurn = False
       assignStatVals(players)
       if gameRunning:
         p.drawtile()
