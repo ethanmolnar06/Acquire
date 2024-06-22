@@ -190,18 +190,18 @@ def draw_popup(subdraw_tag, drawinfo):
   popup_height = 2*window_height // 3
   font_size = min(popup_width, popup_height) // 20
   font = pygame.font.SysFont(fonts.main, font_size)
-
+  
   # Calculate the offset to center the popup
   offset_x = (window_width - popup_width) // 2 - 50
   offset_y = (window_height - popup_height) // 2
   offset_x, offset_y = int(offset_x), int(offset_y)
-
+  
   # Create a surface for the popup
   popup = pygame.Surface((popup_width, popup_height))
-
+  
   # Draw the popup background
   popup.fill(colors.GRAY)
-
+  
   # Draw info into the popup
   popupInfo = [popup, popup_width, popup_height, font, font_size]
   if subdraw_tag == 'playerStats':
@@ -233,7 +233,7 @@ def draw_popup(subdraw_tag, drawinfo):
   if closeable:
     close_button_rect = pygame.Rect(popup_width - font_size, 0, font_size, font_size)
     pygame.draw.rect(popup, colors.RED, close_button_rect)
-
+    
     # Create an "x" for the closeable popup button
     font_size = min(popup_width, popup_height) // 25
     font = pygame.font.Font(fonts.oblivious, font_size)
@@ -242,14 +242,14 @@ def draw_popup(subdraw_tag, drawinfo):
     # label_rect.center = (close_button_rect.x + 9*close_button_rect.width // 16, close_button_rect.y + 6*close_button_rect.height // 16 )
     label_rect.center = (close_button_rect.x + close_button_rect.width // 2 + 1, close_button_rect.y + close_button_rect.height // 2 - 2)
     popup.blit(label, label_rect)
-
+    
     close_button_rect.x += offset_x
     close_button_rect.y += offset_y
   else: close_button_rect = None
-
+  
   #Commit popup to the screen
   screen.blit(popup, (offset_x, offset_y))
-
+  
   # Update the output recs with the position of the popup
   if type(subdraw_output) == pygame.Rect:
     subdraw_output.x += offset_x; subdraw_output.y += offset_y
@@ -677,7 +677,7 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   label_rect = label.get_rect()
   label_rect.center = (pos_x - 2 * x_spacer - label.get_width() // 2, pos_y)
   popup.blit(label, label_rect)
-
+  
   # TODO redo this using draw_newChain spacing logic
   # Draw the stockcart icons
   for i in range(3):

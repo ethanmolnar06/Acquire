@@ -46,27 +46,36 @@ def crunch_playernames(currentTextState):
         playerNameTxtbxs[clicked_textbox_int] += keyNameAsStr
   return playerNameTxtbxs, clicked_textbox_int
 
-def crunch_customSettings(currentTextState):
-  settingsTxtbxs, clicked_textbox_int = currentTextState
+def crunch_customSettings(currentTextState: tuple):
+  settings, clicked_textbox_key, drawnSettingsKeys = currentTextState
+  
+  if clicked_textbox_key == "Stock Pricing":
+    choices = ["Classic", "Linear", "Logarithmic", "Exponential"]
+    i = choices.index(settings["bank"][clicked_textbox_key])
+    settings["bank"][clicked_textbox_key] = choices[(i + 1) % len(choices)]
+    return settings, clicked_textbox_key
+  
+  i = drawnSettingsKeys.index(clicked_textbox_key)
+  if i <= 4:
+    outerkey = "board"
+  elif i <= 12:
+    outerkey = "bank"
+  else:
+    outerkey = "bank" + settings["bank"]["Stock Pricing"]
+  
   keyBoolMap = pygame.key.get_pressed()
-  modifierKeyBoolMap = pygame.key.get_mods()
   for keyIndex in range(len(keyBoolMap)):
     if keyBoolMap[keyIndex]:
       keyNameAsStr = pygame.key.name(keyIndex)
       # handle specific key interactions
       if keyNameAsStr == 'backspace':
-        settingsTxtbxs[clicked_textbox_int] = settingsTxtbxs[clicked_textbox_int][:-1]
+        settings[outerkey][clicked_textbox_key] = settings[outerkey][clicked_textbox_key][:-1]
       elif keyNameAsStr == 'delete':
-        settingsTxtbxs[clicked_textbox_int] = ''
+        settings[outerkey][clicked_textbox_key] = ''
       elif keyNameAsStr == 'tab' or keyNameAsStr == 'return':
-        clicked_textbox_int = (clicked_textbox_int + 1) % len(settingsTxtbxs)
-      # add characters to type box
-      elif len(keyNameAsStr) == 1 and ord(keyNameAsStr) < 128:
-        # handle caps
-        if modifierKeyBoolMap & pygame.KMOD_SHIFT:
-          if keyNameAsStr in string.digits:
-            keyNameAsStr = number_to_symbol[keyNameAsStr]
-          else:
-            keyNameAsStr = keyNameAsStr.upper()
-        settingsTxtbxs[clicked_textbox_int] += keyNameAsStr
-  return settingsTxtbxs, clicked_textbox_int
+        clicked_textbox_key = drawnSettingsKeys[(i+1)%len(drawnSettingsKeys)]
+      # add numpers to type box
+      elif keyNameAsStr in string.digits or keyNameAsStr == ".":
+        if not (keyNameAsStr == "." and "." in settings[outerkey][clicked_textbox_key]):
+          settings[outerkey][clicked_textbox_key] += keyNameAsStr
+  return settings, clicked_textbox_key

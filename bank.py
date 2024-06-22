@@ -2,13 +2,13 @@ import math
 from pregame import tilebag, board, globalStats
 
 class Bank:
-  def __init__(self, startingStockNumber = 25,
-               sizeCostFunc = "classic", smallSize = 5, largeSize = 41, sizeCostRate = 100, 
-               theDadTax = 600, maxSizeCost = 1000, fancyCostRate = 100,
-               linMaxFrac = 3/4,
-               logMultiplier = 1.5, logBase = 2.6,
-               expnDivisor = 240, expnPower = 2, expnMinFrac = 1/3,
-               finalCostAdd = 0, finalCostMultiplier = 1):
+  def __init__(self, startingStockNumber: int = 25,
+               sizeCostFunc = "Classic", smallSize: int = 5, largeSize: int = 41, sizeCostRate: float = 100., 
+               theDadTax: float = 600., fancyCostRate: float = 100.,
+               linMaxFrac: float = .75,
+               logMultiplier: float = 1.5, logBase: float = 2.6,
+               expnDivisor: float = 240., expnPower: float = 2., expnMinFrac: float = 1./3.,
+               finalCostAdd: float = 0., finalCostMultiplier: float = 1.):
     #valid sizeCostFunc, from least to most expensive: log, classic, linear, expn
     self.name = 'The Stock Market'
     self.balance = 'Balance: Unlimited'
@@ -20,7 +20,6 @@ class Bank:
     self.largeSize = largeSize
     self.sizeCostRate = sizeCostRate
     self.theDadTax = theDadTax
-    self.maxSizeCost = maxSizeCost
     self.fancyCostRate = fancyCostRate
     self.linMaxFrac = linMaxFrac
     self.logMultiplier = logMultiplier
@@ -42,7 +41,8 @@ class Bank:
       elif size > self.smallSize and size < self.largeSize:
         sizecost = ((size-1)//10)*self.sizeCostRate + self.theDadTax
       else:
-        sizecost = self.maxSizeCost
+        sizecost = ((self.largeSize-1)//10)*self.sizeCostRate + self.theDadTax
+      
       if chain in tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
       elif chain in tilebag.chainTierGrouped['med']:
@@ -50,36 +50,37 @@ class Bank:
       else:
         fancycost = 2*self.fancyCostRate
       return sizecost + fancycost
-  
+    
     def linearCost(chain, size):
       if size <= self.largeSize:
         sizecost = self.sizeCostRate*size + self.theDadTax
       else: 
-        sizecost = int(round(min(self.maxCost, self.sizeCostRate*(self.largeSize*self.linMaxFrac) + self.theDadTax), -2))
+        sizecost = self.sizeCostRate*self.largeSize + self.theDadTax
+      
       if chain in tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
       elif chain in tilebag.chainTierGrouped['med']:
         fancycost = 1*self.fancyCostRate
       else:
         fancycost = 2*self.fancyCostRate
-      return int(round(sizecost + fancycost, -2))
-  
+      return sizecost + fancycost
+    
     def logCost(chain, size):
-      return round(math.log(self.logMultiplier*linearCost(chain, size), self.logBase)*100, -2)
+      return math.log(self.logMultiplier*linearCost(chain, size), self.logBase)*100
     
     def squareCost(chain, size):
-      return round(((linearCost(chain, size)//self.expnDivisor)**self.expnPower)*100, -2) + (self.theDadTax*self.expnMinFrac)
-  
-    if self.sizeCostFunc == "linear": 
+      return ((linearCost(chain, size)//self.expnDivisor)**self.expnPower)*100 + (self.theDadTax*self.expnMinFrac)
+    
+    if self.sizeCostFunc == "Linear": 
        costFunc = linearCost
-    elif self.sizeCostFunc == "log": 
+    elif self.sizeCostFunc == "Logarithmic": 
       costFunc = logCost
-    elif self.sizeCostFunc == "expn": 
+    elif self.sizeCostFunc == "Exponential": 
       costFunc = squareCost
     else:
       costFunc = classicCost
-    return costFunc(chain, size) * self.finalCostMultiplier + self.finalCostAdd
-
+    return round(costFunc(chain, size) * self.finalCostMultiplier + self.finalCostAdd, -2)
+  
   def fetchcheapeststock(self):
     chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in board.fetchactivechains()]
     chaincostpair.sort(key=lambda x: x[1])
@@ -138,7 +139,7 @@ class Bank:
       statementsList.append((bankStatement, firstStatement, secondStatement))
         
     return bankdrawntile, statementsList
-
+  
   def playtile(self, tile): #tile must be playable!
     board.debug_tilesinplayorder.append(tile)
     sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
