@@ -5,8 +5,8 @@ from gui import draw_grid, draw_player_info, draw_tilehider, draw_tiles, draw_po
 from tilebag import TileBag
 from board import Board
 from bank import Bank
-from stats import Stats, statIncrement, assignStatVals
-from player import Player
+from stats import Stats
+from player import Player, statIncrement, assignStatVals
 
 def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], currentP: Player, globalStats: Stats):
   if HIDE_PERSONAL_INFO:
@@ -25,10 +25,10 @@ def make_savestate(tilebag: TileBag, board: Board, bank: Bank, players: list[Pla
 
 def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int,
              tilebag: TileBag, board: Board, bank: Bank, players: list[Player], personal_info_names: list[str], globalStats: Stats):
-  gameRunning = True
+  cyclingPlayers = True
   gameCompleted = False
   skipStatIncrem = True
-  while gameRunning:
+  while cyclingPlayers:
     for p in players:
       # region StateMap Declarations and Game Init
       forceRender = True
@@ -116,7 +116,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           popupToClose = False
           popup_open = False
         if event.type == pygame.QUIT:
-          gameRunning = False
+          cyclingPlayers = False
           currentTurn = False
           gameEndable = False
           break
@@ -169,7 +169,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               chaingrowth = board.tileprop(turntile, chains)
               p.stats.mostExpandedChain[chains][-1] += chaingrowth
             else: #prep for merge
-              mergeCartInit = board.mergeCart_init(turntile, chains)
+              mergeCartInit = board.mergeCart_init(chains)
               if type(mergeCartInit) == list: #Feeds Directly to Defunct Payout
                 defunctPayoutMode = True
                 bigchain = mergeCartInit[0]
@@ -365,11 +365,8 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
                 if yesorno_rect.collidepoint(pos):
                   gameEndable = False
                   if i == 1:
-                    currentTurn = False
-                    gameRunning = False
                     gameCompleted = True
-                    # TODO sell all stock and determine winner
-                    break
+                    cyclingPlayers = False
         
         #Waiting for Player to Choose to Buy Stocks
         elif askToBuy:
@@ -426,11 +423,17 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
       
       #turn finished handling
       assignStatVals(players)
-      if gameRunning:
+      if cyclingPlayers:
         p.drawtile()
         p.deadduckremoval()
-      else: 
+      else:
+        # runs when quitting and/or when game completes
         break
       clock.tick(framerate)
-    
+  
+  if gameCompleted:
+    # adds payouts directly to players' balance internally
+    _ = bank.chainpayout(players, board.fetchactivechains())
+    bank.sellallstock(players)
+  
   return saveData, currentOrderP, players, globalStats, gameCompleted

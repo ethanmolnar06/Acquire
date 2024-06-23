@@ -2,7 +2,7 @@ import string
 import itertools
 import random
 
-def make_tileLetterTable(n):
+def make_tileLetterTable(n: int):
   maxletterlenght = (n-1)//26
   tileLetters = [[]]*(maxletterlenght+1)
   letters = [''] + list(string.ascii_uppercase)
@@ -11,7 +11,7 @@ def make_tileLetterTable(n):
   if n%26 != 0: tileLetters[-1] = tileLetters[-1][:n%26]
   return list(itertools.chain(*tileLetters))
 
-def make_chainTierGrouped(cheap = 2, med = 3, high = 2):
+def make_chainTierGrouped(cheap: int = 2, med: int = 3, high: int = 2):
   defCheap = ['Tower', 'Luxor']
   defMed = ['American', 'Festival', 'Worldwide']
   defHigh = ['Imperial', 'Continental']
@@ -36,19 +36,19 @@ class TileBag:
     self.chainTierGrouped = make_chainTierGrouped(int(cheapChains), int(mediumChains), int(pricyChains))
     self.chainnames = list(itertools.chain(*self.chainTierGrouped.values()))
     # self.chainnames = [name[0] for name in self.chainnames]
-
+  
   def drawtile(self):
     if len(self.tilesleft) <= 0:
       return None
     drawntileID = self.tilesleft[random.randrange(0, len(self.tilesleft))]
     self.tilesleft.remove(drawntileID)
     return drawntileID
-
+  
   def resetbag(self):
     self.tilesleft = list(range(len(self.alltiles)))
-
-  def tileIDinterp(self, tileIDs):
+  
+  def tileIDinterp(self, tileIDs: list[int]):
     return [str((ID//self.rows)+1 ) + self.tilelettertable[ID%self.rows] for ID in tileIDs]
-
-  def tilesToIDs(self, tiles):
+  
+  def tilesToIDs(self, tiles: list[str]):
     return [ (int(tile[0:-1])-1)*self.rows + self.tilelettertable.index(tile[-1]) for tile in tiles]

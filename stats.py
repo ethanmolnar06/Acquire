@@ -1,7 +1,7 @@
 from pregame import tilebag
 
 class Stats:
-  def __init__(self, startingStockNumber = 0, startCash = 6000, globalStats = False):
+  def __init__(self, startingStockNumber: int = 0, startCash: int = 6000, globalStats: bool = False):
     self.moneySpent = [0]
     self.chainsFounded = [0]
     self.stocksAcquired = [0]
@@ -17,23 +17,3 @@ class Stats:
     else:
       self.turnCounter = [0]
       self.bankTilesDrawn = [0]
-
-def assignStatVals(players):
-  for p in players:
-    p.stats.bal[-1] = p.bal
-    for chain in p.stats.stocks.keys():
-      p.stats.stocks[chain] += [p.stocks[chain]]
-  return None
-
-def statIncrement(players):
-  for p in players:
-    for k, v in p.stats.__dict__.items():
-      if k not in ('stocks', 'mostExpandedChain'):
-        setattr(p.stats, k, v + [v[-1]])
-      elif k == "stocks":
-        for chain in p.stats.stocks.keys():
-          p.stats.stocks[chain] += [p.stats.stocks[chain][-1]]
-      elif k == 'mostExpandedChain':
-        for chain in p.stats.mostExpandedChain.keys():
-          p.stats.mostExpandedChain[chain] += [p.stats.mostExpandedChain[chain][-1]]
-  return None

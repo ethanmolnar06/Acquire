@@ -1,4 +1,5 @@
 import math
+from player import Player
 from pregame import tilebag, board, globalStats
 
 class Bank:
@@ -9,7 +10,7 @@ class Bank:
                logMultiplier: float = 1.5, logBase: float = 2.6,
                expnDivisor: float = 240., expnPower: float = 2., expnOffsetReduc: float = 3.,
                ):
-    #valid sizeCostFunc, from least to most expensive: log, classic, linear, expn
+    #valid sizeCostFunc, from least to most expensive: Logarithmic, Classic, Linear, Exponential
     self.name = 'The Stock Market'
     self.balance = 'Balance: Unlimited'
     self.bal = 0
@@ -78,13 +79,13 @@ class Bank:
     maxCost = costFunc(chain, self.largeSize) * self.finalCostMultiplier + self.finalCostAdd
     return round(min(maxCost, realCost), -2)
   
-  
   def fetchcheapeststock(self):
     chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in board.fetchactivechains()]
     chaincostpair.sort(key=lambda x: x[1])
     return chaincostpair[0]
   
-  def chainpayout(self, players, defunctchains):
+  def chainpayout(self, players: list[Player], defunctchains: list[str]):
+    # adds payout directly to players' balance internally
     statementsList = []
     for chain in defunctchains:
       chainsize = board.fetchchainsize(chain)
@@ -113,34 +114,40 @@ class Bank:
           firstprize = math.ceil( ((firstprize + secondprize)/tiecheck1)/100 )*100
           winnerlist = []
           for i in range(tiecheck1): 
-            stockstats[i][0].bal = stockstats[i][0].bal + firstprize
+            stockstats[i][0].bal += firstprize
             winnerlist.append(stockstats[i][0].name)
           ', '.join(winnerlist)
           firstStatement = f'{", ".join(winnerlist)} hold Majority in {chain} and have earned ${firstprize} each!'
           secondStatement = None
         else:
           firstStatement = f'{stockstats[0][0].name} holds Majority in {chain} and has earned ${firstprize}!'
-          stockstats[0][0].bal = stockstats[0][0].bal + firstprize
+          stockstats[0][0].bal += firstprize
           secondplace = stockstats[1][1]
           tiecheck2 = sum(trifold[1] == secondplace for trifold in stockstats)
           if tiecheck2 > 1:
             secondprize = math.ceil( (secondprize/tiecheck2)/100 )*100
             winnerlist = []
             for i in range(tiecheck2):
-              stockstats[i+1][0].bal = stockstats[i+1][0].bal + secondprize
+              stockstats[i+1][0].bal += secondprize
               winnerlist.append(stockstats[i+1][0].name)
             ', '.join(winnerlist)
             secondStatement = f'{", ".join(winnerlist)} hold Second Majority in {chain} and have earned ${secondprize} each!'
           else:
             secondStatement = f'{stockstats[1][0].name} holds Second Majority in {chain} and has earned ${secondprize}!'
-            stockstats[1][0].bal = stockstats[1][0].bal + secondprize
+            stockstats[1][0].bal += secondprize
       statementsList.append((bankStatement, firstStatement, secondStatement))
-        
     return bankdrawntile, statementsList
   
-  def playtile(self, tile): #tile must be playable!
+  def playtile(self, tile: str): #tile must be playable!
     board.debug_tilesinplayorder.append(tile)
     sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
     sortactiveIDs.sort()
     board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
+    return None
+
+  def sellallstock(self, players: list[Player]):
+    for chain in board.fetchactivechains():
+      costper = self.stockcost(chain, board.fetchchainsize(chain))
+      for p in players:
+        p.bal += p.stocks[chain] * costper
     return None
