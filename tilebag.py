@@ -28,12 +28,12 @@ def make_chainTierGrouped(cheap = 2, med = 3, high = 2):
 
 class TileBag:
   def __init__(self, numbers = 12, letters = 9, cheapChains = 2, mediumChains = 3, pricyChains = 2):
-    self.cols = numbers 
-    self.rows = letters
+    self.cols = int(numbers) 
+    self.rows = int(letters)
     self.tilelettertable = make_tileLetterTable(self.rows)
     self.alltiles = [str(n+1)+l for n in range(self.cols) for l in self.tilelettertable]
     self.tilesleft = list(range(len(self.alltiles)))
-    self.chainTierGrouped = make_chainTierGrouped(cheapChains, mediumChains, pricyChains)
+    self.chainTierGrouped = make_chainTierGrouped(int(cheapChains), int(mediumChains), int(pricyChains))
     self.chainnames = list(itertools.chain(*self.chainTierGrouped.values()))
     # self.chainnames = [name[0] for name in self.chainnames]
 

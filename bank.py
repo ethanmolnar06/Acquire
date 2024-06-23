@@ -2,46 +2,43 @@ import math
 from pregame import tilebag, board, globalStats
 
 class Bank:
-  def __init__(self, startingStockNumber: int = 25,
-               sizeCostFunc = "Classic", smallSize: int = 5, largeSize: int = 41, sizeCostRate: float = 100., 
-               theDadTax: float = 600., fancyCostRate: float = 100.,
-               linMaxFrac: float = .75,
+  def __init__(self, startingStockNumber: int = 25, finalCostAdd: float = 0., finalCostMultiplier: float = 1.,
+               sizeCostFunc = "Classic", sizeCostRate: float = 100., fancyCostRate: float = 100., largeSize: int = 41, 
+               smallSize: int = 5, 
+               theDadTax: float = 600.,
                logMultiplier: float = 1.5, logBase: float = 2.6,
-               expnDivisor: float = 240., expnPower: float = 2., expnMinFrac: float = 1./3.,
-               finalCostAdd: float = 0., finalCostMultiplier: float = 1.):
+               expnDivisor: float = 240., expnPower: float = 2., expnOffsetReduc: float = 3.,
+               ):
     #valid sizeCostFunc, from least to most expensive: log, classic, linear, expn
     self.name = 'The Stock Market'
     self.balance = 'Balance: Unlimited'
     self.bal = 0
-    self.stocks = {chain: startingStockNumber for chain in tilebag.chainnames}
+    self.stocks = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
     # region custom settings args to attributes
     self.sizeCostFunc = sizeCostFunc
-    self.smallSize = smallSize
-    self.largeSize = largeSize
-    self.sizeCostRate = sizeCostRate
-    self.theDadTax = theDadTax
-    self.fancyCostRate = fancyCostRate
-    self.linMaxFrac = linMaxFrac
-    self.logMultiplier = logMultiplier
-    self.logBase = logBase
-    self.expnDivisor = expnDivisor
-    self.expnPower = expnPower
-    self.expnMinFrac = expnMinFrac
-    self.finalCostAdd = finalCostAdd
-    self.finalCostMultiplier = finalCostMultiplier
+    self.smallSize = int(smallSize)
+    self.largeSize = int(largeSize)
+    self.sizeCostRate = float(sizeCostRate)
+    self.theDadTax = float(theDadTax)
+    self.fancyCostRate = float(fancyCostRate)
+    self.logMultiplier = float(logMultiplier)
+    self.logBase = float(logBase)
+    self.expnDivisor = float(expnDivisor)
+    self.expnPower = float(expnPower)
+    self.expnOffsetReduc = float(expnOffsetReduc)
+    self.finalCostAdd = float(finalCostAdd)
+    self.finalCostMultiplier = float(finalCostMultiplier)
     # endregion
   
-  def stockcost(self, chain, size):
+  def stockcost(self, chain: str, size: int):
     if size == 0:
       return 0
     
     def classicCost(chain, size):
       if size <= self.smallSize:
         sizecost = self.sizeCostRate*size
-      elif size > self.smallSize and size < self.largeSize:
-        sizecost = ((size-1)//10)*self.sizeCostRate + self.theDadTax
       else:
-        sizecost = ((self.largeSize-1)//10)*self.sizeCostRate + self.theDadTax
+        sizecost = ((size - self.smallSize + 4)//10 + self.smallSize + 1)*self.sizeCostRate
       
       if chain in tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
@@ -52,10 +49,7 @@ class Bank:
       return sizecost + fancycost
     
     def linearCost(chain, size):
-      if size <= self.largeSize:
-        sizecost = self.sizeCostRate*size + self.theDadTax
-      else: 
-        sizecost = self.sizeCostRate*self.largeSize + self.theDadTax
+      sizecost = self.sizeCostRate*size + self.theDadTax
       
       if chain in tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
@@ -69,7 +63,7 @@ class Bank:
       return math.log(self.logMultiplier*linearCost(chain, size), self.logBase)*100
     
     def squareCost(chain, size):
-      return ((linearCost(chain, size)//self.expnDivisor)**self.expnPower)*100 + (self.theDadTax*self.expnMinFrac)
+      return ((linearCost(chain, size)//self.expnDivisor)**self.expnPower)*100 + self.theDadTax / self.expnOffsetReduc
     
     if self.sizeCostFunc == "Linear": 
        costFunc = linearCost
@@ -79,7 +73,11 @@ class Bank:
       costFunc = squareCost
     else:
       costFunc = classicCost
-    return round(costFunc(chain, size) * self.finalCostMultiplier + self.finalCostAdd, -2)
+    
+    realCost = costFunc(chain, size) * self.finalCostMultiplier + self.finalCostAdd
+    maxCost = costFunc(chain, self.largeSize) * self.finalCostMultiplier + self.finalCostAdd
+    return round(min(maxCost, realCost), -2)
+  
   
   def fetchcheapeststock(self):
     chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in board.fetchactivechains()]

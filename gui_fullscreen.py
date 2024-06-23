@@ -282,7 +282,7 @@ def draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewm
   
   return (statswap_rects, viewmode_rect)
 
-def draw_customSettings(drawnSettings: dict, clicked_textbox_key):
+def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKey: str):
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -301,8 +301,10 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key):
   screen.blit(label, label_rect)
   
   numbcols = 2
+  numbrows = 10
   # Calculate text field sizing
-  longestKey = max([len(x) for x in drawnSettings.keys()])
+  font_size = min(window_width, window_height) // 30
+  font = pygame.font.SysFont(fonts.main, font_size)
   key_text_width = int( (window_width - window_width//20) / (numbcols + 2) + longestKey)
   val_text_width = int(window_width//6)
   text_field_height = int(font_size + window_height//200)
@@ -312,15 +314,15 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key):
     k, v = kv
     
     # Draw Key Title
-    pos_x = window_width//40 + (window_width//4 + key_text_width) * (i//8)
-    pos_y = window_height//12 + (window_width//45 + text_field_height) * (i%8)
+    pos_x = window_width//40 + (window_width//4 + key_text_width) * (i//numbrows)
+    pos_y = window_height//12 + (window_width//45 + text_field_height) * (i%numbrows)
     pos_x, pos_y = int(pos_x), int(pos_y)
     key_surface = font.render(k, True, colors.BLACK)
     screen.blit(key_surface, (pos_x, pos_y))
     
     # Draw Text Box and Value
     pos_x = pos_x + key_text_width + window_width//30
-    pos_y = pos_y - window_width//250
+    pos_y = pos_y
     text_field_rect = pygame.Rect(pos_x, pos_y, val_text_width, text_field_height + window_width//250)
     pygame.draw.rect(screen, colors.GRAY, text_field_rect, 0)
     text_field_rects.append(text_field_rect)
@@ -334,14 +336,14 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key):
   
   # Calculate the size of each button
   button_chunk_width = int(window_width // 3)
-  button_chunk_height = int(window_height // 7)
+  button_chunk_height = int(window_height // 9)
   
   yesandno_rects = []
   # Draw the button information
   for i, text in enumerate(['Reset to Default', 'Start Game']):
     # Calculate the position of the buttons' top left corner
     pos_x = (window_width // 12)*(6*i+1)
-    pos_y = 5 * window_height // 6
+    pos_y =  window_height * 6 // 7
     pos_x, pos_y = int(pos_x), int(pos_y)
     
     # Create a rectangle for the popup_select and add to popup_select_rects

@@ -12,8 +12,8 @@ class Stats:
     self.deadDucksTrashed = [0]
     if not globalStats:
       self.stockChainsOwned = [set()]
-      self.bal = [startCash]
-      self.stocks = {chain: [startingStockNumber] for chain in tilebag.chainnames}
+      self.bal = [int(startCash)]
+      self.stocks = {chain: [int(startingStockNumber)] for chain in tilebag.chainnames}
     else:
       self.turnCounter = [0]
       self.bankTilesDrawn = [0]

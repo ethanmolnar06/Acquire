@@ -5,10 +5,10 @@ class Player:
   def __init__(self, name, startingStockNumber = 0, startCash = 6000, tileQuant = 6):
     self.name = name
     self.tiles = []
-    self.tileQuant = tileQuant
-    self.bal = startCash
-    self.stocks = {chain: startingStockNumber for chain in tilebag.chainnames}
-    self.stats = Stats(startingStockNumber, startCash)
+    self.tileQuant = int(tileQuant)
+    self.bal = round(int(startCash), -2)
+    self.stocks = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
+    self.stats = Stats(int(startingStockNumber), self.bal)
 
   def drawtile(self, n = 1):
     for i in range(n):

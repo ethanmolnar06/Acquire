@@ -1,7 +1,8 @@
 from pregame import tilebag
 
 class Board:
-  def __init__(self):
+  def __init__(self, maxChainSize: int):
+    self.maxChainSize = int(maxChainSize)
     self.debug_tilesinplayorder = []
     self.debug_count = 0
     self.tilesinplay = []
@@ -104,7 +105,7 @@ class Board:
     return makeBabies
   
   def endgamecheck(self):
-    bigtest = any([self.fetchchainsize(chain) >= 41 for chain in self.fetchactivechains()] )
+    bigtest = any([self.fetchchainsize(chain) >= self.maxChainSize for chain in self.fetchactivechains()] )
     birthingTilesLeft = self.contraceptcheck(tilebag.tileIDinterp(tilebag.tilesleft))
     nomovesleft = all(self.toobigtofail()) and not any(birthingTilesLeft)
     return bigtest or nomovesleft

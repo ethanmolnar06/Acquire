@@ -3,6 +3,7 @@ import os
 import pickle
 import text
 import operator
+from copy import deepcopy
 from __main__ import HIDE_PERSONAL_INFO
 from gui_fullscreen import draw_fullscreenSelect, draw_newGameInit, draw_selectSaveFile, draw_customSettings
 
@@ -14,29 +15,34 @@ stockGameSettings = {
     "Standard Chains": "3",
     "Luxury Chains": "2",
   },
+  "player": {
+    "Player Starting Stock": "0",
+    "Player Starting Cash": "6000",
+    "Player Tiles Held": "6",
+  },
   "bank": {
-    "Maximum Stock": "25",
+    "Total Stock Per Chain": "25",
     "Global Cost Offset": "0",
     "Global Cost Multiplier": "1",
-    "Stock Pricing": "Classic",
+    "Stock Pricing Function": "Classic",
     "Linear Cost Slope": "100",
-    "Linear Cost Offset": "600",
     "Prestige Fee": "100",
-    "Large Chain Size": "41",
+    "Chain Size Cost Cap": "41",
   },
   "bankClassic": {
-    "Small Chain Size": "5",
+    "Chain Size Boundary": "5",
   },
   "bankLinear": {
+    "Linear Cost Offset": "600",
   },
   "bankLogarithmic": {
-    "Log Cost ": "1.5",
-    "Log Base": "2.6",
+    "Pre-Logarithm Stretch": "1.5",
+    "Logarithmic Base": "2.6",
   },
   "bankExponential": {
-    "expnDivisor": "240",
-    "expnPower": "2",
-    "expnMinFrac": ".333",
+    "Pre-Exponential Divisor": "240",
+    "Exponential Power": "2",
+    "Exponential Offset Reducer": "3",
   },
 }
 
@@ -49,7 +55,6 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
   askLoadSave = False
   selectSaveFile = False
   newGameInit = False
-  stockSettings = False
   customSettings = False
   
   popup_open = False
@@ -70,8 +75,11 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
     elif newGameInit:
       text_field_rects, yesandno_rects = draw_newGameInit(playerNameTxtbxs, clicked_textbox_int)
     elif customSettings:
-      drawnSettings = {**settings["board"], **settings["bank"], **settings["bank" + settings["bank"]["Stock Pricing"]]}
-      text_field_rects, yesandno_rects = draw_customSettings(drawnSettings, clicked_textbox_key)
+      drawnSettings = {**settings["board"], **settings["player"], **settings["bank"]}
+      if settings["bank"]["Stock Pricing Function"] in {"Logarithmic", "Exponential"}:
+        drawnSettings.update(**settings["bankLinear"])
+      drawnSettings.update(**settings["bank" + settings["bank"]["Stock Pricing Function"]])
+      text_field_rects, yesandno_rects = draw_customSettings(drawnSettings, clicked_textbox_key, longestKey)
     # Update the display
     pygame.display.flip()
     # endregion
@@ -80,8 +88,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
     event = pygame.event.poll()
     if event.type == pygame.QUIT:
       acquireSetup = False
-      gameStart = False
-      return successfullBoot, gameStart, None, None, None, None, None, None
+      return successfullBoot, None, None, None, None, None, None
     elif event.type == pygame.VIDEORESIZE:
       # Update the window size
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
@@ -180,50 +187,17 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
             if yesorno_rect.collidepoint(pos):
               newGameInit = False
               playernames = [pname for pname in playerNameTxtbxs if pname != '']
-              if i == 1:
-                stockSettings = True
-              else:
+              settings = deepcopy(stockGameSettings)
+              if i == 0:
                 customSettings = True
                 pygame.key.set_repeat(500, 50) #time in ms
                 clicked_textbox_key = None
-                settings = stockGameSettings
+                longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values()])
+              break
       elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
         playerNameTxtbxs, clicked_textbox_int = text.interface("playerName", (playerNameTxtbxs, clicked_textbox_int))
     
-    elif stockSettings:
-      from tilebag import TileBag
-      tilebag = TileBag()
-      from stats import Stats
-      globalStats = Stats(globalStats=True)
-      from board import Board
-      board = Board()
-      from bank import Bank
-      bank = Bank()
-      # playernames = ['Ethan', 'Robbie', 'Tommy', 'Ben'] # debug convenience, TODO remove
-      # playernames = ['Ethan', 'Robbie', 'Tommy', 'Ben', "ajajjs", "skeiis", "ojjljnj", "yytututy"] # debug convenience, TODO remove
-      # playernames = ['Ethan', 'Robbie'] # debug convenience, TODO remove
-      orderdict = {}
-      for name in playernames:
-        gamestarttileID = tilebag.drawtile()
-        orderdict[name] = gamestarttileID
-        gamestarttile = tilebag.tileIDinterp([gamestarttileID])
-        board.debug_tilesinplayorder.append(gamestarttile[0])
-        # print(f'{name} drew {gamestarttile[0]}!')
-      personal_info_names = [tup[0] for tup in sorted(orderdict.items(), key=operator.itemgetter(1))]
-      from player import Player
-      players = [Player(pName) for pName in personal_info_names]
-      if HIDE_PERSONAL_INFO:
-        for i, p in enumerate(players): p.name=f"Player {i+1}" 
-      # print('Player order is:', *sortedplayers)
-      for p in players:
-        p.drawtile(p.tileQuant)
-      sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
-      sortactiveIDs.sort()
-      board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
-      stockSettings = False
-    
     elif customSettings:
-      # TODO finish custom setting options
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = pygame.mouse.get_pos()
@@ -236,20 +210,52 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
               if i == 0:
-                settings = stockGameSettings
+                settings = deepcopy(stockGameSettings)
               else:
                 customSettings = False
-                acquireSetup = False
-                gameStart = True
       elif event.type == pygame.KEYDOWN and clicked_textbox_key is not None and pygame.key.get_focused():
-        clicked_textbox_index = list(drawnSettings.keys()).index(clicked_textbox_key)
         settings, clicked_textbox_key = text.interface("customSettings", (settings, clicked_textbox_key, list(drawnSettings.keys())))
     
     else: #prep for game startup
+      from tilebag import TileBag
+      tilebag = TileBag(*settings["board"].values())
+      from stats import Stats
+      globalStats = Stats(globalStats=True)
+      from board import Board
+      board = Board(settings["bank"]["Chain Size Cost Cap"])
+      from bank import Bank
+      print(*settings["bank"].values(),
+            *settings["bankClassic"].values(),
+            *settings["bankLogarithmic"].values(),
+            *settings["bankExponential"].values())
+      bank = Bank(*settings["bank"].values(),
+                  *settings["bankClassic"].values(),
+                  *settings["bankLogarithmic"].values(),
+                  *settings["bankExponential"].values())
+      
+      orderdict = {}
+      for name in playernames:
+        gamestarttileID = tilebag.drawtile()
+        orderdict[name] = gamestarttileID
+        gamestarttile = tilebag.tileIDinterp([gamestarttileID])
+        board.debug_tilesinplayorder.append(gamestarttile[0])
+        # print(f'{name} drew {gamestarttile[0]}!')
+      personal_info_names = [tup[0] for tup in sorted(orderdict.items(), key=operator.itemgetter(1))]
+      
+      from player import Player
+      players = [Player(pName, *settings["player"].values()) for pName in personal_info_names]
+      if HIDE_PERSONAL_INFO:
+        for i, p in enumerate(players): p.name=f"Player {i+1}" 
+      # print('Player order is:', *sortedplayers)
+      for p in players:
+        p.drawtile(p.tileQuant)
+      sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
+      sortactiveIDs.sort()
+      board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
+      
       pygame.display.set_caption('Acquire Board')
       acquireSetup = False
       successfullBoot = True
-      gameStart = True
     
     clock.tick(framerate)
-  return successfullBoot, gameStart, tilebag, board, bank, players, personal_info_names, globalStats
+  return successfullBoot, tilebag, board, bank, players, personal_info_names, globalStats

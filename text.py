@@ -49,19 +49,21 @@ def crunch_playernames(currentTextState):
 def crunch_customSettings(currentTextState: tuple):
   settings, clicked_textbox_key, drawnSettingsKeys = currentTextState
   
-  if clicked_textbox_key == "Stock Pricing":
+  if clicked_textbox_key == "Stock Pricing Function":
     choices = ["Classic", "Linear", "Logarithmic", "Exponential"]
     i = choices.index(settings["bank"][clicked_textbox_key])
     settings["bank"][clicked_textbox_key] = choices[(i + 1) % len(choices)]
     return settings, clicked_textbox_key
   
   i = drawnSettingsKeys.index(clicked_textbox_key)
-  if i <= 4:
+  if i < len(settings["board"].keys()):
     outerkey = "board"
-  elif i <= 12:
+  elif i < len(settings["board"].keys()) + len(settings["player"].keys()):
+    outerkey = "player"
+  elif i < len(settings["board"].keys()) + len(settings["player"].keys()) + len(settings["bank"].keys()):
     outerkey = "bank"
   else:
-    outerkey = "bank" + settings["bank"]["Stock Pricing"]
+    outerkey = "bank" + settings["bank"]["Stock Pricing Function"]
   
   keyBoolMap = pygame.key.get_pressed()
   for keyIndex in range(len(keyBoolMap)):
