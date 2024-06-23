@@ -224,26 +224,23 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
       from board import Board
       board = Board(settings["bank"]["Chain Size Cost Cap"])
       from bank import Bank
-      print(*settings["bank"].values(),
-            *settings["bankClassic"].values(),
-            *settings["bankLogarithmic"].values(),
-            *settings["bankExponential"].values())
       bank = Bank(*settings["bank"].values(),
                   *settings["bankClassic"].values(),
                   *settings["bankLogarithmic"].values(),
                   *settings["bankExponential"].values())
       
-      orderdict = {}
-      for name in playernames:
+      orderdict = ["",]*len(playernames)
+      for i, name in enumerate(playernames):
         gamestarttileID = tilebag.drawtile()
-        orderdict[name] = gamestarttileID
         gamestarttile = tilebag.tileIDinterp([gamestarttileID])
         board.debug_tilesinplayorder.append(gamestarttile[0])
         # print(f'{name} drew {gamestarttile[0]}!')
-      personal_info_names = [tup[0] for tup in sorted(orderdict.items(), key=operator.itemgetter(1))]
+        orderdict[i] = (name, gamestarttileID)
+      personal_info_names = [tup[0] for tup in sorted(orderdict, key=operator.itemgetter(1))]
       
       from player import Player
       players = [Player(pName, *settings["player"].values()) for pName in personal_info_names]
+      print(personal_info_names, players)
       if HIDE_PERSONAL_INFO:
         for i, p in enumerate(players): p.name=f"Player {i+1}" 
       # print('Player order is:', *sortedplayers)
