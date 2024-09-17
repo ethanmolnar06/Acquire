@@ -8,15 +8,15 @@ class Board:
     self.tilesinplay = []
     self.deadducks = set()
     self.chaindict = {}
-
+  
   def fetchchainsize(self, chain: str):
     return sum(chainvalue == chain for chainvalue in self.chaindict.values())
-
+  
   def fetchactivechains(self): #returns a list
     activechains = {chainvalue for chainvalue in self.chaindict.values()}
     activechains = [chain for chain in tilebag.chainnames if chain in activechains]
     return activechains
-
+  
   def fetchsmallestchain(self):
     chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in self.fetchactivechains()]
     chainsizepairs.sort(key=lambda x: x[1])
@@ -26,7 +26,7 @@ class Board:
     chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in self.fetchactivechains()]
     chainsizepairs.sort(key=lambda x: x[1])
     return chainsizepairs[-1]
-
+  
   def fetchadjacent(self, tile: str): #tiles in play order may
     tileID = tilebag.tilesToIDs([tile])[0]
     adjacentIDs = [tileID - tilebag.rows, tileID-1, tileID+1, tileID+tilebag.rows]
@@ -35,12 +35,12 @@ class Board:
     adjacent = [check for check in adjacent if (check[:numbqnt] == tile[:numbqnt] or check[numbqnt:] == tile[numbqnt:])]
     adjinplay = [adj for adj in adjacent if adj in self.tilesinplay]
     return adjinplay
-
+  
   def chainsContained(self, tiles: list[str]):
     tileandchains = [self.chaindict[tile] for i, tile in enumerate(tiles) if tile in self.chaindict]
     tileflavors = list(set(tileandchains))
     return tileflavors
-
+  
   def tileplaymode(self, tile: str, bankdrawn: bool = False):
     adjinplay = self.fetchadjacent(tile)
     connectedChains = self.chainsContained(adjinplay)
@@ -52,7 +52,7 @@ class Board:
       return "expand", connectedChains[0]
     else:
       return "merge", connectedChains
-
+  
   def tileprop(self, tile: str, chainToSpread: str, targetChain: str | None = None, ignoreTile: str | tuple[str] = None):
     #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
     ignoreTile = ignoreTile[0] if type(ignoreTile) == tuple else ignoreTile
@@ -70,7 +70,7 @@ class Board:
       unchecked.update(iterToCheck)
       unchecked.difference_update(checked)
     return self.fetchchainsize(chainToSpread) - oldchainsize #growth of chain (new vs old)
-
+  
   def mergeCart_init(self, chainedonly: list[str]):
     chainsizepairs = [ [self.fetchchainsize(chain), chain] for chain in chainedonly ]
     chainsizepairs.sort(key=lambda x: x[0], reverse=True)
@@ -85,16 +85,16 @@ class Board:
       mergeCart = (mergeCart[:2], mergeCart[2:])
       chainoptions = (chainoptions[:2], chainoptions[2:])
     return (mergeCart, chainoptions) #mergeCart is sorted in order of size
-
+  
   def toobigtofail(self):
     toobig = [self.fetchchainsize(chain) >= 11 for chain in self.fetchactivechains()]
     return toobig if toobig != [] else [False]
-
+  
   def deadduckcheck(self, tile: str):
     adjinplay = self.fetchadjacent(tile)
     connectedChains = self.chainsContained(adjinplay)
     return len([chain for chain in connectedChains if chain in self.toobigtofail()]) > 1
-
+  
   def contraceptcheck(self, tiles: list[str], checkChainAvail: bool = False):
     makeBabies = [False]*len(tiles)
     for i, tile in enumerate(tiles):

@@ -144,7 +144,7 @@ class Bank:
     sortactiveIDs.sort()
     board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
     return None
-
+  
   def sellallstock(self, players: list[Player]):
     for chain in board.fetchactivechains():
       costper = self.stockcost(chain, board.fetchchainsize(chain))
