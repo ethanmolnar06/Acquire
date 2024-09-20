@@ -1,6 +1,7 @@
 import pygame
 import numpy as np
-from __main__ import screen, tilebag, bank, board
+from __main__ import screen
+from pregame import tilebag, bank, board
 from common import colors, fonts
 
 def tile_size_calc():
@@ -222,7 +223,7 @@ def draw_popup(subdraw_tag, drawinfo):
   elif subdraw_tag == 'defuncter':
     subdraw_output = draw_defuncter(popupInfo, drawinfo)
     closeable = True
-  elif subdraw_tag in ('loadSave', 'newGameInit', 'endGameConfirm', 'askToBuy'):
+  elif subdraw_tag in ('loadSave', 'setPlayerNamesLocal', 'endGameConfirm', 'askToBuy'):
     subdraw_output = draw_yesorno(popupInfo, subdraw_tag)
     closeable = False
   elif subdraw_tag == 'stockBuy':
@@ -599,7 +600,7 @@ def draw_yesorno(popupInfo, drawinfo):
 
   # Decide title text
   if drawinfo == 'loadSave': label_text = 'Would You Like to Load a Gamestate?'
-  elif drawinfo == 'newGameInit': label_text = 'Use Standard Settings?'
+  elif drawinfo == 'setPlayerNamesLocal': label_text = 'Use Standard Settings?'
   elif drawinfo == 'askToBuy': label_text = 'Would You Like to Buy Stock?'
   elif drawinfo == 'endGameConfirm': label_text = 'Would You Like to End the Game?'
   elif drawinfo == 'endGameStats': label_text = 'Would You Like to Show End Game Stats?'

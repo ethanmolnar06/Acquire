@@ -1,5 +1,5 @@
 import math
-from player import Player
+from objects.player import Player
 from pregame import tilebag, board, globalStats
 
 class Bank:
@@ -77,7 +77,7 @@ class Bank:
     
     realCost = costFunc(chain, size) * self.finalCostMultiplier + self.finalCostAdd
     maxCost = costFunc(chain, self.largeSize) * self.finalCostMultiplier + self.finalCostAdd
-    return round(min(maxCost, realCost), -2)
+    return int(round(min(maxCost, realCost), -2))
   
   def fetchcheapeststock(self):
     chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in board.fetchactivechains()]

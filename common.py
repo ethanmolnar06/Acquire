@@ -2,6 +2,14 @@ import datetime
 import os
 import pickle
 
+# GLOBAL GAME PERMISSIONS
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "silent"
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+HIDE_PERSONAL_INFO = False
+ALLOW_SAVES = True
+ALLOW_QUICKSAVES = True
+MAX_FRAMERATE = 120
+
 class Colors:
   def __init__(self):
     self.BLACK = (0, 0, 0)
@@ -60,6 +68,21 @@ def colortest(screen, clock, colors):
         colorLoop = False
         break
       clock.tick(1)
+
+def make_savestate(tilebag, board, globalStats, bank, players, personal_info_names, currentP):
+  if HIDE_PERSONAL_INFO:
+    for i, p in enumerate(players):
+      p.name = personal_info_names[i]
+  currentOrderP = players[players.index(currentP):] + players[:players.index(currentP)]
+  saveData = (bank,
+              currentOrderP,
+              globalStats,
+              board,
+              tilebag) # reverse unpack priority
+  if HIDE_PERSONAL_INFO:
+    for i, p in enumerate(players):
+      p.name = f"Player {i+1}"
+  return saveData, currentOrderP
 
 def write_save(dir_path, currentOrderP, globalStats, saveData, quicksave = False):
   date = datetime.date.isoformat(datetime.date.today())

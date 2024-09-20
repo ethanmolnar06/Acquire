@@ -1,9 +1,8 @@
 import pygame
 import plotly
-import numpy as np
 from io import BytesIO
-from __main__ import HIDE_PERSONAL_INFO, screen
-from common import colors, fonts
+from __main__ import screen
+from common import HIDE_PERSONAL_INFO, colors, fonts
 # plotly.io.kaleido.scope.mathjax = None
 
 def clear_screen():
@@ -30,8 +29,9 @@ def draw_fullscreenSelect(drawinfo):
   
   # Decide title text
   if drawinfo == 'hostJoin': label_text = 'Will you Host or Join a Game?'
-  elif drawinfo == 'loadSave': label_text = 'Would You Like to Load a Gamestate?'
-  elif drawinfo == 'newGameInit': label_text = 'Use Standard Settings?'
+  elif drawinfo == 'hostLocal': label_text = 'Will you Host Locally or on a Server?'
+  elif drawinfo == 'loadSave': label_text = 'Would You Like to Load a Save?'
+  elif drawinfo == 'setPlayerNamesLocal': label_text = 'Use Standard Settings?'
   elif drawinfo == 'askToBuy': label_text = 'Would You Like to Buy Stock?'
   elif drawinfo == 'endGameConfirm': label_text = 'Would You Like to End the Game?'
   elif drawinfo == 'makeSave': label_text = 'Would You Like to Save the Current Game?'
@@ -45,9 +45,9 @@ def draw_fullscreenSelect(drawinfo):
   screen.blit(label, label_rect)
   
   # Decide title text 
-  # TODO implement hostJoin comment by actually making the feature
-  if drawinfo == 'hostJoin': bianary_choices = ['Yes', 'Yes'] # bianary_choices = ['Host', 'Join']
-  elif drawinfo == 'newGameInit': bianary_choices = ['Yes', 'Yes']
+  if drawinfo == 'hostJoin': bianary_choices = ['Host', 'Join']
+  elif drawinfo == 'hostLocal': bianary_choices = ['Local', 'Server']
+  elif drawinfo == 'loadSave': bianary_choices = ['New Game', 'Load Save']
   else: bianary_choices = ['No', 'Yes']
   
   button_rects = []
@@ -146,7 +146,136 @@ def draw_selectSaveFile(drawinfo, saveinfo):
   
   return (directory_rect, savefile_rects, load_rect, noload_button_rect)
 
-def draw_newGameInit(player_names, clicked_textbox_int):
+# TODO flesh out over-Internet connections
+def draw_joinCode(ipTxtBx, clicked_textbox):
+  # Get the current window size and generate title font size
+  window_width, window_height = screen.get_size()
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Calculate the position of the title
+  pos_x = window_width // 2
+  pos_y = window_height // 60
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  label_text = "Enter Host IP"
+  
+  # Draw the title
+  label = font.render(label_text, 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x, pos_y)
+  screen.blit(label, label_rect)
+  
+  # Calculate text field sizing
+  text_field_width = window_width//2.5
+  text_field_height = window_height//6
+  text_field_width, text_field_height = int(text_field_width), int(text_field_height)
+  
+  pos_x = window_width//2 - text_field_width//2
+  pos_y = window_width//15 + text_field_height + window_width//30 
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  
+  text_field_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
+  pygame.draw.rect(screen, colors.GRAY, text_field_rect, 0)
+  
+  if clicked_textbox:
+    pygame.draw.rect(screen, colors.GREEN, text_field_rect, 4)
+  
+  # Render and blit the player name text on the text field
+  text_surface = font.render(ipTxtBx, True, colors.BLACK)
+  screen.blit(text_surface, (pos_x + 5, pos_y + 5))
+  
+  # Calculate the size of each button
+  button_chunk_width = int(window_width // 3)
+  button_chunk_height = int(window_height // 7)
+  
+  yesandno_rects = []
+  # Draw the button information
+  for i, text in enumerate(['Back', 'Connect']):
+    # Calculate the position of the buttons' top left corner
+    pos_x = (window_width // 12)*(6*i+1)
+    pos_y = 5 * window_height // 6
+    pos_x, pos_y = int(pos_x), int(pos_y)
+    
+    # Create a rectangle for the popup_select and add to popup_select_rects
+    button_rect = pygame.Rect(pos_x, pos_y, button_chunk_width, button_chunk_height)
+    yesandno_rects.append(button_rect)
+    
+    # Draw the popup_select
+    pygame.draw.rect(screen, [colors.RED, colors.GREEN][i], button_rect)
+    
+    # Draw the stock name
+    label = font.render(text, 1, colors.WHITE)
+    label_rect = label.get_rect()
+    label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
+    screen.blit(label, label_rect)
+  
+  return text_field_rect, yesandno_rects
+
+def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox):
+  # Get the current window size and generate title font size
+  window_width, window_height = screen.get_size()
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Calculate the position of the title
+  pos_x = window_width // 2
+  pos_y = window_height // 60
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  label_text = "Enter Your Username"
+  
+  # Draw the title
+  label = font.render(label_text, 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x, pos_y)
+  screen.blit(label, label_rect)
+  
+  # Calculate text field sizing
+  text_field_width = window_width//2.5
+  text_field_height = window_height//6
+  text_field_width, text_field_height = int(text_field_width), int(text_field_height)
+  
+  pos_x = window_width//2 - text_field_width//2
+  pos_y = window_width//15 + text_field_height + window_width//30 
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  
+  text_field_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
+  pygame.draw.rect(screen, colors.GRAY, text_field_rect, 0)
+  
+  if clicked_textbox:
+    pygame.draw.rect(screen, colors.GREEN, text_field_rect, 4)
+  
+  # Render and blit the player name text on the text field
+  text_surface = font.render(playernameTxtbx, True, colors.BLACK)
+  screen.blit(text_surface, (pos_x + 5, pos_y + 5))
+  
+  # Calculate the size of each button
+  button_chunk_width = int(window_width // 3)
+  button_chunk_height = int(window_height // 7)
+  
+  yesandno_rects = []
+  # Draw the button information
+  for i, text in enumerate(['Back', 'Confirm']):
+    # Calculate the position of the buttons' top left corner
+    pos_x = (window_width // 12)*(6*i+1)
+    pos_y = 5 * window_height // 6
+    pos_x, pos_y = int(pos_x), int(pos_y)
+    
+    # Create a rectangle for the popup_select and add to popup_select_rects
+    button_rect = pygame.Rect(pos_x, pos_y, button_chunk_width, button_chunk_height)
+    yesandno_rects.append(button_rect)
+    
+    # Draw the popup_select
+    pygame.draw.rect(screen, [colors.RED, colors.GREEN][i], button_rect)
+    
+    # Draw the stock name
+    label = font.render(text, 1, colors.WHITE)
+    label_rect = label.get_rect()
+    label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
+    screen.blit(label, label_rect)
+  
+  return text_field_rect, yesandno_rects
+
+def draw_setPlayerNamesLocal(player_names, clicked_textbox_int):
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -354,6 +483,78 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKe
     pygame.draw.rect(screen, [colors.RED, colors.GREEN][i], button_rect)
     
     # Draw the option text
+    label = font.render(text, 1, colors.WHITE)
+    label_rect = label.get_rect()
+    label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
+    screen.blit(label, label_rect)
+  
+  return text_field_rects, yesandno_rects
+
+def draw_waitingForJoin(clientMode, player_names, player_ready, clicked_textbox_int):
+  # Get the current window size and generate title font size
+  window_width, window_height = screen.get_size()
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Calculate the position of the title
+  pos_x = window_width // 2
+  pos_y = window_height // 60
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  label_text = "Lobby: Waiting for Players"
+  
+  # Draw the title
+  label = font.render(label_text, 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x, pos_y)
+  screen.blit(label, label_rect)
+  
+  # Calculate text field sizing
+  text_field_width = window_width//2.5
+  text_field_height = window_height//6
+  text_field_width, text_field_height = int(text_field_width), int(text_field_height)
+  
+  text_field_rects = []
+  numbcols = 2
+  for i in range(len(player_names)):
+    pos_x = window_width//2 + (((i%numbcols)-1) * text_field_width) + ((((i%numbcols)*numbcols)-1) * window_width//30)
+    pos_y = window_width//15 + text_field_height*(i//numbcols) + (window_width//30 * (i//numbcols))
+    pos_x, pos_y = int(pos_x), int(pos_y)
+    
+    text_field_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
+    pygame.draw.rect(screen, colors.GRAY, text_field_rect, 0)
+    text_field_rects.append(text_field_rect)
+    
+    if clientMode == "hostServer" and clicked_textbox_int == i:
+      pygame.draw.rect(screen, colors.GREEN, text_field_rect, 4)
+    
+    # Render and blit the player name text on the text field
+    text_surface = font.render(player_names[i], True, colors.GREEN if player_ready[i] else colors.BLACK)
+    screen.blit(text_surface, (pos_x + 5, pos_y + 5))
+  
+  # Calculate the size of each button
+  button_chunk_width = int(window_width // 3)
+  button_chunk_height = int(window_height // 7)
+  
+  yesandno_rects = []
+  # Draw the button information
+  yesandno_labels = ['Disconnect', 'Mark Ready']
+  if clientMode == "hostServer":
+    yesandno_labels = ['Kick Player', 'Start Game']
+  
+  for i, text in enumerate(yesandno_labels):
+    # Calculate the position of the buttons' top left corner
+    pos_x = (window_width // 12)*(6*i+1)
+    pos_y = 5 * window_height // 6
+    pos_x, pos_y = int(pos_x), int(pos_y)
+    
+    # Create a rectangle for the popup_select and add to popup_select_rects
+    button_rect = pygame.Rect(pos_x, pos_y, button_chunk_width, button_chunk_height)
+    yesandno_rects.append(button_rect)
+    
+    # Draw the popup_select
+    pygame.draw.rect(screen, [colors.RED, colors.GREEN][i], button_rect)
+    
+    # Draw the stock name
     label = font.render(text, 1, colors.WHITE)
     label_rect = label.get_rect()
     label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)

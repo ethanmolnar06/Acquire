@@ -1,10 +1,10 @@
 import pygame
 from plotly import graph_objects as ptgo
-from __main__ import HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES
-from common import write_save
+from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
+                   write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
-def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int, players: list, saveData: tuple, currentOrderP: list, globalStats, gameCompleted: bool):
+def postgame(screen: pygame.Surface, clock: pygame.time.Clock, players: list, saveData: tuple, currentOrderP: list, globalStats, gameCompleted: bool):
   pygame.display.set_caption('Postgame')
   postGaming = True
   forceRender = True
@@ -52,7 +52,7 @@ def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
             if yesorno_rect.collidepoint(pos):
               askMakeSave = False
               if i == 1:
-                write_save(dir_path, currentOrderP, globalStats, saveData)
+                write_save(DIR_PATH, currentOrderP, globalStats, saveData)
               else:
                 askShowStats = True
     
@@ -133,4 +133,4 @@ def postgame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
           if viewmode == "STATS": viewmode = "USER"
           else: viewmode = "STATS"
     
-    clock.tick(framerate)
+    clock.tick(MAX_FRAMERATE)

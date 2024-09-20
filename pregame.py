@@ -4,8 +4,9 @@ import pickle
 import text
 import operator
 from copy import deepcopy
-from __main__ import HIDE_PERSONAL_INFO
-from gui_fullscreen import draw_fullscreenSelect, draw_newGameInit, draw_selectSaveFile, draw_customSettings
+from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE
+from gui_fullscreen import draw_fullscreenSelect, draw_joinCode, draw_setPlayerNameJoin, \
+     draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_waitingForJoin
 
 stockGameSettings = {
   "board": {
@@ -19,6 +20,7 @@ stockGameSettings = {
     "Player Starting Stock": "0",
     "Player Starting Cash": "6000",
     "Player Tiles Held": "6",
+    "Max Players": "6",
   },
   "bank": {
     "Total Stock Per Chain": "25",
@@ -44,17 +46,23 @@ stockGameSettings = {
     "Exponential Power": "2",
     "Exponential Offset Reducer": "3",
   },
+  "playernames": ["",] * 6
 }
+longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values() if type(d) == dict])
 
-def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int):
+def config(screen: pygame.Surface, clock: pygame.time.Clock):
   global tilebag, board, globalStats, bank
   acquireSetup = True
   successfullBoot = False
   
   askHostJoin = True
+  askJoinCode = False
+  setPlayerNameJoin = False
+  askHostLocal = False
   askLoadSave = False
   selectSaveFile = False
-  newGameInit = False
+  setPlayerNamesLocal = False
+  setPlayerNameHost = False
   customSettings = False
   
   popup_open = False
@@ -62,18 +70,24 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
     # region Render Process
     # Clear the screen
     screen.fill((255, 255, 255))
-    #Draw ask to load savestate
+    #Draw depending on current state
     if askHostJoin:
       yesandno_rects = draw_fullscreenSelect('hostJoin')
+    elif askJoinCode:
+      text_field_rect, yesandno_rects = draw_joinCode(ipTxtbx, clicked_textbox)
+    elif setPlayerNameJoin or setPlayerNameHost:
+      text_field_rect, yesandno_rects = draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox)
+    elif askHostLocal:
+      yesandno_rects = draw_fullscreenSelect('hostLocal')
     elif askLoadSave:
       yesandno_rects = draw_fullscreenSelect('loadSave')
     elif selectSaveFile:
       drawinfo = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
       saveinfo = (saves_path, savefiles)
       save_rects_vec = draw_selectSaveFile(drawinfo, saveinfo)
-      directory_rect, savefile_rects, load_rect, noload_button_rect = save_rects_vec
-    elif newGameInit:
-      text_field_rects, yesandno_rects = draw_newGameInit(playerNameTxtbxs, clicked_textbox_int)
+      directory_rect, savefile_rects, load_rect, back_button_rect = save_rects_vec
+    elif setPlayerNamesLocal:
+      text_field_rects, yesandno_rects = draw_setPlayerNamesLocal(settings["playernames"], clicked_textbox_int)
     elif customSettings:
       drawnSettings = {**settings["board"], **settings["player"], **settings["bank"]}
       if settings["bank"]["Stock Pricing Function"] in {"Logarithmic", "Exponential"}:
@@ -88,7 +102,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
     event = pygame.event.poll()
     if event.type == pygame.QUIT:
       acquireSetup = False
-      return successfullBoot, None, None, None, None, None, None
+      return successfullBoot, None, None, None
     elif event.type == pygame.VIDEORESIZE:
       # Update the window size
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
@@ -99,17 +113,77 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         # Get the mouse position
         pos = pygame.mouse.get_pos()
         if not popup_open:
-          # Check if askToBuy was clicked
+          # Check if askHostJoin was clicked
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
               askHostJoin = False
               if i == 1:
-                # TODO join host logic
-                askLoadSave = True
+                askJoinCode = True
+                ipTxtbx = ""
+                clicked_textbox = False
               else:
-                # Host Logic
-                askLoadSave = True
-   
+                askHostLocal = True
+    
+    # possibly rework to make ip "." static on display
+    # format ip as 4 sets of up to 3 digit numbers
+    # or use join codes -> url -> ip tunnel
+    elif askJoinCode:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        clicked_textbox = False
+        # Get the mouse position
+        pos = pygame.mouse.get_pos()
+        if text_field_rect.collidepoint(pos):
+          clicked_textbox = True
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              askJoinCode = False
+              askHostJoin = True
+            else:
+              # TODO valid ip checker
+              if not popup_open and len(ipTxtbx) >= 7: # minimum 0.0.0.0 ip length
+                askJoinCode = False
+                setPlayerNameJoin = True
+                playernameTxtbx = ""
+      elif event.type == pygame.KEYDOWN and clicked_textbox and pygame.key.get_focused():
+        ipTxtbx = text.interface("ip", ipTxtbx)
+    
+    elif setPlayerNameJoin:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        clicked_textbox = False
+        # Get the mouse position
+        pos = pygame.mouse.get_pos()
+        if text_field_rect.collidepoint(pos):
+          clicked_textbox = True
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              setPlayerNameJoin = False
+              askHostJoin = True
+            else:
+              if not popup_open and len(playernameTxtbx) >= 2:
+                setPlayerNameJoin = False
+                clientMode = "join"
+                newGame = (ipTxtbx, playernameTxtbx)
+                saveData = None
+      elif event.type == pygame.KEYDOWN and clicked_textbox and pygame.key.get_focused():
+        playernameTxtbx = text.interface("playername", playernameTxtbx)
+    
+    elif askHostLocal:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = pygame.mouse.get_pos()
+        if not popup_open:
+          # Check if askHostJoin was clicked
+          for i, yesorno_rect in enumerate(yesandno_rects):
+            if yesorno_rect.collidepoint(pos):
+              askHostLocal = False
+              askLoadSave = True
+              if i == 1:
+                clientMode = "hostServer"
+              else:
+                clientMode = "hostLocal"
+    
     elif askLoadSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
@@ -119,17 +193,18 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
               askLoadSave = False
-              playerNameTxtbxs = [''] * 6 #this int sets the max number of players
               if i == 1:
                 selectSaveFile = True
-                saves_path = dir_path + r'\saves'
-                savefiles = os.listdir(dir_path + r'\saves')
+                newGame = None
+                saves_path = DIR_PATH + r'\saves'
+                savefiles = os.listdir(DIR_PATH + r'\saves')
                 hover_directory, clicked_directory = [False]*2
                 hover_save_int, clicked_save_int = [None]*2
               else:
-                newGameInit = True
-                pygame.key.set_repeat(500, 50) #time in ms
-                clicked_textbox_int = None
+                customSettings = True
+                saveData = None
+                clicked_textbox_key = None
+                settings = deepcopy(stockGameSettings)
     
     elif selectSaveFile:
       # Get the mouse position
@@ -147,9 +222,9 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         else:
           hover_save_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
-        if noload_button_rect.collidepoint(pos):
+        if back_button_rect.collidepoint(pos):
           selectSaveFile = False
-          newGameInit = True
+          askHostJoin = True
           clicked_textbox_int = None
         if hover_directory:
           clicked_directory = not clicked_directory
@@ -170,32 +245,8 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
               p.name = f"Player {i+1}"
           else: 
             personal_info_names = None
+          saveData = (tilebag, board, globalStats, bank, players, personal_info_names)
           selectSaveFile = False
-    
-    elif newGameInit:
-      if event.type == pygame.MOUSEBUTTONDOWN:
-        # Get the mouse position
-        pos = pygame.mouse.get_pos()
-        for i, text_field_rect in enumerate(text_field_rects):
-          clicked_textbox_int = None
-          if text_field_rect.collidepoint(pos):
-            clicked_textbox_int = i
-            break
-        if not popup_open and sum(['' != box for box in playerNameTxtbxs]) >= 2:
-          # minimum names filled, check for click to go to settings
-          for i, yesorno_rect in enumerate(yesandno_rects):
-            if yesorno_rect.collidepoint(pos):
-              newGameInit = False
-              playernames = [pname for pname in playerNameTxtbxs if pname != '']
-              settings = deepcopy(stockGameSettings)
-              if i == 0:
-                customSettings = True
-                pygame.key.set_repeat(500, 50) #time in ms
-                clicked_textbox_key = None
-                longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values()])
-              break
-      elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
-        playerNameTxtbxs, clicked_textbox_int = text.interface("playerName", (playerNameTxtbxs, clicked_textbox_int))
     
     elif customSettings:
       if event.type == pygame.MOUSEBUTTONDOWN:
@@ -213,45 +264,188 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
                 settings = deepcopy(stockGameSettings)
               else:
                 customSettings = False
+                if clientMode == "hostLocal":
+                  setPlayerNamesLocal = True
+                  clicked_textbox_int = None
+                  settings["playernames"] = ["",] * int(settings["player"]["Max Players"])
+                else:
+                  setPlayerNameHost = True
       elif event.type == pygame.KEYDOWN and clicked_textbox_key is not None and pygame.key.get_focused():
         settings, clicked_textbox_key = text.interface("customSettings", (settings, clicked_textbox_key, list(drawnSettings.keys())))
     
-    else: #prep for game startup
-      from tilebag import TileBag
-      tilebag = TileBag(*settings["board"].values())
-      from stats import Stats
-      globalStats = Stats(globalStats=True)
-      from board import Board
-      board = Board(settings["bank"]["Chain Size Cost Cap"])
-      from bank import Bank
-      bank = Bank(*settings["bank"].values(),
-                  *settings["bankClassic"].values(),
-                  *settings["bankLogarithmic"].values(),
-                  *settings["bankExponential"].values())
-      
-      from player import Player
-      order = []
-      for name in playernames:
-        gamestarttileID = tilebag.drawtile()
-        gamestarttile = tilebag.tileIDinterp([gamestarttileID])
-        board.debug_tilesinplayorder.append(gamestarttile[0])
-        # print(f'{name} drew {gamestarttile[0]}!')
-        order.append( (Player(name, *settings["player"].values()), gamestarttile) )
-      players: list[Player] = [tup[0] for tup in sorted(order, key=operator.itemgetter(1))]
-      
-      personal_info_names = [p.name for p in players]
-      if HIDE_PERSONAL_INFO:
-        for i, p in enumerate(players): p.name=f"Player {i+1}" 
-      # print('Player order is:', *sortedplayers)
-      for p in players:
-        p.drawtile(p.tileQuant)
-      sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
-      sortactiveIDs.sort()
-      board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
-      
-      pygame.display.set_caption('Acquire Board')
-      acquireSetup = False
-      successfullBoot = True
+    elif setPlayerNamesLocal:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = pygame.mouse.get_pos()
+        for i, text_field_rect in enumerate(text_field_rects):
+          clicked_textbox_int = None
+          if text_field_rect.collidepoint(pos):
+            clicked_textbox_int = i
+            break
+        if not popup_open and sum(['' != box for box in settings["playernames"]]) >= 2:
+          # minimum names filled, check for click to go to settings
+          for i, yesorno_rect in enumerate(yesandno_rects):
+            if yesorno_rect.collidepoint(pos):
+              setPlayerNamesLocal = False
+              if i == 0:
+                customSettings = True
+                clicked_textbox_key = None
+      elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
+        settings["playernames"], clicked_textbox_int = text.interface("playerNames", (settings["playernames"], clicked_textbox_int))
     
-    clock.tick(framerate)
-  return successfullBoot, tilebag, board, bank, players, personal_info_names, globalStats
+    elif setPlayerNameHost:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        clicked_textbox = False
+        # Get the mouse position
+        pos = pygame.mouse.get_pos()
+        if text_field_rect.collidepoint(pos):
+          clicked_textbox = True
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              setPlayerNameHost = False
+              askHostJoin = True
+            else:
+              if not popup_open and len(playernameTxtbx) >= 2:
+                setPlayerNameHost = False
+                settings["playernames"][0] = playernameTxtbx
+                saveData = None
+      elif event.type == pygame.KEYDOWN and clicked_textbox and pygame.key.get_focused():
+        playernameTxtbx = text.interface("playername", playernameTxtbx)
+    
+    else: #prep for game startup
+      if saveData is None and clientMode in {"hostServer", "hostLocal"}:
+        from objects.tilebag import TileBag
+        tilebag = TileBag(*settings["board"].values())
+        from objects.board import Board
+        board = Board(settings["bank"]["Chain Size Cost Cap"])
+        from objects.stats import Stats
+        globalStats = Stats(globalStats=True)
+        from objects.bank import Bank
+        bank = Bank(*settings["bank"].values(),
+                    *settings["bankClassic"].values(),
+                    *settings["bankLogarithmic"].values(),
+                    *settings["bankExponential"].values())
+        if clientMode == "hostServer":
+          newGame = (tilebag, board, globalStats, bank, settings["player"], settings["playernames"])
+        else:
+          from objects.player import Player
+          order = []
+          settings["playernames"] = [name for name in settings["playernames"] if name != ""]
+          for name in settings["playernames"]:
+            gamestarttileID = tilebag.drawtile()
+            gamestarttile = tilebag.tileIDinterp([gamestarttileID])
+            board.debug_tilesinplayorder.append(gamestarttile[0])
+            # print(f'{name} drew {gamestarttile[0]}!')
+            order.append((Player(name, *settings["player"].values()), gamestarttile))
+          players: list[Player] = [tup[0] for tup in sorted(order, key=operator.itemgetter(1))]
+          personal_info_names = [p.name for p in players]
+          if HIDE_PERSONAL_INFO:
+            for i, p in enumerate(players): p.name=f"Player {i+1}" 
+          # print('Player order is:', *sortedplayers)
+          for p in players:
+            p.drawtile(p.tileQuant)
+          sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
+          sortactiveIDs.sort()
+          board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
+          newGame = (tilebag, board, globalStats, bank, players, personal_info_names)
+        
+        acquireSetup = False
+        successfullBoot = True
+        return successfullBoot, clientMode, newGame, saveData
+    
+    clock.tick(MAX_FRAMERATE)
+
+
+from gui_fullscreen import draw_waitingForJoin
+from networking import DISCONN, send, fetch_updates, propagate
+
+def lobby(screen: pygame.Surface, clock: pygame.time.Clock, conn_dict, clientMode, newGame, saveData):
+  from objects.player import Player
+  
+  if saveData is None:
+    tilebag, board, globalStats, bank, playersettings, playernames = newGame
+  else:
+    tilebag, board, globalStats, players, personal_info_names, bank = saveData
+    playernames = ["",] * len(players)
+  player_ready = [False,] * len(playernames)
+  
+  waitingForJoin = True
+  
+  popup_open = False
+  while waitingForJoin:
+    # update gamestate via conn
+    u = fetch_updates(conn_dict)
+    if u:
+      for addr, d in u:
+        # valid actions: set
+        if clientMode == "hostServer": 
+          if saveData is None:
+            conn_dict[addr]["player"] = Player(d["data"], playersettings.values())
+            playernames.append(d["data"])
+            print(f"player {d["data"]} created")
+          else:
+            for p in players:
+              # TODO improve saved player selection
+              if p.name == d["data"]:
+                conn_dict[addr]["player"] = p
+                playernames.append(d["data"])
+                print(f"player {d["data"]} assigned")
+          propagate(conn_dict, None, playernames)
+        else:
+          playernames = d
+        conn_dict[addr]["data"] = None
+    
+    # region Render Process
+    # Clear the screen
+    screen.fill((255, 255, 255))
+    #Draw depending on current state
+    text_field_rects, yesandno_rects = draw_waitingForJoin(clientMode, playernames, player_ready, clicked_textbox_int)
+    # Update the display
+    pygame.display.flip()
+    # endregion
+    
+    # region Handle common events
+    event = pygame.event.poll()
+    if event.type == pygame.QUIT:
+      waitingForJoin = False
+    elif event.type == pygame.VIDEORESIZE:
+      # Update the window size
+      screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+    # endregion
+    
+    if event.type == pygame.MOUSEBUTTONDOWN:
+      # Get the mouse position
+      pos = pygame.mouse.get_pos()
+      for i, text_field_rect in enumerate(text_field_rects):
+        clicked_textbox_int = None
+        if text_field_rect.collidepoint(pos):
+          clicked_textbox_int = i
+          break
+      
+      for i, yesorno_rect in enumerate(yesandno_rects):
+        if yesorno_rect.collidepoint(pos):
+          if clientMode == "hostServer":
+            if i == 0:
+              # kick player
+              pass
+            else:
+              # minimum names filled, start game
+              if not popup_open and sum(['' != box for box in playernames]) >= 2:
+                pass
+            
+          else:
+            if i == 0:
+              # disconnect
+              send(DISCONN)
+              pass
+            else:
+              # mark ready
+              pass
+            
+    elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
+      playernames, clicked_textbox_int = text.interface("playerNames", (playernames, clicked_textbox_int))
+    
+    
+    
+  clock.tick(MAX_FRAMERATE)

@@ -1,8 +1,8 @@
 from pregame import tilebag, board
-from stats import Stats
+from objects.stats import Stats
 
 class Player:
-  def __init__(self, name: str, startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6):
+  def __init__(self, name: str, startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6, maxPlayers = 6):
     self.name = name
     self.tiles = []
     self.tileQuant = int(tileQuant)
