@@ -2,70 +2,79 @@ import pygame
 import os
 import pickle
 import text
-import operator
-from copy import deepcopy
-from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE
+from copy import copy, deepcopy
+from uuid import UUID
+
+from objects.tilebag import TileBag
+from objects.board import Board
+from objects.player import Player
+from objects.bank import Bank
+
+from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
+                   pack_save, unpack_save
 from gui_fullscreen import draw_fullscreenSelect, draw_joinCode, draw_setPlayerNameJoin, \
-     draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_waitingForJoin
+     draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_waitingForJoin, \
+     draw_selectPlayerFromSave
 
-stockGameSettings = {
-  "board": {
-    "Board Length": "12",
-    "Board Height": "9",
-    "Economy Chains": "2",
-    "Standard Chains": "3",
-    "Luxury Chains": "2",
-  },
-  "player": {
-    "Player Starting Stock": "0",
-    "Player Starting Cash": "6000",
-    "Player Tiles Held": "6",
-    "Max Players": "6",
-  },
-  "bank": {
-    "Total Stock Per Chain": "25",
-    "Global Cost Offset": "0",
-    "Global Cost Multiplier": "1",
-    "Stock Pricing Function": "Classic",
-    "Linear Cost Slope": "100",
-    "Prestige Fee": "100",
-    "Chain Size Cost Cap": "41",
-  },
-  "bankClassic": {
-    "Chain Size Boundary": "5",
-  },
-  "bankLinear": {
-    "Linear Cost Offset": "600",
-  },
-  "bankLogarithmic": {
-    "Pre-Logarithm Stretch": "1.5",
-    "Logarithmic Base": "2.6",
-  },
-  "bankExponential": {
-    "Pre-Exponential Divisor": "240",
-    "Exponential Power": "2",
-    "Exponential Offset Reducer": "3",
-  },
-  "playernames": ["",] * 6
-}
-longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values() if type(d) == dict])
-
-def config(screen: pygame.Surface, clock: pygame.time.Clock):
-  global tilebag, board, globalStats, bank
-  acquireSetup = True
-  successfullBoot = False
+def config(screen: pygame.Surface, clock: pygame.time.Clock) -> tuple[bool, str, bool | None, bytes | tuple[str, str]]:
+  stockGameSettings = {
+    "board": {
+      "Board Length": "12",
+      "Board Height": "9",
+      "Economy Chains": "2",
+      "Standard Chains": "3",
+      "Luxury Chains": "2",
+    },
+    "player": {
+      "Player Starting Stock": "0",
+      "Player Starting Cash": "6000",
+      "Player Tiles Held": "6",
+      "Max Players": "6",
+    },
+    "bank": {
+      "Total Stock Per Chain": "25",
+      "Global Cost Offset": "0",
+      "Global Cost Multiplier": "1",
+      "Stock Pricing Function": "Classic",
+      "Linear Cost Slope": "100",
+      "Prestige Fee": "100",
+      "Chain Size Cost Cap": "41",
+    },
+    "bankClassic": {
+      "Chain Size Boundary": "5",
+    },
+    "bankLinear": {
+      "Linear Cost Offset": "600",
+    },
+    "bankLogarithmic": {
+      "Pre-Logarithm Stretch": "1.5",
+      "Logarithmic Base": "2.6",
+    },
+    "bankExponential": {
+      "Pre-Exponential Divisor": "240",
+      "Exponential Power": "2",
+      "Exponential Offset Reducer": "3",
+    },
+    "playernames": ["",] * 6
+  }
+  longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values() if type(d) == dict])
   
-  askHostJoin = True
-  askJoinCode = False
-  setPlayerNameJoin = False
-  askHostLocal = False
-  askLoadSave = False
-  selectSaveFile = False
-  setPlayerNamesLocal = False
-  setPlayerNameHost = False
-  customSettings = False
+  acquireSetup: bool = True
+  successfullBoot: bool = False
+  newGame: bool | None = None
   
-  popup_open = False
+  askHostJoin: bool = True
+  askJoinCode: bool = False
+  setPlayerNameJoin: bool = False
+  askHostLocal: bool = False
+  askLoadSave: bool = False
+  selectSaveFile: bool = False
+  selectPlayerFromSave: bool = False
+  setPlayerNamesLocal: bool = False
+  setPlayerNameHost: bool = False
+  customSettings: bool = False
+  
+  popup_open: bool = False
   while acquireSetup:
     # region Render Process
     # Clear the screen
@@ -86,6 +95,9 @@ def config(screen: pygame.Surface, clock: pygame.time.Clock):
       saveinfo = (saves_path, savefiles)
       save_rects_vec = draw_selectSaveFile(drawinfo, saveinfo)
       directory_rect, savefile_rects, load_rect, back_button_rect = save_rects_vec
+    elif selectPlayerFromSave:
+      drawinfo = (hover_player_int, clicked_player_int)
+      player_rects, load_rect = draw_selectPlayerFromSave(drawinfo, players)
     elif setPlayerNamesLocal:
       text_field_rects, yesandno_rects = draw_setPlayerNamesLocal(settings["playernames"], clicked_textbox_int)
     elif customSettings:
@@ -164,8 +176,8 @@ def config(screen: pygame.Surface, clock: pygame.time.Clock):
               if not popup_open and len(playernameTxtbx) >= 2:
                 setPlayerNameJoin = False
                 clientMode = "join"
-                newGame = (ipTxtbx, playernameTxtbx)
-                saveData = None
+                newGame = None 
+                saveData = (ipTxtbx, playernameTxtbx)
       elif event.type == pygame.KEYDOWN and clicked_textbox and pygame.key.get_focused():
         playernameTxtbx = text.interface("playername", playernameTxtbx)
     
@@ -195,14 +207,14 @@ def config(screen: pygame.Surface, clock: pygame.time.Clock):
               askLoadSave = False
               if i == 1:
                 selectSaveFile = True
-                newGame = None
+                newGame = False
                 saves_path = DIR_PATH + r'\saves'
                 savefiles = os.listdir(DIR_PATH + r'\saves')
                 hover_directory, clicked_directory = [False]*2
                 hover_save_int, clicked_save_int = [None]*2
               else:
                 customSettings = True
-                saveData = None
+                newGame = True
                 clicked_textbox_key = None
                 settings = deepcopy(stockGameSettings)
     
@@ -231,22 +243,31 @@ def config(screen: pygame.Surface, clock: pygame.time.Clock):
         elif clicked_directory and hover_save_int is not None:
           clicked_save_int = (hover_save_int if clicked_save_int != hover_save_int else None)
         elif clicked_save_int is not None and load_rect.collidepoint(pos):
+          selectSaveFile = False
           savefile = savefiles[clicked_save_int]
           with open(rf'{saves_path}\{savefile}', 'rb') as file:
-            data = pickle.load(file)
-            datarem, tilebag = pickle.loads(data)
-            datarem, board = pickle.loads(datarem)
-            datarem, globalStats = pickle.loads(datarem)
-            datarem, players = pickle.loads(datarem)
-            _, bank = pickle.loads(datarem)
-          if HIDE_PERSONAL_INFO:
-            personal_info_names = [p.name for p in players]
-            for i, p in enumerate(players):
-              p.name = f"Player {i+1}"
-          else: 
-            personal_info_names = None
-          saveData = (tilebag, board, globalStats, bank, players, personal_info_names)
-          selectSaveFile = False
+            saveData = pickle.load(file)
+          
+          selectPlayerFromSave = True
+          tilebag, board, players, bank, _ = unpack_save(saveData, ignore_PIN=True, clearConns=True)
+          hover_save_int, clicked_save_int = [None]*2
+    
+    elif selectPlayerFromSave:
+      # Get the mouse position
+      pos = pygame.mouse.get_pos()
+      for i, player_rect in enumerate(player_rects):
+        if player_rect.collidepoint(pos):
+          hover_player_int = i
+          break
+        else:
+          hover_player_int = None
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        if hover_save_int is not None:
+          clicked_player_int = (hover_save_int if clicked_player_int != hover_save_int else None)
+        elif clicked_save_int is not None and load_rect.collidepoint(pos):
+          selectPlayerFromSave = False
+          players[clicked_save_int].__setConn(Connection("host"))
+          saveData = pack_save(tilebag, board, players, bank)
     
     elif customSettings:
       if event.type == pygame.MOUSEBUTTONDOWN:
@@ -270,6 +291,8 @@ def config(screen: pygame.Surface, clock: pygame.time.Clock):
                   settings["playernames"] = ["",] * int(settings["player"]["Max Players"])
                 else:
                   setPlayerNameHost = True
+                  playernameTxtbx = ""
+                  clicked_textbox = None
       elif event.type == pygame.KEYDOWN and clicked_textbox_key is not None and pygame.key.get_focused():
         settings, clicked_textbox_key = text.interface("customSettings", (settings, clicked_textbox_key, list(drawnSettings.keys())))
     
@@ -314,93 +337,104 @@ def config(screen: pygame.Surface, clock: pygame.time.Clock):
         playernameTxtbx = text.interface("playername", playernameTxtbx)
     
     else: #prep for game startup
-      if saveData is None and clientMode in {"hostServer", "hostLocal"}:
-        from objects.tilebag import TileBag
+      if newGame:
         tilebag = TileBag(*settings["board"].values())
-        from objects.board import Board
-        board = Board(settings["bank"]["Chain Size Cost Cap"])
-        from objects.stats import Stats
-        globalStats = Stats(globalStats=True)
-        from objects.bank import Bank
-        bank = Bank(*settings["bank"].values(),
+        board = Board(tilebag, settings["bank"]["Chain Size Cost Cap"])
+        players: list[Player] = []
+        for name in [p for p in settings["playernames"] if p != ""]:
+          players.append(Player(tilebag, board, name, 
+                                *settings["player"].values()))
+        bank = Bank(tilebag, board,
+                    *settings["bank"].values(),
                     *settings["bankClassic"].values(),
                     *settings["bankLogarithmic"].values(),
                     *settings["bankExponential"].values())
-        if clientMode == "hostServer":
-          newGame = (tilebag, board, globalStats, bank, settings["player"], settings["playernames"])
-        else:
-          from objects.player import Player
-          order = []
-          settings["playernames"] = [name for name in settings["playernames"] if name != ""]
-          for name in settings["playernames"]:
-            gamestarttileID = tilebag.drawtile()
-            gamestarttile = tilebag.tileIDinterp([gamestarttileID])
-            board.debug_tilesinplayorder.append(gamestarttile[0])
-            # print(f'{name} drew {gamestarttile[0]}!')
-            order.append((Player(name, *settings["player"].values()), gamestarttile))
-          players: list[Player] = [tup[0] for tup in sorted(order, key=operator.itemgetter(1))]
-          personal_info_names = [p.name for p in players]
-          if HIDE_PERSONAL_INFO:
-            for i, p in enumerate(players): p.name=f"Player {i+1}" 
-          # print('Player order is:', *sortedplayers)
-          for p in players:
-            p.drawtile(p.tileQuant)
-          sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
-          sortactiveIDs.sort()
-          board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
-          newGame = (tilebag, board, globalStats, bank, players, personal_info_names)
-        
-        acquireSetup = False
-        successfullBoot = True
-        return successfullBoot, clientMode, newGame, saveData
+        saveData, _ = pack_save(tilebag, board, players, bank)
+      
+      acquireSetup = False
+      successfullBoot = True
+      return successfullBoot, clientMode, newGame, saveData
     
     clock.tick(MAX_FRAMERATE)
 
+from networking import DISCONN, Command, Connection, send, fetch_updates, propagate
 
-from gui_fullscreen import draw_waitingForJoin
-from networking import DISCONN, send, fetch_updates, propagate
-
-def lobby(screen: pygame.Surface, clock: pygame.time.Clock, conn_dict, clientMode, newGame, saveData):
-  from objects.player import Player
+def lobby(screen: pygame.Surface, clock: pygame.time.Clock, conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool, saveData: bytes):  
+  tilebag, board, players, bank, _ = unpack_save(saveData, ignore_PIN=True)
   
-  if saveData is None:
-    tilebag, board, globalStats, bank, playersettings, playernames = newGame
-  else:
-    tilebag, board, globalStats, players, personal_info_names, bank = saveData
-    playernames = ["",] * len(players)
-  player_ready = [False,] * len(playernames)
+  if clientMode == "hostLocal":
+    return conn_dict, saveData
   
   waitingForJoin = True
   
+  selectPlayerFromSave = False
+  
+  playernames = ["",] * len(players)
+  player_ready = [False,] * len(playernames)
+  clicked_textbox_int: int | None = None
+  
+  if clientMode == "join":
+    selectPlayerFromSave = True
+    unclaimed_players: list[Player] = [p for p in players if p.conn is None]
+    hover_save_int, clicked_save_int = [None]*2
+  else:
+    playernames = [p.name for p in players if p.conn is not None]
+  
   popup_open = False
   while waitingForJoin:
-    # update gamestate via conn
+    # region check for updates over network
     u = fetch_updates(conn_dict)
     if u:
-      for addr, d in u:
-        # valid actions: set
-        if clientMode == "hostServer": 
-          if saveData is None:
-            conn_dict[addr]["player"] = Player(d["data"], playersettings.values())
-            playernames.append(d["data"])
-            print(f"player {d["data"]} created")
-          else:
-            for p in players:
-              # TODO improve saved player selection
-              if p.name == d["data"]:
-                conn_dict[addr]["player"] = p
-                playernames.append(d["data"])
-                print(f"player {d["data"]} assigned")
-          propagate(conn_dict, None, playernames)
+      for uuid, d in u:
+        if d.dump() == "set server connection" and d.val == DISCONN:
+          print(f"{conn_dict[uuid].addr} disconnected.")
+          
+          for p in players:
+            if p.conn.uuid == uuid or p.uuid == uuid:
+              playernames.remove(p.name)
+              if newGame:
+                players.remove(p)
+          
+          conn_dict[uuid].thread.kill()
+          del conn_dict[uuid]
+        
+        if clientMode == "hostServer":
+          if d.dump() == "set player name":
+            if newGame: # d.val is str
+              newplayer: Player = copy(players[0])
+              newplayer.name = d.val
+              players.append(newplayer)
+            else: # d.val is UUID
+              # theorhetically, there should be no uuid4 collisions...
+              newplayer = [p for p in players if p.uuid == d.val][0]
+            
+            newplayer.__setConn(conn_dict[uuid])
+            playernames.append(newplayer.name)
+            print(f"player {newplayer.name} joined")
+          
+          saveData = pack_save(tilebag, board, players, bank)
+          propagate(conn_dict, None, Command("set", "client", "saveData", saveData))
+          
         else:
-          playernames = d
-        conn_dict[addr]["data"] = None
+          if d.dump() == "set client saveData":
+            saveData = d.val
+            tilebag, board, players, bank, _ = unpack_save(saveData, ignore_PIN=True)
+            unclaimed_players: list[Player] = [p for p in players if p.conn is None]
+        
+        # clear processed data
+        conn_dict[uuid].data = None
+      
+    # endregion
     
     # region Render Process
     # Clear the screen
     screen.fill((255, 255, 255))
     #Draw depending on current state
-    text_field_rects, yesandno_rects = draw_waitingForJoin(clientMode, playernames, player_ready, clicked_textbox_int)
+    if selectPlayerFromSave:
+      drawinfo = (hover_player_int, clicked_player_int)
+      player_rects, load_rect = draw_selectPlayerFromSave(drawinfo, unclaimed_players)
+    else:
+      text_field_rects, yesandno_rects = draw_waitingForJoin(clientMode, playernames, player_ready, clicked_textbox_int)
     # Update the display
     pygame.display.flip()
     # endregion
@@ -413,6 +447,22 @@ def lobby(screen: pygame.Surface, clock: pygame.time.Clock, conn_dict, clientMod
       # Update the window size
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
     # endregion
+    
+    elif selectPlayerFromSave:
+      # Get the mouse position
+      pos = pygame.mouse.get_pos()
+      for i, player_rect in enumerate(player_rects):
+        if player_rect.collidepoint(pos):
+          hover_player_int = i
+          break
+        else:
+          hover_player_int = None
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        if hover_save_int is not None:
+          clicked_player_int = (hover_save_int if clicked_player_int != hover_save_int else None)
+        elif clicked_save_int is not None and load_rect.collidepoint(pos):
+          selectPlayerFromSave = False
+          send(conn_dict["Server"]["socket"], Command("set", "player", "name", unclaimed_players[clicked_player_int].uuid))
     
     if event.type == pygame.MOUSEBUTTONDOWN:
       # Get the mouse position
@@ -433,19 +483,18 @@ def lobby(screen: pygame.Surface, clock: pygame.time.Clock, conn_dict, clientMod
               # minimum names filled, start game
               if not popup_open and sum(['' != box for box in playernames]) >= 2:
                 pass
-            
           else:
             if i == 0:
-              # disconnect
-              send(DISCONN)
-              pass
+              send(conn_dict["Server"]["socket"], Command("set", "server", "connection", DISCONN))
             else:
               # mark ready
               pass
-            
     elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
       playernames, clicked_textbox_int = text.interface("playerNames", (playernames, clicked_textbox_int))
     
     
-    
-  clock.tick(MAX_FRAMERATE)
+    clock.tick(MAX_FRAMERATE)
+  
+  return conn_dict, saveData
+  
+  

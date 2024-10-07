@@ -1,9 +1,12 @@
 import math
+from objects.tilebag import TileBag
+from objects.board import Board
 from objects.player import Player
-from pregame import tilebag, board, globalStats
+from objects.stats import Stats
 
 class Bank:
-  def __init__(self, startingStockNumber: int = 25, finalCostAdd: float = 0., finalCostMultiplier: float = 1.,
+  def __init__(self, tilebag: TileBag, board:Board,
+               startingStockNumber: int = 25, finalCostAdd: float = 0., finalCostMultiplier: float = 1.,
                sizeCostFunc = "Classic", sizeCostRate: float = 100., fancyCostRate: float = 100., largeSize: int = 41, 
                smallSize: int = 5, 
                theDadTax: float = 600.,
@@ -11,10 +14,13 @@ class Bank:
                expnDivisor: float = 240., expnPower: float = 2., expnOffsetReduc: float = 3.,
                ):
     #valid sizeCostFunc, from least to most expensive: Logarithmic, Classic, Linear, Exponential
+    self.tilebag = tilebag
+    self.board = board
     self.name = 'The Stock Market'
     self.balance = 'Balance: Unlimited'
     self.bal = 0
     self.stocks = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
+    self.stats = Stats(tilebag.chainnames, int(startingStockNumber), self.bal, True)
     # region custom settings args to attributes
     self.sizeCostFunc = sizeCostFunc
     self.smallSize = int(smallSize)
@@ -41,9 +47,9 @@ class Bank:
       else:
         sizecost = ((size - self.smallSize + 4)//10 + self.smallSize + 1)*self.sizeCostRate
       
-      if chain in tilebag.chainTierGrouped['cheap']:
+      if chain in self.tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
-      elif chain in tilebag.chainTierGrouped['med']:
+      elif chain in self.tilebag.chainTierGrouped['med']:
         fancycost = 1*self.fancyCostRate
       else:
         fancycost = 2*self.fancyCostRate
@@ -52,9 +58,9 @@ class Bank:
     def linearCost(chain, size):
       sizecost = self.sizeCostRate*size + self.theDadTax
       
-      if chain in tilebag.chainTierGrouped['cheap']:
+      if chain in self.tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
-      elif chain in tilebag.chainTierGrouped['med']:
+      elif chain in self.tilebag.chainTierGrouped['med']:
         fancycost = 1*self.fancyCostRate
       else:
         fancycost = 2*self.fancyCostRate
@@ -80,7 +86,7 @@ class Bank:
     return int(round(min(maxCost, realCost), -2))
   
   def fetchcheapeststock(self):
-    chaincostpair = [ [chain, self.stockcost(chain, board.fetchchainsize(chain))] for chain in board.fetchactivechains()]
+    chaincostpair = [ [chain, self.stockcost(chain, self.board.fetchchainsize(chain))] for chain in self.board.fetchactivechains()]
     chaincostpair.sort(key=lambda x: x[1])
     return chaincostpair[0]
   
@@ -88,13 +94,13 @@ class Bank:
     # adds payout directly to players' balance internally
     statementsList = []
     for chain in defunctchains:
-      chainsize = board.fetchchainsize(chain)
+      chainsize = self.board.fetchchainsize(chain)
       stockstats = [ [p, p.stocks[chain] ] for p in players if p.stocks[chain] > 0]
       if len(players) < 3: 
-        bankstocktileID = tilebag.drawtile()
-        bankstocks = bankstocktileID // tilebag.rows + 1
-        bankdrawntile = tilebag.tileIDinterp([bankstocktileID])[0]
-        globalStats.bankTilesDrawn[-1] += 1
+        bankstocktileID = self.tilebag.drawtile()
+        bankstocks = bankstocktileID // self.tilebag.rows + 1
+        bankdrawntile = self.tilebag.tileIDinterp([bankstocktileID])[0]
+        self.stats.bankTilesDrawn[-1] += 1
         bankStatement = f'The Bank drew {bankdrawntile}, which means it holds {bankstocks} stocks in {chain}.'
         stockstats.append([self, bankstocks])
       else:
@@ -139,15 +145,15 @@ class Bank:
     return bankdrawntile, statementsList
   
   def playtile(self, tile: str): #tile must be playable!
-    board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
+    self.board.debug_tilesinplayorder.append(tile)
+    sortactiveIDs = self.tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
     sortactiveIDs.sort()
-    board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
+    self.board.tilesinplay = self.tilebag.tileIDinterp(sortactiveIDs)
     return None
   
   def sellallstock(self, players: list[Player]):
-    for chain in board.fetchactivechains():
-      costper = self.stockcost(chain, board.fetchchainsize(chain))
+    for chain in self.board.fetchactivechains():
+      costper = self.stockcost(chain, self.board.fetchchainsize(chain))
       for p in players:
         p.bal += p.stocks[chain] * costper
     return None

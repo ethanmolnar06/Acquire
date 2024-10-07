@@ -1,15 +1,20 @@
 import pygame
-from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
-                   write_save, make_savestate
-from gui import draw_grid, draw_player_info, draw_tilehider, draw_tiles, draw_popup, draw_popup_selects
-from objects.tilebag import TileBag
-from objects.board import Board
-from objects.bank import Bank
-from objects.stats import Stats
-from objects.player import Player, statIncrement, assignStatVals
 
-def gameloop(screen: pygame.Surface, clock: pygame.time.Clock,
-             tilebag: TileBag, board: Board, globalStats: Stats, bank: Bank, players: list[Player], personal_info_names: list[str]):
+from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
+                   unpack_save, pack_save, write_save
+from objects.player import setPlayerOrder, statIncrement, assignStatVals
+
+def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, saveData: bytes) -> tuple[bool, bytes]:
+  pygame.display.set_caption('Acquire Board')
+  
+  global tilebag, board, bank
+  tilebag, board, players, bank, personal_info_names = unpack_save(saveData)
+  from gui_fullscreen import draw_player_info
+  from gui import draw_grid, draw_tilehider, draw_tiles, draw_popup, draw_popup_selects
+  
+  if newGame:
+    players = setPlayerOrder(tilebag, board, players)
+  
   cyclingPlayers = True
   gameCompleted = False
   skipStatIncrem = True
@@ -40,11 +45,11 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock,
         skipStatIncrem = False
       else:
         statIncrement(players)
-        globalStats.turnCounter += [globalStats.turnCounter[-1] + 1]
-        globalStats.bankTilesDrawn += [globalStats.bankTilesDrawn[-1]]
-      saveData, currentOrderP = make_savestate(tilebag, board, globalStats, bank, players, personal_info_names, p)
+        bank.stats.turnCounter += [bank.stats.turnCounter[-1] + 1]
+        bank.stats.bankTilesDrawn += [bank.stats.bankTilesDrawn[-1]]
+      saveData, currentOrderNames = pack_save(tilebag, board, players, bank, personal_info_names, p)
       if ALLOW_QUICKSAVES:
-        write_save(DIR_PATH, currentOrderP, globalStats, saveData, quicksave=True)
+        write_save(saveData, currentOrderNames, bank.stats.turnCounter[-1], quicksave=True)
       # endregion
       
       while currentTurn:
@@ -405,6 +410,7 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock,
               for buykey in stockcart:
                 p.stats.stockChainsOwned[-1].add(buykey)
               buyPhase = False
+              currentTurn = False
       
       #turn finished handling
       assignStatVals(players)
@@ -421,4 +427,4 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock,
     _ = bank.chainpayout(players, board.fetchactivechains())
     bank.sellallstock(players)
   
-  return saveData, currentOrderP, players, globalStats, gameCompleted
+  return gameCompleted, saveData

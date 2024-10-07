@@ -3,6 +3,7 @@ import plotly
 from io import BytesIO
 from __main__ import screen
 from common import HIDE_PERSONAL_INFO, colors, fonts
+from objects.player import Player
 # plotly.io.kaleido.scope.mathjax = None
 
 def clear_screen():
@@ -561,3 +562,104 @@ def draw_waitingForJoin(clientMode, player_names, player_ready, clicked_textbox_
     screen.blit(label, label_rect)
   
   return text_field_rects, yesandno_rects
+
+def draw_player_info(p:Player):
+  # Get the current window size and generate title font size
+  window_width, window_height = screen.get_size()
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Get the current window size and generate font
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Calculate the position of the player information
+  # Use the right edge of the screen as the x-coordinate
+  offset_x = window_width - window_width // 100
+  offset_y = window_height // 9 - window_height // 10
+  offset_x, offset_y = int(offset_x), int(offset_y)
+  
+  # Draw the player name
+  label = font.render(p.name, 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.right = offset_x
+  label_rect.top = offset_y
+  screen.blit(label, label_rect)
+  
+  # Draw the player money
+  label = font.render(f'${p.bal}', 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.right = offset_x
+  label_rect.top = offset_y + font_size
+  screen.blit(label, label_rect)
+  
+  # Draw the player stock holdings
+  font_size_stock = int((min(window_width, window_height) / 19) * (7 / (len(p.stocks))))
+  font_stock = pygame.font.SysFont(fonts.main, font_size_stock)
+  for i, stock in enumerate(p.stocks):
+    label = font_stock.render(f'{stock}: {p.stocks[stock]}', 1, colors.BLACK)
+    label_rect = label.get_rect()
+    label_rect.right = offset_x
+    label_rect.top = offset_y + 2*font_size + i*font_size_stock
+    screen.blit(label, label_rect)
+
+def draw_selectPlayerFromSave(drawinfo, unclaimed_players: list[Player]):
+  hover_player_int, clicked_player_int = drawinfo
+  
+  # Get the current window size and generate title font size
+  window_width, window_height = screen.get_size()
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Calculate the position of the title
+  pos_x = window_width // 2
+  pos_y = window_height // 60
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  label_text = "Select Player From Save File"
+  
+  # Draw the title
+  label = font.render(label_text, 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x, pos_y)
+  screen.blit(label, label_rect)
+  
+  # Calc text size
+  font_size = min(2*window_width // 3, 2*window_height // 3) // 30
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Draw header box and text
+  longeststrlen = max([len(p.name) for p in unclaimed_players])
+  dd_width = int(font_size * longeststrlen * 10/16)
+  dd_height = int(font_size * 4)
+  player_header_rect = pygame.Rect(window_width // 20, label_rect.bottom + dd_height// 3, dd_width, dd_height)
+  msg = font.render("Players", 1, colors.BLACK)
+  screen.blit(msg, msg.get_rect(center = player_header_rect.center))
+  
+  player_rects = []
+  for i, p in enumerate(unclaimed_players):
+    player_rect = player_header_rect.copy()
+    player_rect.y += (i+1) * player_rect.height
+    pygame.draw.rect(screen, colors.GRAY if i != clicked_player_int else colors.LIGHTGREEN, player_rect, 0)
+    player_rects.append(player_rect)
+    if i == hover_player_int:
+      pygame.draw.rect(screen, colors.GREEN if i == hover_player_int else colors.BLACK, player_rect, 8)
+    msg = font.render(p.name, 1, colors.BLACK)
+    screen.blit(msg, msg.get_rect(center = player_rect.center))
+  
+  load_rect = None
+  if clicked_player_int is not None:
+    draw_player_info(unclaimed_players[clicked_player_int])
+    
+    # Calc load font
+    font_size = min(window_width, window_height) // 20
+    font = pygame.font.SysFont(fonts.main, font_size)
+    
+    # Draw directory box and text
+    load_width = int(font_size * 4)
+    load_height = int(font_size * 2)
+    load_rect = pygame.Rect(window_width - (window_width//20 + load_width), window_height - (window_height//20 + load_height), load_width, load_height)
+    pygame.draw.rect(screen, colors.LIGHTGREEN , load_rect, 0)
+    msg = font.render("SELECT", 1, colors.BLACK)
+    screen.blit(msg, msg.get_rect(center = load_rect.center))
+  
+  return (player_rects, load_rect)

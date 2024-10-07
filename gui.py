@@ -1,96 +1,60 @@
 import pygame
 import numpy as np
+
 from __main__ import screen
-from pregame import tilebag, bank, board
+from gameloop import tilebag, board, bank
 from common import colors, fonts
 
 def tile_size_calc():
   # Get the current window size
   window_width, window_height = screen.get_size()
-
+  
   # Calculate the size of each tile
   tile_width = (window_width * (5/6) - window_width//20) // tilebag.cols
   tile_height = (window_height - window_height//25) // tilebag.rows
-
+  
   return window_width, window_height, tile_width, tile_height
 
 def draw_grid(active_tiles):
   window_width, window_height, tile_width, tile_height = tile_size_calc()
-
+  
   # Calculate the offset to center the grid
   offset_x = (window_width - (tile_width * tilebag.cols)) // 25
   offset_y = (window_height - (tile_height * tilebag.rows)) // 2
   offset_x, offset_y = int(offset_x), int(offset_y)
-
+  
   # Create a list of tile colors and font colors
   
   tile_colors = [(getattr(colors, board.chaindict[label]) if label in board.chaindict else colors.BLACK) if label in active_tiles else colors.YELLOW for label in tilebag.alltiles]
   font_colors = [colors.WHITE if color == colors.BLACK else colors.BLACK for color in tile_colors]
-
+  
   # Create a font for the tile labels
   font_size = int(min(tile_width, tile_height) // 2)
   font = pygame.font.SysFont(fonts.tile, font_size)
-
+  
   # Draw the grid
   for i in range(tilebag.cols):
     for j in range(tilebag.rows):
       # Calculate the position of the tile
       pos = (offset_x + i * tile_width + 3, offset_y + j * tile_height + 3)
-
+      
       # Draw the tile
       pygame.draw.rect(screen, tile_colors[i*tilebag.rows+j], (pos[0], pos[1], tile_width, tile_height))
-
+      
       # Draw the tile label
       label = font.render(tilebag.alltiles[i*tilebag.rows+j], 1, font_colors[i*tilebag.rows+j])
       label_rect = label.get_rect()
       label_rect.center = (pos[0] + tile_width // 2, pos[1] + tile_height // 2)
       screen.blit(label, label_rect)
-
+      
       # Draw the outline around the tile and board
       pygame.draw.rect(screen, colors.OUTLINE, (pos[0], pos[1], tile_width, tile_height), 4)
       pygame.draw.rect(screen, colors.OUTLINE, (offset_x, offset_y, tile_width * tilebag.cols + 6, tile_height * tilebag.rows + 6), 4)
 
-def draw_player_info(p):
-  window_width, window_height, tile_width, tile_height = tile_size_calc()
-
-  # Get the current window size and generate font
-  font_size = min(window_width, window_height) // 20
-  font = pygame.font.SysFont(fonts.main, font_size)
-
-  # Calculate the position of the player information
-  # Use the right edge of the screen as the x-coordinate
-  offset_x = window_width - window_width // 100
-  offset_y = window_height // 9 - window_height // 10
-  offset_x, offset_y = int(offset_x), int(offset_y)
-
-  # Draw the player name
-  label = font.render(p.name, 1, colors.BLACK)
-  label_rect = label.get_rect()
-  label_rect.right = offset_x
-  label_rect.top = offset_y
-  screen.blit(label, label_rect)
-
-  # Draw the player money
-  label = font.render(f'${p.bal}', 1, colors.BLACK)
-  label_rect = label.get_rect()
-  label_rect.right = offset_x
-  label_rect.top = offset_y + font_size
-  screen.blit(label, label_rect)
-
-  # Draw the player stock holdings
-  font_size_stock = int((min(window_width, window_height) / 19) * (7 / (len(p.stocks))))
-  font_stock = pygame.font.SysFont(fonts.main, font_size_stock)
-  for i, stock in enumerate(p.stocks):
-    label = font_stock.render(f'{stock}: {p.stocks[stock]}', 1, colors.BLACK)
-    label_rect = label.get_rect()
-    label_rect.right = offset_x
-    label_rect.top = offset_y + 2*font_size + i*font_size_stock
-    screen.blit(label, label_rect)
-
 def draw_tiles(p, prohibitedTiles):
   button_labels = p.tiles
   window_width, window_height, tile_width, tile_height = tile_size_calc()
-
+  
   # Calculate the size of each button
   grid_width = int(np.round(np.sqrt(len(button_labels)), 0))
   rows = len(button_labels)//grid_width + (1 if len(button_labels)%grid_width != 0 else 0) 
@@ -98,7 +62,7 @@ def draw_tiles(p, prohibitedTiles):
   button_height = int((window_height * (6/16) - window_height/25) // (rows))
   button_width = button_height = min(button_width, button_height)
   w_gap = h_gap = button_width//10
-
+  
   # Calculate the offset to position the button grid
   # offset_x = window_width * (5/6 + 1/128)
   # offset_y = window_height * (10/16 + 1/128)

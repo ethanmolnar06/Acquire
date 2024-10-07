@@ -1,6 +1,12 @@
 import datetime
 import os
 import pickle
+import pygame
+
+from objects.tilebag import TileBag
+from objects.board import Board
+from objects.player import Player
+from objects.bank import Bank
 
 # GLOBAL GAME PERMISSIONS
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "silent"
@@ -57,8 +63,8 @@ class Fonts:
 colors = Colors()
 fonts = Fonts()
 
-def colortest(screen, clock, colors):
-  import pygame
+def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
+  colors = Colors()
   while colorLoop:
     for color in colors.__dict__.keys():
       screen.fill(colors.__getattribute__(color))
@@ -69,33 +75,61 @@ def colortest(screen, clock, colors):
         break
       clock.tick(1)
 
-def make_savestate(tilebag, board, globalStats, bank, players, personal_info_names, currentP):
-  if HIDE_PERSONAL_INFO:
+def pack_save(tilebag:TileBag, board:Board, players:list[Player], bank:Bank, personal_info_names:list[str] = None, currentP:Player = None) -> tuple[bytes, list[str]]:
+  if HIDE_PERSONAL_INFO and personal_info_names is not None:
     for i, p in enumerate(players):
       p.name = personal_info_names[i]
-  currentOrderP = players[players.index(currentP):] + players[:players.index(currentP)]
-  saveData = (bank,
-              currentOrderP,
-              globalStats,
-              board,
-              tilebag) # reverse unpack priority
-  if HIDE_PERSONAL_INFO:
+  
+  if currentP is not None:
+    currentOrderP = players[players.index(currentP):] + players[:players.index(currentP)]
+  else:
+    currentOrderP = players
+  currentOrderNames = [p.name for p in currentOrderP]
+  
+  objects = (tilebag, board, currentOrderP, bank)
+  saveData = pickle.dumps(objects, 5)
+  
+  if HIDE_PERSONAL_INFO and personal_info_names is not None:
     for i, p in enumerate(players):
       p.name = f"Player {i+1}"
-  return saveData, currentOrderP
+  
+  return saveData, currentOrderNames
 
-def write_save(dir_path, currentOrderP, globalStats, saveData, quicksave = False):
+def unpack_save(saveData: bytes, ignore_PIN: bool = False, clearConns: bool = False) -> tuple[TileBag, Board, list[Player], Bank, list[str] | None]:
+  objects: tuple[TileBag, Board, list[Player], Bank] = pickle.loads(saveData)
+  tilebag, board, players, bank = objects
+  
+  # re-link internal tilebags and boards
+  board.tilebag = tilebag
+  bank.tilebag = tilebag
+  bank.board = board
+  for p in players:
+    p.tilebag = tilebag
+    p.board = board
+    if clearConns:
+      p.conn = None
+  
+  if HIDE_PERSONAL_INFO and not ignore_PIN:
+    personal_info_names = [p.name for p in players]
+    for i, p in enumerate(players):
+      p.name = f"Player {i+1}"
+  else: 
+    personal_info_names = None
+  return (tilebag, board, players, bank, personal_info_names)
+
+def write_save(saveData: bytes, currentOrderNames: list[str] = None, turnnumber: str = None, quicksave: bool = False):
   date = datetime.date.isoformat(datetime.date.today())
   if quicksave:
     save_file_new = "quicksave"
   else:
-    save_file_new = f'{date}_{len(currentOrderP)}players_{"".join([p.name for p in currentOrderP])}_turn{globalStats.turnCounter[-1]}'
-  if not os.path.exists(rf'{dir_path}\saves\{save_file_new}'):
-    with open(rf'{dir_path}\saves\{save_file_new}', 'x') as file:
+    save_file_new = date
+    if currentOrderNames is not None:
+      save_file_new += f'_{len(currentOrderNames)}players_{"".join(currentOrderNames)}'
+    if turnnumber is not None:
+      save_file_new += f'_turn{turnnumber.turnCounter[-1]}'
+  if not os.path.exists(rf'{DIR_PATH}\saves\{save_file_new}'):
+    with open(rf'{DIR_PATH}\saves\{save_file_new}', 'x') as file:
       pass
-  with open(rf'{dir_path}\saves\{save_file_new}', 'wb') as file:
-    prevdata = None
-    for data in saveData:
-      prevdata = pickle.dumps((prevdata, data))
-    pickle.dump(prevdata, file)
+  with open(rf'{DIR_PATH}\saves\{save_file_new}', 'wb') as file:
+    pickle.dump(saveData, file)
   return

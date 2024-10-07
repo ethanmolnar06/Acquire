@@ -1,14 +1,16 @@
 import pygame
 from plotly import graph_objects as ptgo
 from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
-                   write_save
+                   unpack_save, write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
-def postgame(screen: pygame.Surface, clock: pygame.time.Clock, players: list, saveData: tuple, currentOrderP: list, globalStats, gameCompleted: bool):
+def postgame(screen: pygame.Surface, clock: pygame.time.Clock, gameCompleted: bool, saveData: bytes):
   pygame.display.set_caption('Postgame')
+  tilebag, board, players, bank, personal_info_names = unpack_save(saveData)
+  
   postGaming = True
   forceRender = True
-
+  
   askMakeSave = not gameCompleted
   askShowStats = True
   selectStatsGraph = False
@@ -52,7 +54,7 @@ def postgame(screen: pygame.Surface, clock: pygame.time.Clock, players: list, sa
             if yesorno_rect.collidepoint(pos):
               askMakeSave = False
               if i == 1:
-                write_save(DIR_PATH, currentOrderP, globalStats, saveData)
+                write_save(saveData, [p.name for p in players], bank.stats.turnCounter[-1])
               else:
                 askShowStats = True
     
@@ -99,11 +101,11 @@ def postgame(screen: pygame.Surface, clock: pygame.time.Clock, players: list, sa
               if p.name not in graphrends.keys():
                 graph_yaxes = [getattr(p.stats, stat) for stat in statlist if stat not in ('stockChainsOwned', 'stocks', 'mostExpandedChain')]
                 graph_yaxes += [ [len(chain_perturn) for chain_perturn in p.stats.stockChainsOwned] ]
-                graph_yaxes += [[sum([p.stats.stocks[chain][i] for chain in p.stats.stocks]) for i in globalStats.turnCounter]]
-                graph_yaxes += [[sum([p.stats.stocks[chain][i] for chain in p.stats.mostExpandedChain]) for i in globalStats.turnCounter]]
+                graph_yaxes += [[sum([p.stats.stocks[chain][i] for chain in p.stats.stocks]) for i in bank.stats.turnCounter]]
+                graph_yaxes += [[sum([p.stats.stocks[chain][i] for chain in p.stats.mostExpandedChain]) for i in bank.stats.turnCounter]]
                 scatterNames = [stat for stat in statlist if stat not in ('stockChainsOwned', 'stocks', 'mostExpandedChain')] + ['stockChainsOwned', 'stocks', 'mostExpandedChain']
                 graphTitle = f"{p.name}'s Stats"
-                graphTraces = [ptgo.Scatter(x=globalStats.turnCounter, y=y, mode='lines+markers', name=scatterNames[i]) for i, y in enumerate(graph_yaxes)]
+                graphTraces = [ptgo.Scatter(x=bank.stats.turnCounter, y=y, mode='lines+markers', name=scatterNames[i]) for i, y in enumerate(graph_yaxes)]
                 graphLayout = ptgo.Layout(title=graphTitle)
                 graphfig = ptgo.Figure(data=graphTraces, layout=graphLayout)
                 graphrends[p.name] = graphfig
@@ -117,12 +119,12 @@ def postgame(screen: pygame.Surface, clock: pygame.time.Clock, players: list, sa
                 elif stat == 'stockChainsOwned':
                   graph_yaxes = [ [len(chain_perturn) for chain_perturn in p.stats.stockChainsOwned] for p in players ]
                 elif stat == 'stocks':
-                  graph_yaxes = [[sum([p.stats.stocks[chain][i] for chain in p.stats.stocks.keys()]) for i in globalStats.turnCounter] for p in players]
+                  graph_yaxes = [[sum([p.stats.stocks[chain][i] for chain in p.stats.stocks.keys()]) for i in bank.stats.turnCounter] for p in players]
                 elif stat == 'mostExpandedChain':
-                  graph_yaxes = [[sum([p.stats.mostExpandedChain[chain][i] for chain in p.stats.mostExpandedChain.keys()]) for i in globalStats.turnCounter] for p in players]
+                  graph_yaxes = [[sum([p.stats.mostExpandedChain[chain][i] for chain in p.stats.mostExpandedChain.keys()]) for i in bank.stats.turnCounter] for p in players]
                 scatterNames = [p.name for p in players]
                 graphTitle = f"{stat} Over Time"
-                graphTraces = [ptgo.Scatter(x=globalStats.turnCounter, y=y, mode='lines+markers', name=scatterNames[i]) for i, y in enumerate(graph_yaxes)]
+                graphTraces = [ptgo.Scatter(x=bank.stats.turnCounter, y=y, mode='lines+markers', name=scatterNames[i]) for i, y in enumerate(graph_yaxes)]
                 graphLayout = ptgo.Layout(title=graphTitle)
                 graphfig = ptgo.Figure(data=graphTraces, layout=graphLayout)
                 graphrends[stat] = graphfig
