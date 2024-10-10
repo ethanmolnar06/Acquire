@@ -1,14 +1,18 @@
 import pygame
+from objects.tilebag import TileBag
+from objects.board import Board
+from objects.player import Player
+from objects.bank import Bank
 
 from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
                    unpack_save, pack_save, write_save
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 
-def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, saveData: bytes) -> tuple[bool, bytes]:
+def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, 
+             gameState: tuple[TileBag, Board, list[Player], Bank]) -> tuple[bool, bytes]:
   pygame.display.set_caption('Acquire Board')
   
-  global tilebag, board, bank
-  tilebag, board, players, bank, personal_info_names = unpack_save(saveData)
+  tilebag, board, players, bank = gameState
   from gui_fullscreen import draw_player_info
   from gui import draw_grid, draw_tilehider, draw_tiles, draw_popup, draw_popup_selects
   
@@ -47,7 +51,7 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, sa
         statIncrement(players)
         bank.stats.turnCounter += [bank.stats.turnCounter[-1] + 1]
         bank.stats.bankTilesDrawn += [bank.stats.bankTilesDrawn[-1]]
-      saveData, currentOrderNames = pack_save(tilebag, board, players, bank, personal_info_names, p)
+      saveData, currentOrderNames = pack_save(tilebag, board, players, bank, p)
       if ALLOW_QUICKSAVES:
         write_save(saveData, currentOrderNames, bank.stats.turnCounter[-1], quicksave=True)
       # endregion
@@ -58,24 +62,25 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, sa
         # print(placePhase, choosingNewChain, mergerMode, defunctPayoutMode, defunctMode, buyPhase)
         
         event = pygame.event.poll()
+        # region Render Process
         if forceRender or event.type:
           forceRender = False
-          # region Render Process
           # Clear the screen
           screen.fill((255, 255, 255))
-          # Draw the grid
           draw_grid(board.tilesinplay)
-          # Draw the current player information
           draw_player_info(pDefuncting if defunctMode else p)
           # Draw the tile button grid if showTiles == True
-          if not showTiles or defunctPayoutMode or defunctMode: tilehider_rect = draw_tilehider(p, showTiles)
-          elif showTiles: tile_rects = draw_tiles(p, prohibitedTiles)
+          if not showTiles or defunctPayoutMode or defunctMode:
+            tilehider_rect = draw_tilehider(p, showTiles)
+          elif showTiles:
+            tile_rects = draw_tiles(p, prohibitedTiles)
           # Draw the popup button grid
           popup_select_rects = draw_popup_selects()
-          # Draw Players and Bank inventory popup if open
           if popup_open: 
+            # draw over current popup-sized event
             close_button_rect, _ = draw_popup('playerStats', drawinfo)
           else:
+            # TODO fewer pop-sized events, make more full screen with option to view board and/or stats
             #Draw ask to end game popup
             if gameEndable:
               _, yesandno_rects = draw_popup('endGameConfirm', None)
@@ -100,8 +105,9 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, sa
               stopbuy_button_rect, stock_plusmin_rects = draw_popup('stockBuy', [stockcart, p])
           # Update the display
           pygame.display.flip()
-          # endregion
-          # region Handle common events
+        # endregion
+        
+        # region Handle common events
         if popupToClose: #fixes double-counting popup-closing as game-event closing
           popupToClose = False
           popup_open = False

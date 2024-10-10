@@ -34,19 +34,20 @@ def ctrl_handler(key, txt:str):
     key = pygame.scrap.get(pygame.SCRAP_TEXT).strip(b"\x00").decode()
   return key, txt
 
-def interface(mode, currentTextState):
-  if mode == 'playerNames':
-    currentTextState = crunch_playerNames(currentTextState)
-  elif mode == 'playername':
-    currentTextState = crunch_playername(currentTextState)
-  elif mode == 'ip':
-    currentTextState = crunch_ip(currentTextState)
-  elif mode == 'customSettings':
-    currentTextState = crunch_customSettings(currentTextState)
-  return currentTextState
+def nav_handler(fields, selected_field_int, num_col: int = None):
+  keyNamesAsStr, _ = fetch_keyboard()
+  if 'tab' in keyNamesAsStr or 'return' in keyNamesAsStr or 'left arrow' in keyNamesAsStr:
+    selected_field_int = (selected_field_int + 1) % len(fields)
+  elif 'right arrow' in keyNamesAsStr:
+    selected_field_int = (selected_field_int - 1) % len(fields)
+  elif num_col is not None:
+    if 'up arrow' in keyNamesAsStr:
+      selected_field_int = (selected_field_int - num_col) % len(fields)
+    elif 'down arrow' in keyNamesAsStr:
+      selected_field_int = (selected_field_int + num_col) % len(fields)
+  return selected_field_int
 
-def crunch_playername(currentTextState):
-  playernameTxtbx = currentTextState
+def crunch_playername(playernameTxtbx):
   keyNamesAsStr, modifierKeyBoolMap = fetch_keyboard()
   for key in keyNamesAsStr:
     # handle specific key interactions
@@ -67,16 +68,7 @@ def crunch_playername(currentTextState):
       playernameTxtbx += key
   return playernameTxtbx
 
-def crunch_playerNames(currentTextState):
-  playerNameTxtbxs, clicked_textbox_int = currentTextState
-  keyNamesAsStr, modifierKeyBoolMap = fetch_keyboard()
-  if 'tab' in keyNamesAsStr or 'return' in keyNamesAsStr:
-    clicked_textbox_int = (clicked_textbox_int + 1) % len(playerNameTxtbxs)
-  playerNameTxtbxs[clicked_textbox_int] = crunch_playername(playerNameTxtbxs[clicked_textbox_int])
-  return playerNameTxtbxs, clicked_textbox_int
-
-def crunch_ip(currentTextState):
-  ipTxtbx = currentTextState
+def crunch_ip(ipTxtbx):
   keyNamesAsStr, modifierKeyBoolMap = fetch_keyboard()
   for key in keyNamesAsStr:
     # handle specific key interactions
@@ -97,8 +89,10 @@ def crunch_ip(currentTextState):
         ipTxtbx = ipTxtbx[:15]
   return ipTxtbx
 
-def crunch_customSettings(currentTextState: tuple):
-  settings, clicked_textbox_key, drawnSettingsKeys = currentTextState
+def crunch_customSettings_nav(settings: dict[str], clicked_textbox_key: str, drawnSettingsKeys: list[str]):
+  i = drawnSettingsKeys.index(clicked_textbox_key)
+  i = nav_handler(drawnSettingsKeys, i, 2)
+  clicked_textbox_key = drawnSettingsKeys[(i)%len(drawnSettingsKeys)]
   
   if clicked_textbox_key == "Stock Pricing Function":
     choices = ["Classic", "Linear", "Logarithmic", "Exponential"]
@@ -106,7 +100,6 @@ def crunch_customSettings(currentTextState: tuple):
     settings["bank"][clicked_textbox_key] = choices[(i + 1) % len(choices)]
     return settings, clicked_textbox_key
   
-  i = drawnSettingsKeys.index(clicked_textbox_key)
   if i < len(settings["board"].keys()):
     outerkey = "board"
   elif i < len(settings["board"].keys()) + len(settings["player"].keys()):
@@ -117,14 +110,13 @@ def crunch_customSettings(currentTextState: tuple):
     outerkey = "bank" + settings["bank"]["Stock Pricing Function"]
   
   keyNamesAsStr, modifierKeyBoolMap = fetch_keyboard()
+  
   for key in keyNamesAsStr:
     # handle specific key interactions
     if key == 'backspace':
       settings[outerkey][clicked_textbox_key] = settings[outerkey][clicked_textbox_key][:-1]
     elif key == 'delete':
       settings[outerkey][clicked_textbox_key] = ''
-    elif key == 'tab' or key == 'return':
-      clicked_textbox_key = drawnSettingsKeys[(i+1)%len(drawnSettingsKeys)]
     # add numpers to type box
     elif modifierKeyBoolMap & pygame.KMOD_CTRL:
       key, settings[outerkey][clicked_textbox_key] = ctrl_handler(key, settings[outerkey][clicked_textbox_key])

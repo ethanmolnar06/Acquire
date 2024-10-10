@@ -9,10 +9,10 @@ from objects.player import Player
 def clear_screen():
   screen.fill((255, 255, 255))
 
-def resize_screen(event):
+def resize_screen(event) -> pygame.Surface:
   return pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
 
-def draw_fullscreenSelect(drawinfo):
+def draw_fullscreenSelect(drawinfo) -> list[pygame.Rect]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -73,7 +73,7 @@ def draw_fullscreenSelect(drawinfo):
     screen.blit(label, label_rect)
   return button_rects
 
-def draw_selectSaveFile(drawinfo, saveinfo):
+def draw_selectSaveFile(drawinfo, saveinfo) -> tuple[pygame.Rect, list[pygame.Rect], pygame.Rect, pygame.Rect]:
   hover_directory, hover_save_int, clicked_directory, clicked_save_int = drawinfo
   saves_path, savefiles = saveinfo
   
@@ -148,7 +148,7 @@ def draw_selectSaveFile(drawinfo, saveinfo):
   return (directory_rect, savefile_rects, load_rect, noload_button_rect)
 
 # TODO flesh out over-Internet connections
-def draw_joinCode(ipTxtBx, clicked_textbox):
+def draw_joinCode(ipTxtBx, clicked_textbox) -> tuple[pygame.Rect, list[pygame.Rect]]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -212,7 +212,7 @@ def draw_joinCode(ipTxtBx, clicked_textbox):
   
   return text_field_rect, yesandno_rects
 
-def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox):
+def draw_setPlayerNameHost(playernameTxtbx, clicked_textbox) -> tuple[pygame.Rect, list[pygame.Rect]]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -276,7 +276,67 @@ def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox):
   
   return text_field_rect, yesandno_rects
 
-def draw_setPlayerNamesLocal(player_names, clicked_textbox_int):
+def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox) -> tuple[pygame.Rect, pygame.Rect]:
+  # Get the current window size and generate title font size
+  window_width, window_height = screen.get_size()
+  font_size = min(window_width, window_height) // 20
+  font = pygame.font.SysFont(fonts.main, font_size)
+  
+  # Calculate the position of the title
+  pos_x = window_width // 2
+  pos_y = window_height // 60
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  label_text = "Enter Your Username"
+  
+  # Draw the title
+  label = font.render(label_text, 1, colors.BLACK)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x, pos_y)
+  screen.blit(label, label_rect)
+  
+  # Calculate text field sizing
+  text_field_width = window_width//2.5
+  text_field_height = window_height//6
+  text_field_width, text_field_height = int(text_field_width), int(text_field_height)
+  
+  pos_x = window_width//2 - text_field_width//2
+  pos_y = window_width//15 + text_field_height + window_width//30 
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  
+  text_field_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
+  pygame.draw.rect(screen, colors.GRAY, text_field_rect, 0)
+  
+  if clicked_textbox:
+    pygame.draw.rect(screen, colors.GREEN, text_field_rect, 4)
+  
+  # Render and blit the player name text on the text field
+  text_surface = font.render(playernameTxtbx, True, colors.BLACK)
+  screen.blit(text_surface, (pos_x + 5, pos_y + 5))
+  
+  # Calculate the size of each button
+  button_chunk_width = int(window_width // 3)
+  button_chunk_height = int(window_height // 7)
+  
+  # Draw the confirmation button
+  pos_x = (window_width // 2) - (button_chunk_width // 2)
+  pos_y = 5 * window_height // 6
+  pos_x, pos_y = int(pos_x), int(pos_y)
+  
+  # Create a rectangle for the popup_select and add to popup_select_rects
+  confirm_rect = pygame.Rect(pos_x, pos_y, button_chunk_width, button_chunk_height)
+  
+  # Draw the popup_select
+  pygame.draw.rect(screen, colors.GREEN, confirm_rect)
+  
+  # Draw the stock name
+  label = font.render("CONFRIM", 1, colors.WHITE)
+  label_rect = label.get_rect()
+  label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
+  screen.blit(label, label_rect)
+  
+  return text_field_rect, confirm_rect
+
+def draw_setPlayerNamesLocal(player_names, clicked_textbox_int) -> tuple[list[pygame.Rect], list[pygame.Rect]]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -344,7 +404,7 @@ def draw_setPlayerNamesLocal(player_names, clicked_textbox_int):
   
   return text_field_rects, yesandno_rects
 
-def draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewmode, graphfig):
+def draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewmode, graphfig) -> tuple[list[pygame.Rect], pygame.Rect]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -412,7 +472,7 @@ def draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewm
   
   return (statswap_rects, viewmode_rect)
 
-def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKey: str):
+def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKey: str) -> tuple[list[pygame.Rect], list[pygame.Rect]]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -491,7 +551,7 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKe
   
   return text_field_rects, yesandno_rects
 
-def draw_waitingForJoin(clientMode, player_names, player_ready, clicked_textbox_int):
+def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicked_textbox_int: int) -> tuple[list[pygame.Rect], list[pygame.Rect]]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -514,22 +574,22 @@ def draw_waitingForJoin(clientMode, player_names, player_ready, clicked_textbox_
   text_field_height = window_height//6
   text_field_width, text_field_height = int(text_field_width), int(text_field_height)
   
-  text_field_rects = []
+  player_rects = []
   numbcols = 2
-  for i in range(len(player_names)):
+  for i, p in enumerate(connected_players):
     pos_x = window_width//2 + (((i%numbcols)-1) * text_field_width) + ((((i%numbcols)*numbcols)-1) * window_width//30)
     pos_y = window_width//15 + text_field_height*(i//numbcols) + (window_width//30 * (i//numbcols))
     pos_x, pos_y = int(pos_x), int(pos_y)
     
-    text_field_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
-    pygame.draw.rect(screen, colors.GRAY, text_field_rect, 0)
-    text_field_rects.append(text_field_rect)
+    player_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
+    pygame.draw.rect(screen, colors.GRAY, player_rect, 0)
+    player_rects.append(player_rect)
     
     if clientMode == "hostServer" and clicked_textbox_int == i:
-      pygame.draw.rect(screen, colors.GREEN, text_field_rect, 4)
+      pygame.draw.rect(screen, colors.GREEN, player_rect, 4)
     
     # Render and blit the player name text on the text field
-    text_surface = font.render(player_names[i], True, colors.GREEN if player_ready[i] else colors.BLACK)
+    text_surface = font.render(p.name, True, colors.GREEN if p.ready else colors.BLACK)
     screen.blit(text_surface, (pos_x + 5, pos_y + 5))
   
   # Calculate the size of each button
@@ -561,9 +621,9 @@ def draw_waitingForJoin(clientMode, player_names, player_ready, clicked_textbox_
     label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
     screen.blit(label, label_rect)
   
-  return text_field_rects, yesandno_rects
+  return player_rects, yesandno_rects
 
-def draw_player_info(p:Player):
+def draw_player_info(p:Player) -> None:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -603,7 +663,7 @@ def draw_player_info(p:Player):
     label_rect.top = offset_y + 2*font_size + i*font_size_stock
     screen.blit(label, label_rect)
 
-def draw_selectPlayerFromSave(drawinfo, unclaimed_players: list[Player]):
+def draw_selectPlayerFromSave(drawinfo, unclaimed_players: list[Player]) -> tuple[list[pygame.Rect], pygame.Rect]:
   hover_player_int, clicked_player_int = drawinfo
   
   # Get the current window size and generate title font size
@@ -635,7 +695,7 @@ def draw_selectPlayerFromSave(drawinfo, unclaimed_players: list[Player]):
   msg = font.render("Players", 1, colors.BLACK)
   screen.blit(msg, msg.get_rect(center = player_header_rect.center))
   
-  player_rects = []
+  player_rects: list[pygame.Rect] = []
   for i, p in enumerate(unclaimed_players):
     player_rect = player_header_rect.copy()
     player_rect.y += (i+1) * player_rect.height

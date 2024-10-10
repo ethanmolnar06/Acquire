@@ -2,6 +2,8 @@ import datetime
 import os
 import pickle
 import pygame
+from copy import deepcopy
+from uuid import UUID
 
 from objects.tilebag import TileBag
 from objects.board import Board
@@ -75,47 +77,54 @@ def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
         break
       clock.tick(1)
 
-def pack_save(tilebag:TileBag, board:Board, players:list[Player], bank:Bank, personal_info_names:list[str] = None, currentP:Player = None) -> tuple[bytes, list[str]]:
-  if HIDE_PERSONAL_INFO and personal_info_names is not None:
-    for i, p in enumerate(players):
-      p.name = personal_info_names[i]
+def find_player(uuid: UUID, players: list[Player]) -> Player:
+  # i know this is less efficient than making players a dict[UUID, Player],
+  # but it integrates easier into current gameloops so idc
+  for p in players:
+    if p.uuid == uuid or (p.conn is not None and p.conn.uuid == uuid):
+      return p
+
+def pack_gameState(tilebag:TileBag, board:Board, players:list[Player], bank:Bank) -> bytes:
+  freshPlayers = deepcopy(players)
+  for p in freshPlayers:
+    if p.conn is not None and p.conn.addr != "host":
+      p.conn = None
   
+  objects = (tilebag, board, freshPlayers, bank)
+  gameStateUpdate = pickle.dumps(objects, 5)
+  
+  return gameStateUpdate
+
+def pack_save(tilebag:TileBag, board:Board, players:list[Player], bank:Bank, currentP:Player = None) -> tuple[bytes, list[str]]:
   if currentP is not None:
-    currentOrderP = players[players.index(currentP):] + players[:players.index(currentP)]
+    reorderedPlayers = players[players.index(currentP):] + players[:players.index(currentP)]
   else:
-    currentOrderP = players
-  currentOrderNames = [p.name for p in currentOrderP]
+    reorderedPlayers = players
   
-  objects = (tilebag, board, currentOrderP, bank)
-  saveData = pickle.dumps(objects, 5)
-  
-  if HIDE_PERSONAL_INFO and personal_info_names is not None:
-    for i, p in enumerate(players):
-      p.name = f"Player {i+1}"
+  saveData = pack_gameState(tilebag, board, reorderedPlayers, bank)
+  currentOrderNames = [p.name for p in reorderedPlayers]
   
   return saveData, currentOrderNames
 
-def unpack_save(saveData: bytes, ignore_PIN: bool = False, clearConns: bool = False) -> tuple[TileBag, Board, list[Player], Bank, list[str] | None]:
-  objects: tuple[TileBag, Board, list[Player], Bank] = pickle.loads(saveData)
+def unpack_gameState(gameState: bytes, localPlayers: list[Player] | None = None) -> tuple[TileBag, Board, list[Player], Bank]:
+  objects: tuple[TileBag, Board, list[Player], Bank] = pickle.loads(gameState)
   tilebag, board, players, bank = objects
   
-  # re-link internal tilebags and boards
+  # re-link internal Tilebags, Boards, Player names, and Connections (if host)
   board.tilebag = tilebag
   bank.tilebag = tilebag
   bank.board = board
   for p in players:
+    p.name = p.falsename if HIDE_PERSONAL_INFO else p.truename
     p.tilebag = tilebag
     p.board = board
-    if clearConns:
-      p.conn = None
+    
+    if localPlayers is not None:
+      p.conn = find_player(p.uuid, localPlayers).conn
+      # host writes valid conns to client and dummy conn to host
+      # clients write valid conn to server and None to host
   
-  if HIDE_PERSONAL_INFO and not ignore_PIN:
-    personal_info_names = [p.name for p in players]
-    for i, p in enumerate(players):
-      p.name = f"Player {i+1}"
-  else: 
-    personal_info_names = None
-  return (tilebag, board, players, bank, personal_info_names)
+  return (tilebag, board, players, bank)
 
 def write_save(saveData: bytes, currentOrderNames: list[str] = None, turnnumber: str = None, quicksave: bool = False):
   date = datetime.date.isoformat(datetime.date.today())

@@ -1,30 +1,56 @@
 import operator
 import uuid
 
+from common import HIDE_PERSONAL_INFO
 from networking import Connection
 from objects.tilebag import TileBag
 from objects.board import Board
 from objects.stats import Stats
 
 class Player:
-  def __init__(self, tilebag: TileBag, board:Board, name: str,
+  def __init__(self, tilebag: TileBag, board:Board, name: str, creation_n: int,
                startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6, maxPlayers = 6):
     self.tilebag = tilebag
     self.board = board
-    self.name = name
     
-    self.id: uuid.UUID | None = uuid.uuid4()
+    self.truename: str = name
+    self.falsename: str = f"Player {creation_n}"
+    self.name = self.falsename if HIDE_PERSONAL_INFO else self.truename
+    
+    self.id: uuid.UUID = uuid.uuid4()
     self.conn: Connection | None = None
+    self.connClaimed: bool = True
+    self.ready: bool = False
     
-    self.tiles = []
+    self.tiles: list[str] = []
     self.tileQuant = int(tileQuant)
     self.bal = round(int(startCash), -2)
-    self.stocks = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
+    self.stocks: dict[str, int] = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
     self.stats = Stats(tilebag.chainnames, int(startingStockNumber), self.bal)
   
-  def __setConn(self, conn: Connection):
+  def __setObjLinks(self, tilebag: TileBag, board:Board,):
+    self.tilebag = tilebag
+    self.board = board
+  
+  def __setConn(self, conn: Connection | None):
     self.conn = conn
-    self.uuid = conn.uuid
+    self.ready = False
+    if conn is not None:
+      self.connClaimed = True
+      self.uuid = conn.uuid
+    else:
+      self.connClaimed = False
+      self.uuid = uuid.uuid4()
+  
+  def __setName(self, name: str, creation_n: int):
+    self.truename: str = name
+    self.falsename: str = f"Player {creation_n}"
+    self.name = self.falsename if HIDE_PERSONAL_INFO else self.truename
+    self.connClaimed: bool = True
+    self.ready: bool = False
+  
+  def __disconn(self):
+    self.conn.kill()
   
   def drawtile(self, n: int = 1):
     for i in range(n):
