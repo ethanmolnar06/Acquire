@@ -14,8 +14,7 @@ class Bank:
                expnDivisor: float = 240., expnPower: float = 2., expnOffsetReduc: float = 3.,
                ):
     #valid sizeCostFunc, from least to most expensive: Logarithmic, Classic, Linear, Exponential
-    self._tilebag = tilebag
-    self.board = board
+    self.setGameObj(tilebag, board)
     self.name = 'The Stock Market'
     self.balance = 'Balance: Unlimited'
     self.bal = 0
@@ -36,6 +35,10 @@ class Bank:
     self.finalCostAdd = float(finalCostAdd)
     self.finalCostMultiplier = float(finalCostMultiplier)
     # endregion
+  
+  def setGameObj(self, tilebag, board):
+    self._tilebag = tilebag
+    self._board = board
   
   def stockcost(self, chain: str, size: int):
     if size == 0:
@@ -86,7 +89,7 @@ class Bank:
     return int(round(min(maxCost, realCost), -2))
   
   def fetchcheapeststock(self):
-    chaincostpair = [ [chain, self.stockcost(chain, self.board.fetchchainsize(chain))] for chain in self.board.fetchactivechains()]
+    chaincostpair = [ [chain, self.stockcost(chain, self._board.fetchchainsize(chain))] for chain in self._board.fetchactivechains()]
     chaincostpair.sort(key=lambda x: x[1])
     return chaincostpair[0]
   
@@ -94,7 +97,7 @@ class Bank:
     # adds payout directly to players' balance internally
     statementsList = []
     for chain in defunctchains:
-      chainsize = self.board.fetchchainsize(chain)
+      chainsize = self._board.fetchchainsize(chain)
       stockstats = [ [p, p.stocks[chain] ] for p in players if p.stocks[chain] > 0]
       if len(players) < 3: 
         bankstocktileID = self._tilebag.drawtile()
@@ -145,15 +148,15 @@ class Bank:
     return bankdrawntile, statementsList
   
   def playtile(self, tile: str): #tile must be playable!
-    self.board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = self._tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
+    self._board.debug_tilesinplayorder.append(tile)
+    sortactiveIDs = self._tilebag.tilesToIDs(self._board.debug_tilesinplayorder)
     sortactiveIDs.sort()
-    self.board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
+    self._board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
     return None
   
   def sellallstock(self, players: list[Player]):
-    for chain in self.board.fetchactivechains():
-      costper = self.stockcost(chain, self.board.fetchchainsize(chain))
+    for chain in self._board.fetchactivechains():
+      costper = self.stockcost(chain, self._board.fetchchainsize(chain))
       for p in players:
         p.bal += p.stocks[chain] * costper
     return None

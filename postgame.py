@@ -1,12 +1,14 @@
 import pygame
 from plotly import graph_objects as ptgo
-from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
-                   unpack_save, write_save
+
+from objects import *
+from common import ALLOW_SAVES, MAX_FRAMERATE, unpack_gameState, write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
-def postgame(screen: pygame.Surface, clock: pygame.time.Clock, gameCompleted: bool, saveData: bytes):
+def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted: bool, saveData: bytes):
   pygame.display.set_caption('Postgame')
-  tilebag, board, players, bank, personal_info_names = unpack_save(saveData)
+  screen, clock = gameUtils
+  tilebag, board, players, bank = unpack_gameState(saveData)
   
   postGaming = True
   forceRender = True
@@ -20,9 +22,9 @@ def postgame(screen: pygame.Surface, clock: pygame.time.Clock, gameCompleted: bo
   while postGaming:
     
     event = pygame.event.poll()
+    # region Render Process
     if forceRender or event.type:
       forceRender = False
-      # region Render Process
       # Clear the screen
       screen.fill((255, 255, 255))
       #Draw ask to make savestate
@@ -35,14 +37,15 @@ def postgame(screen: pygame.Surface, clock: pygame.time.Clock, gameCompleted: bo
       # Update the display
       pygame.display.flip()
       # endregion
-      # region Handle common events
-      if event.type == pygame.QUIT:
-        postGaming = False
-        break
-      elif event.type == pygame.VIDEORESIZE:
-        # Update the window size
-        screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-      # endregion
+    
+    # region Handle common events
+    if event.type == pygame.QUIT:
+      postGaming = False
+      break
+    elif event.type == pygame.VIDEORESIZE:
+      # Update the window size
+      screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+    # endregion
     
     if ALLOW_SAVES and askMakeSave:
       if event.type == pygame.MOUSEBUTTONDOWN:

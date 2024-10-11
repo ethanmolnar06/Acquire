@@ -2,13 +2,16 @@ from objects.tilebag import TileBag
 
 class Board:
   def __init__(self, tilebag:TileBag, maxChainSize: int):
-    self._tilebag = tilebag
+    self.setGameObj(tilebag)
     self.maxChainSize = int(maxChainSize)
     self.debug_tilesinplayorder = []
     self.debug_count = 0
     self.tilesinplay = []
     self.deadducks = set()
     self.chaindict = {}
+  
+  def setGameObj(self, tilebag):
+    self._tilebag = tilebag
   
   def fetchchainsize(self, chain: str):
     return sum(chainvalue == chain for chainvalue in self.chaindict.values())

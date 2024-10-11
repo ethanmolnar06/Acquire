@@ -1,22 +1,19 @@
 import operator
 import uuid
 
-from common import HIDE_PERSONAL_INFO
-from networking import Connection
 from objects.tilebag import TileBag
 from objects.board import Board
 from objects.stats import Stats
+from objects.connection import Connection
 
 class Player:
   def __init__(self, tilebag: TileBag, board:Board, name: str, creation_n: int,
                startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6, maxPlayers = 6):
-    self._tilebag = tilebag
-    self._board = board
-    
-    self.name = name, creation_n
+    self.setGameObj(tilebag, board)
+    self.name = (name, creation_n)
     
     self.id: uuid.UUID = uuid.uuid4()
-    self._conn: Connection | None = None
+    self.conn: Connection | None = Connection("host", None)
     self.connClaimed: bool = True
     self.ready: bool = False
     
@@ -28,12 +25,13 @@ class Player:
   
   @property
   def name(self) -> str:
+    from common import HIDE_PERSONAL_INFO
     return self._falsename if HIDE_PERSONAL_INFO else self._truename
   
   @name.setter
-  def name(self, name, creation_n):
-    self._truename = name
-    self._falsename: str = f"Player {creation_n}"
+  def name(self, nametup: tuple[str, int]):
+    self._truename = nametup[0]
+    self._falsename: str = f"Player {nametup[1]}"
     self.connClaimed: bool = True
     self.ready: bool = False
   
@@ -55,6 +53,10 @@ class Player:
   def DISCONN(self):
     self.conn.kill()
   
+  def setGameObj(self, tilebag, board):
+    self._tilebag = tilebag
+    self._board = board
+  
   def drawtile(self, n: int = 1):
     for i in range(n):
       newtileID = self._tilebag.drawtile()
@@ -69,7 +71,7 @@ class Player:
   def playtile(self, tile: str): #tile must be playable!
     self.tiles.remove(tile)
     self._board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = self._tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
+    sortactiveIDs = self._tilebag.tilesToIDs(self._board.debug_tilesinplayorder)
     sortactiveIDs.sort()
     self._board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
     return None
@@ -87,6 +89,13 @@ class Player:
       unchecked = set(self.tiles)
       unchecked.difference_update(checked)
     return None
+
+def find_player(uuid: uuid.UUID, players: list[Player]) -> Player:
+  # i know this is less efficient than making players a dict[UUID, Player],
+  # but it integrates easier into current gameloops so idc
+  for p in players:
+    if p.uuid == uuid or (p.conn is not None and p.conn.uuid == uuid):
+      return p
 
 def setPlayerOrder(tilebag: TileBag, board: Board, players: list[Player]):
   order = []

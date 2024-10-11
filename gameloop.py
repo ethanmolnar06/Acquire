@@ -1,17 +1,15 @@
 import pygame
-from objects.tilebag import TileBag
-from objects.board import Board
-from objects.player import Player
-from objects.bank import Bank
 
-from common import DIR_PATH, HIDE_PERSONAL_INFO, ALLOW_SAVES, ALLOW_QUICKSAVES, MAX_FRAMERATE, \
-                   unpack_save, pack_save, write_save
+from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
+from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, pack_save, write_save
 
-def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool, 
+def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, 
              gameState: tuple[TileBag, Board, list[Player], Bank]) -> tuple[bool, bytes]:
   pygame.display.set_caption('Acquire Board')
   
+  global screen, tilebag, board, bank
+  screen, clock = gameUtils
   tilebag, board, players, bank = gameState
   from gui_fullscreen import draw_player_info
   from gui import draw_grid, draw_tilehider, draw_tiles, draw_popup, draw_popup_selects
@@ -426,7 +424,7 @@ def gameloop(screen: pygame.Surface, clock: pygame.time.Clock, newGame: bool,
       else:
         # runs when quitting and/or when game completes
         break
-      clock.tick(MAX_FRAMERATE)
+      clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
   
   if gameCompleted:
     # adds payouts directly to players' balance internally

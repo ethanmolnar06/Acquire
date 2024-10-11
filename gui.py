@@ -1,9 +1,9 @@
 import pygame
 import numpy as np
 
-from __main__ import screen
-from gameloop import tilebag, board, bank
-from common import colors, fonts
+from objects import TileBag, Board, Player, Bank
+from common import Colors, Fonts
+from gameloop import screen, tilebag, board, bank
 
 def tile_size_calc():
   # Get the current window size
@@ -25,12 +25,12 @@ def draw_grid(active_tiles):
   
   # Create a list of tile colors and font colors
   
-  tile_colors = [(getattr(colors, board.chaindict[label]) if label in board.chaindict else colors.BLACK) if label in active_tiles else colors.YELLOW for label in tilebag.alltiles]
-  font_colors = [colors.WHITE if color == colors.BLACK else colors.BLACK for color in tile_colors]
+  tile_colors = [(Colors.chain(board.chaindict[label]) if label in board.chaindict else Colors.BLACK) if label in active_tiles else Colors.YELLOW for label in tilebag.alltiles]
+  font_colors = [Colors.WHITE if color == Colors.BLACK else Colors.BLACK for color in tile_colors]
   
   # Create a font for the tile labels
   font_size = int(min(tile_width, tile_height) // 2)
-  font = pygame.font.SysFont(fonts.tile, font_size)
+  font = pygame.font.SysFont(Fonts.tile, font_size)
   
   # Draw the grid
   for i in range(tilebag.cols):
@@ -48,8 +48,8 @@ def draw_grid(active_tiles):
       screen.blit(label, label_rect)
       
       # Draw the outline around the tile and board
-      pygame.draw.rect(screen, colors.OUTLINE, (pos[0], pos[1], tile_width, tile_height), 4)
-      pygame.draw.rect(screen, colors.OUTLINE, (offset_x, offset_y, tile_width * tilebag.cols + 6, tile_height * tilebag.rows + 6), 4)
+      pygame.draw.rect(screen, Colors.OUTLINE, (pos[0], pos[1], tile_width, tile_height), 4)
+      pygame.draw.rect(screen, Colors.OUTLINE, (offset_x, offset_y, tile_width * tilebag.cols + 6, tile_height * tilebag.rows + 6), 4)
 
 def draw_tiles(p, prohibitedTiles):
   button_labels = p.tiles
@@ -74,7 +74,7 @@ def draw_tiles(p, prohibitedTiles):
 
   # Create a font for the button labels
   font_size = min(button_width, button_height) // 2
-  font = pygame.font.SysFont(fonts.tile, font_size)
+  font = pygame.font.SysFont(Fonts.tile, font_size)
 
   # Draw the grid of buttons
   tile_rects = []
@@ -90,20 +90,20 @@ def draw_tiles(p, prohibitedTiles):
       tile_rects.append(button_rect)
 
       # Draw the button
-      tile_color = colors.BLACK if not prohibitedTiles[i + grid_width*j] else colors.UNSELECTABLEGRAY
+      tile_color = Colors.BLACK if not prohibitedTiles[i + grid_width*j] else Colors.UNSELECTABLEGRAY
       pygame.draw.rect(screen, tile_color, button_rect)
 
       # Draw red X blocker if unplayable
       if prohibitedTiles[i + grid_width*j]:
         Xfont_size = int(min(button_width, button_height)*1.9)
-        Xfont = pygame.font.Font(fonts.oblivious, Xfont_size)
-        Xlabel = Xfont.render('x', 1, colors.RED)
+        Xfont = pygame.font.Font(Fonts.oblivious, Xfont_size)
+        Xlabel = Xfont.render('x', 1, Colors.RED)
         Xlabel_rect = Xlabel.get_rect()
         Xlabel_rect.center = (button_rect.centerx + Xfont_size//30, button_rect.centery - Xfont_size//20)
         screen.blit(Xlabel, Xlabel_rect)
 
       # Draw the button label
-      label_color = colors.WHITE if not prohibitedTiles[i + grid_width*j] else colors.BLACK
+      label_color = Colors.WHITE if not prohibitedTiles[i + grid_width*j] else Colors.BLACK
       label = font.render(button_labels[i + grid_width*j], 1, label_color)
       label_rect = label.get_rect()
       label_rect.center = button_rect.center
@@ -131,17 +131,17 @@ def draw_popup_selects():
 
     # Create a font for the label
     font_size = min(popup_select_width//7, popup_select_height) // 2
-    font = pygame.font.SysFont(fonts.main, font_size)
+    font = pygame.font.SysFont(Fonts.main, font_size)
 
     # Create a rectangle for the popup select
     popup_select_rect = pygame.Rect(offset_x, offset_y, popup_select_width, popup_select_height)
     popup_select_rects.append(popup_select_rect)
 
     # Draw the popup select
-    pygame.draw.rect(screen, colors.GRAY, popup_select_rect)
+    pygame.draw.rect(screen, Colors.GRAY, popup_select_rect)
 
     # Draw the popup select label
-    label = font.render(label, 1, colors.BLACK)
+    label = font.render(label, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.center = (offset_x + popup_select_width // 2, offset_y + popup_select_height // 2)
     screen.blit(label, label_rect)
@@ -154,7 +154,7 @@ def draw_popup(subdraw_tag, drawinfo):
   popup_width = 2*window_width // 3
   popup_height = 2*window_height // 3
   font_size = min(popup_width, popup_height) // 20
-  font = pygame.font.SysFont(fonts.main, font_size)
+  font = pygame.font.SysFont(Fonts.main, font_size)
   
   # Calculate the offset to center the popup
   offset_x = (window_width - popup_width) // 2 - 50
@@ -165,7 +165,7 @@ def draw_popup(subdraw_tag, drawinfo):
   popup = pygame.Surface((popup_width, popup_height))
   
   # Draw the popup background
-  popup.fill(colors.GRAY)
+  popup.fill(Colors.GRAY)
   
   # Draw info into the popup
   popupInfo = [popup, popup_width, popup_height, font, font_size]
@@ -197,12 +197,12 @@ def draw_popup(subdraw_tag, drawinfo):
   # Draw the close button on the popup for closeable popups, update offset
   if closeable:
     close_button_rect = pygame.Rect(popup_width - font_size, 0, font_size, font_size)
-    pygame.draw.rect(popup, colors.RED, close_button_rect)
+    pygame.draw.rect(popup, Colors.RED, close_button_rect)
     
     # Create an "x" for the closeable popup button
     font_size = min(popup_width, popup_height) // 25
-    font = pygame.font.Font(fonts.oblivious, font_size)
-    label = font.render('x', 1, colors.WHITE)
+    font = pygame.font.Font(Fonts.oblivious, font_size)
+    label = font.render('x', 1, Colors.WHITE)
     label_rect = label.get_rect()
     # label_rect.center = (close_button_rect.x + 9*close_button_rect.width // 16, close_button_rect.y + 6*close_button_rect.height // 16 )
     label_rect.center = (close_button_rect.x + close_button_rect.width // 2 + 1, close_button_rect.y + close_button_rect.height // 2 - 2)
@@ -234,7 +234,7 @@ def horizontal_refontsizer(surface_width, surface_height, font_size, pos_y, h_he
   longestheader = max([len(h) for h in h_headers])
   if longestheader * font_size * len(h_headers) + spacer_allocated > surface_width:
     header_font_size = int(1.7 * (surface_width - spacer_allocated) / (longestheader * len(h_headers)))
-  header_font = pygame.font.SysFont(fonts.main, header_font_size)
+  header_font = pygame.font.SysFont(Fonts.main, header_font_size)
   return header_font, header_font_size
 
 def vertical_refontsizer(surface_width, surface_height, font_size, pos_y, v_info, spacer_allocated = 250):
@@ -243,7 +243,7 @@ def vertical_refontsizer(surface_width, surface_height, font_size, pos_y, v_info
   col_stand_height = pos_y + (2 + len(v_info)) * font_size * 11/10
   if col_stand_height >= surface_height:
     info_font_size = int(font_size * (1 - (col_stand_height - surface_height)/surface_height) )
-  info_font = pygame.font.SysFont(fonts.main, info_font_size)
+  info_font = pygame.font.SysFont(Fonts.main, info_font_size)
   return info_font, info_font_size
 
 def draw_playerStats(popupInfo, otherplayers):
@@ -262,7 +262,7 @@ def draw_playerStats(popupInfo, otherplayers):
     pos_x = (popup_width // (len(otherplayers)+1) )*(i+1)
 
     # Draw the player name
-    label = header_font.render(player.name, 1, colors.BLACK)
+    label = header_font.render(player.name, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.right = pos_x
     label_rect.top = pos_y
@@ -270,7 +270,7 @@ def draw_playerStats(popupInfo, otherplayers):
 
     # Draw the player money
     balance = player.balance if 'balance' in player.__dict__.keys() else f'${player.bal}'
-    label = header_font.render(balance, 1, colors.BLACK)
+    label = header_font.render(balance, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.right = pos_x
     label_rect.top = pos_y + font_size*1.3
@@ -278,7 +278,7 @@ def draw_playerStats(popupInfo, otherplayers):
 
     # Draw the player stock holdings
     for i, stock in enumerate(player.stocks):
-      label = info_font.render(f'{stock}: {player.stocks[stock]}', 1, colors.BLACK)
+      label = info_font.render(f'{stock}: {player.stocks[stock]}', 1, Colors.BLACK)
       label_rect = label.get_rect()
       label_rect.right = pos_x
       label_rect.top = pos_y + 2 * font_size*1.3 + i * info_font_size*1.05
@@ -299,19 +299,19 @@ def draw_tilehider(player, showTiles):
 
   # Create a font for the label
   font_size = min(tilehider_width//7, tilehider_height) // 2
-  font = pygame.font.SysFont(fonts.main, font_size)
+  font = pygame.font.SysFont(Fonts.main, font_size)
 
   # Create a rectangle for the tilehider
   tilehider_rect = pygame.Rect(offset_x, offset_y, tilehider_width, tilehider_height)
 
   # Draw the tilehider
-  pygame.draw.rect(screen, colors.BLACK, tilehider_rect)
+  pygame.draw.rect(screen, Colors.BLACK, tilehider_rect)
 
   # Draw the popup_select label
   if not showTiles:
-    label = font.render(f"Click to Reveal {player.name}'s Tiles", 1, colors.WHITE)
+    label = font.render(f"Click to Reveal {player.name}'s Tiles", 1, Colors.WHITE)
   else:
-    label = font.render(f"Tiles Hidden: Defuncting", 1, colors.WHITE)
+    label = font.render(f"Tiles Hidden: Defuncting", 1, Colors.WHITE)
   label_rect = label.get_rect()
   label_rect.center = (offset_x + tilehider_width // 2, offset_y + tilehider_height // 2)
   screen.blit(label, label_rect)
@@ -334,7 +334,7 @@ def draw_newChain(popupInfo, outlinedChain):
   pos_x, pos_y = int(pos_x), int(pos_y)
   
   # Draw the p opup header
-  label = font.render('Which Chain Would You Like To Found?', 1, colors.BLACK)
+  label = font.render('Which Chain Would You Like To Found?', 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
@@ -365,10 +365,10 @@ def draw_newChain(popupInfo, outlinedChain):
       newchain_rects.append(newchain_rect)
       
       # Draw the popup_select
-      pygame.draw.rect(popup, getattr(colors, chain), newchain_rect)
+      pygame.draw.rect(popup, Colors.chain(chain), newchain_rect)
       
       # Draw the stock name
-      label = header_font.render(chain, 1, colors.BLACK)
+      label = header_font.render(chain, 1, Colors.BLACK)
       label_rect = label.get_rect()
       label_rect.center = (pos_x + chain_color_rect_width // 2, pos_y + chain_color_rect_height // 2)
       popup.blit(label, label_rect)
@@ -384,11 +384,11 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
     # input()
   else:
     quadMerge_2_2 = False
-
+  
   # Calculate the size of each popup_select
   tile_chunk_width = int(popup_width // 5)
   tile_chunk_height = int(popup_height // 10)
-
+  
   # Draw the title question
   # Calculate the position of the title question
   pos_x = popup_width // 2
@@ -397,13 +397,13 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
   checkX_height = int(popup_height // (9*2))
   pos_x, pos_y = int(pos_x), int(pos_y)
   checkX_width, checkX_height = int(checkX_width), int(checkX_height)
-
+  
   # Draw the popup header
-  label = font.render('Set Merger Priorities', 1, colors.BLACK)
+  label = font.render('Set Merger Priorities', 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
-
+  
   # Draw the mergePrio
   mergecart_rects = []
   mergePrio_width_acum = 0
@@ -414,22 +414,22 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
     pos_x = (popup_width - (checkX_width*3 + checkX_width*(len(chainoptions)-1) + x_spacer*(len(chainoptions)-1)))/2 + mergePrio_width_acum + .5*checkX_width*i
     pos_y = 2*(popup_height // 15)
     pos_x, pos_y = int(pos_x), int(pos_y)
-
+    
     # Create a rectangle for a mergePrio square
     mergePrio_width = checkX_width * 3 if i==0 else checkX_width
     mergePrio_yspacer = 0 if i==0 else int(checkX_width*3/2 - checkX_width/2)
-
+    
     mergecart_rect = pygame.Rect(pos_x, pos_y - label.get_height()//2 + mergePrio_yspacer, mergePrio_width, mergePrio_width)
-
-    if mergeCart[i] == '': stockcart_color = colors.WHITE
-    else: stockcart_color = getattr(colors, mergeCart[i])
-
+    
+    if mergeCart[i] == '': stockcart_color = Colors.WHITE
+    else: stockcart_color = Colors.chain(mergeCart[i])
+    
     # Draw a stockcart square to screen
     pygame.draw.rect(popup, stockcart_color, mergecart_rect)
-
+    
     mergecart_rects.append(mergecart_rect)
     mergePrio_width_acum += mergePrio_width
-
+  
   mergeChain_rects = []
   # Draw the chain information
   for i, chain in enumerate(chainoptions):
@@ -440,21 +440,20 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
       pos_x = (popup_width - (tile_chunk_width*2 + popup_width//15))/2 + tile_chunk_width*(i%2) + (popup_width//15)*(i%2)
       pos_y = ((popup_height - tile_chunk_height) // 4) * (i//2 + 2)
     pos_x, pos_y = int(pos_x), int(pos_y)
-
+    
     # Create a rectangle for the popup_select and add to popup_select_rects
     mergeChain_rect = pygame.Rect(pos_x, pos_y, tile_chunk_width, tile_chunk_height)
     mergeChain_rects.append(mergeChain_rect)
-
+    
     # Draw the popup_select
-    pygame.draw.rect(popup, getattr(colors, chain), mergeChain_rect)
-
+    pygame.draw.rect(popup, Colors.chain(chain), mergeChain_rect)
+    
     # Draw the stock name
-    label = font.render(chain, 1, colors.BLACK)
+    label = font.render(chain, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.center = (pos_x + tile_chunk_width // 2, pos_y + tile_chunk_height // 2)
     popup.blit(label, label_rect)
-
-
+  
   return (mergeChain_rects, mergecart_rects)
 
 def draw_defunctPayout(popupInfo, statementsTup_vec):
@@ -465,7 +464,7 @@ def draw_defunctPayout(popupInfo, statementsTup_vec):
   pos_x = popup_width // 2
   pos_y = popup_height // 15
   pos_x, pos_y = int(pos_x), int(pos_y)
-  label = font.render(f'Defunct Chain Payout ({iofnStatement[0]}/{iofnStatement[1]})', 1, colors.BLACK)
+  label = font.render(f'Defunct Chain Payout ({iofnStatement[0]}/{iofnStatement[1]})', 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
@@ -478,7 +477,7 @@ def draw_defunctPayout(popupInfo, statementsTup_vec):
     pos_x, pos_y = int(pos_x), int(pos_y)
 
     # Draw the player name
-    label = font.render(statement, 1, colors.BLACK)
+    label = font.render(statement, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.centerx = pos_x
     label_rect.centery = pos_y
@@ -496,11 +495,11 @@ def draw_defuncter(popupInfo, drawinfo):
   pos_x = popup_width // 2
   pos_y = popup_height // 15
   pos_x, pos_y = int(pos_x), int(pos_y)
-  label = font.render(f"{pDefuncting.name}'s {defunctChain} Stock Defunct Allocation", 1, colors.BLACK)
+  label = font.render(f"{pDefuncting.name}'s {defunctChain} Stock Defunct Allocation", 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
-
+  
   # Draw create slider, knobs, and colored slider segments
   slider_width = 7*int(popup_width // 8)
   slider_height = int(popup_height // 8)
@@ -516,36 +515,36 @@ def draw_defuncter(popupInfo, drawinfo):
   keep_bar_rect = pygame.Rect(slider_x, slider_y, knob1_x - slider_x, slider_height)
   sell_bar_rect = pygame.Rect(knob1_x, slider_y, knob2_x - knob1_x, slider_height)
   trade_bar_rect = pygame.Rect(knob2_x, slider_y, slider_x + slider_width - knob2_x, slider_height)
-
+  
   #Draw bars and knobs to popup
-  pygame.draw.rect(popup, getattr(colors, defunctChain), keep_bar_rect)
-  pygame.draw.rect(popup, colors.BLACK, sell_bar_rect)
-  pygame.draw.rect(popup, getattr(colors, bigchain), trade_bar_rect)
-  pygame.draw.rect(popup, colors.RED, knob1_rect)
-  pygame.draw.rect(popup, colors.RED if bank.stocks[bigchain] > 0 else colors.UNSELECTABLEGRAY, knob2_rect)
-
-  # Create and Draw tradeBanned colors.GRAY left-half
+  pygame.draw.rect(popup, Colors.chain(defunctChain), keep_bar_rect)
+  pygame.draw.rect(popup, Colors.BLACK, sell_bar_rect)
+  pygame.draw.rect(popup, Colors.chain(bigchain), trade_bar_rect)
+  pygame.draw.rect(popup, Colors.RED, knob1_rect)
+  pygame.draw.rect(popup, Colors.RED if bank.stocks[bigchain] > 0 else Colors.UNSELECTABLEGRAY, knob2_rect)
+  
+  # Create and Draw tradeBanned Colors.GRAY left-half
   if tradeBanned:
     if bank.stocks[bigchain] > 0:
       tradeBanned_rect = knob2_rect.copy()
       tradeBanned_rect.width = tradeBanned_rect.width//2
-      pygame.draw.rect(popup, colors.UNSELECTABLEGRAY, tradeBanned_rect)
+      pygame.draw.rect(popup, Colors.UNSELECTABLEGRAY, tradeBanned_rect)
     # Create and Draw overlap square if needed
     if knob1_x == knob2_x:
       pretty_rect = knob1_rect.copy()
       pretty_rect.y = slider_y + slider_height//2
       pretty_rect.height = pretty_rect.height//2
-      pygame.draw.rect(popup, colors.RED, pretty_rect)
-
+      pygame.draw.rect(popup, Colors.RED, pretty_rect)
+  
   # Create and draw numbers for keep, sell, trade
   pos_x = popup_width // 2
   pos_y = 4*popup_height // 5
   pos_x, pos_y = int(pos_x), int(pos_y)
-  label = font.render(f"Keep: {keepnumb} Sell: {sellnumb} Trade: {tradenumb}", 1, colors.BLACK)
+  label = font.render(f"Keep: {keepnumb} Sell: {sellnumb} Trade: {tradenumb}", 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
-
+  
   return [knob1_rect, knob2_rect, slider_rect]
 
 def draw_yesorno(popupInfo, drawinfo):
@@ -571,7 +570,7 @@ def draw_yesorno(popupInfo, drawinfo):
   else: label_text = 'Default Yes/No Question?'
 
   # Draw the popup header
-  label = font.render(label_text, 1, colors.BLACK)
+  label = font.render(label_text, 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
@@ -589,10 +588,10 @@ def draw_yesorno(popupInfo, drawinfo):
     button_rects.append(button_rect)
 
     # Draw the popup_select
-    pygame.draw.rect(popup, [colors.RED, colors.GREEN][i], button_rect)
+    pygame.draw.rect(popup, [Colors.RED, Colors.GREEN][i], button_rect)
 
     # Draw the stock name
-    label = font.render(text, 1, colors.WHITE)
+    label = font.render(text, 1, Colors.WHITE)
     label_rect = label.get_rect()
     label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
     popup.blit(label, label_rect)
@@ -624,7 +623,7 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   pos_x, pos_y = int(pos_x), int(pos_y)
   
   # Draw the popup header
-  label = font.render('Which Stock Would You Like To Buy?', 1, colors.BLACK)
+  label = font.render('Which Stock Would You Like To Buy?', 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x, pos_y)
   popup.blit(label, label_rect)
@@ -638,7 +637,7 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   
   
   # Draw the stockcart header
-  label = font.render('Stock Cart:', 1, colors.BLACK)
+  label = font.render('Stock Cart:', 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x - 2 * x_spacer - label.get_width() // 2, pos_y)
   popup.blit(label, label_rect)
@@ -649,8 +648,8 @@ def draw_stockbuy(popupInfo, stock_p_vec):
     # Create a rectangle for a stockcart square
     stockcart_rect = pygame.Rect(pos_x + (plusmin_width + plusmin_width // 5) * i, pos_y - label.get_height()//2, plusmin_width, plusmin_height)
     
-    if stockcart[i] == '': stockcart_color = colors.WHITE
-    else: stockcart_color = getattr(colors, stockcart[i])
+    if stockcart[i] == '': stockcart_color = Colors.WHITE
+    else: stockcart_color = Colors.chain(stockcart[i])
     
     # Draw a stockcart square to screen
     pygame.draw.rect(popup, stockcart_color, stockcart_rect)
@@ -668,17 +667,17 @@ def draw_stockbuy(popupInfo, stock_p_vec):
       newchain_rect = pygame.Rect(pos_x, pos_y, tile_chunk_width, tile_chunk_height)
       
       # Draw the popup_select
-      pygame.draw.rect(popup, getattr(colors, chain), newchain_rect)
+      pygame.draw.rect(popup, Colors.chain(chain), newchain_rect)
       
       # Draw the stock name
-      label = font.render(chain, 1, colors.BLACK)
+      label = font.render(chain, 1, Colors.BLACK)
       label_rect = label.get_rect()
       label_rect.center = (pos_x + tile_chunk_width // 2, pos_y + tile_chunk_height // 2)
       popup.blit(label, label_rect)
       
       # Draw the stock's price
       stockprice = bank.stockcost(chain, board.fetchchainsize(chain))
-      pricecolor = colors.BLACK if stockprice < p.bal else colors.RED
+      pricecolor = Colors.BLACK if stockprice < p.bal else Colors.RED
       label2 = font.render(f'${stockprice}', 1, pricecolor)
       label2_rect = label2.get_rect()
       label2_rect.center = (pos_x + tile_chunk_width // 2, pos_y - tile_chunk_height // 2 + popup_height // 50)
@@ -696,10 +695,10 @@ def draw_stockbuy(popupInfo, stock_p_vec):
         if len(minusplus_iterlist) == 1: stock_plusmin_rects.append(None)
         
         # Draw the rect
-        pygame.draw.rect(popup, colors.BLACK, stock_plusmin_rect)
+        pygame.draw.rect(popup, Colors.BLACK, stock_plusmin_rect)
         
         # Draw the plus/minus label
-        label = font.render('-' if k == -1 else '+', 1, colors.WHITE)
+        label = font.render('-' if k == -1 else '+', 1, Colors.WHITE)
         label_rect = label.get_rect()
         label_rect.center = (pos_x + offset_x + plusmin_width // 2, pos_y + offset_y + plusmin_height // 2)
         popup.blit(label, label_rect)

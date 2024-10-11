@@ -1,0 +1,107 @@
+import pickle
+import socket
+import threading
+import uuid
+
+# COMM Protocol
+HEADERSIZE = 8
+FORMAT = "utf-8"
+
+class Command:
+  def __init__(self, action_obj_key:str, val) -> None:
+    action, obj, key = action_obj_key.split()
+    # offer support for more granular control later, if deemed necessary
+    if action in {"set", 
+                  "add", "sub",}:
+      self.action = action
+    else:
+      raise TypeError(f"Invalid Command action {action}")
+    
+    if obj in {"server", "client",
+               "tilebag", "board", "player", "stats", "bank",}:
+      self.obj = obj
+    else:
+      raise NameError(f"Invalid Command object {obj}")
+    
+    if type(key) == str:
+      self.key = key
+    else:
+      raise KeyError(f"Invalid Command key {key}")
+    
+    self.val = val
+  
+  def pack(self) -> bytes:
+    return pickle.dumps(self, 5)
+  
+  def dump(self) -> str:
+    return " ".join(self.action, self.obj, self.key)
+
+class KillableThread(threading.Thread):
+  def __init__(self, group: None = None, target = None, name: str | None = None, args: tuple | list = (), kwargs: tuple[str | None] | None = None, *, daemon: bool | None = None) -> None:
+    self.kill_event = threading.Event()
+    if args is None:
+      args = (self.kill_event)
+    else:
+      args = (self.kill_event, *args)
+    super().__init__(group, target, name, args, kwargs, daemon=daemon)
+  
+  def kill(self):
+    self.kill_event.set()
+    self.join()
+
+class Connection:
+  def __init__(self, addr: str, sock:socket.socket | None) -> None:
+    self.uuid = uuid.uuid4()
+    self.addr = addr
+    self.sock: socket.socket | None = sock
+    self.comm: list[Command] | None = None  
+  
+  @property
+  def sock(self):
+    return self._sock
+  
+  @sock.setter
+  def sock(self, sock: socket.socket | None):
+    self._sock = sock
+    if sock is not None:
+      self._thread = KillableThread(target=self.listen, args=(self._sock,))
+      self._thread.start()
+    else:
+      self._thread = None
+  
+  def kill(self):
+    if self.sock is not None:
+      self._sock.close()
+      self.kill_thread()
+      self.sock = None
+  
+  def kill_thread(self):
+    if self._thread is not None:
+      self._thread.kill()
+      self._thread = None
+  
+  def listen(self, kill_event:threading.Event, sock:socket.socket):
+    while not kill_event.isSet():
+      data_len = sock.recv(HEADERSIZE).decode(FORMAT)
+      if data_len:
+        data: bytes = sock.recv(int(data_len))
+        if self.comm is None:
+          self.comm = [pickle.loads(data)]
+        else:
+          self.comm += pickle.loads(data)
+        # print(data)
+  
+  def send(self, command: Command):
+    data = command.pack()
+    data_len = f"{len(data)}".encode(FORMAT)
+    data_len_padded = data_len + b' ' * (HEADERSIZE - len(data_len))
+    self.socket.send(data_len_padded)
+    self.socket.send(data)
+  
+  def fetch(self) -> Command | None:
+    command = None
+    if self.comm is not None:
+      command = self.comm.pop(0)
+    if len(self.comm) == 0:
+      self.comm = None
+    return command

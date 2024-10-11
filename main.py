@@ -3,22 +3,23 @@ import pygame
 # Initialize Pygame
 pygame.init()
 window_size = (1600, 900)
-global screen
 screen = pygame.display.set_mode(window_size, pygame.RESIZABLE)
+pygame.scrap.init()
 pygame.display.set_caption('Game Setup')
 clock = pygame.time.Clock()
-pygame.key.set_repeat(500, 50) #time in ms
+pygame.key.set_repeat(300, 50) #time in ms
+gameUtils = (screen, clock)
 
 from pregame import config
-successfullBoot, clientMode, newGame, gameState = config(screen, clock)
+successfullBoot, clientMode, newGame, gameState = config(gameUtils)
 
+from objects.networking import *
 conn_dict = dict()
 def clean_quit():
+  if clientMode == "hostServer":
+    serverThread.kill()
   for conn in conn_dict.values():
     conn.kill()
-  if clientMode == "hostServer":
-    serverConn.kill()
-  
   # Shut down Pygame
   pygame.quit()
   quit(0)
@@ -27,13 +28,12 @@ if not successfullBoot:
   clean_quit()
 
 if clientMode == "hostServer":
-  from networking import start_server
-  serverConn, conn_dict = start_server(conn_dict, newGame, gameState)
+  serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
 
 if clientMode == "join":
   ip: str = gameState
-  from networking import start_client
   try:
+    print("[CONNECTING]")
     conn_dict = start_client(ip, conn_dict)
     gameState = None
   except:
@@ -41,7 +41,7 @@ if clientMode == "join":
     quit(1)
 
 from pregame import lobby
-successfulStart, gameState = lobby(screen, clock, conn_dict, clientMode, newGame, gameState)
+successfulStart, gameState = lobby(gameUtils, conn_dict, clientMode, newGame, gameState)
 
 if not successfulStart:
   clean_quit()
@@ -49,12 +49,14 @@ if not successfulStart:
 # stop looking for new client connections
 del conn_dict
 if clientMode == "hostServer":
-  serverConn.kill_thread()
+  serverThread.kill()
 
 from gameloop import gameloop
-gameCompleted, saveData = gameloop(screen, clock, newGame, gameState)
+gameCompleted, saveData = gameloop(gameUtils, newGame, gameState)
 
 from postgame import postgame
-postgame(screen, clock, gameCompleted, saveData)
+postgame(gameUtils, gameCompleted, saveData)
 
-clean_quit()
+# Shut down Pygame
+pygame.quit()
+quit(0)
