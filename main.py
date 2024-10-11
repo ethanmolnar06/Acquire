@@ -10,35 +10,41 @@ clock = pygame.time.Clock()
 pygame.key.set_repeat(300, 50) #time in ms
 gameUtils = (screen, clock)
 
-from pregame import config
-successfullBoot, clientMode, newGame, gameState = config(gameUtils)
-
-from objects.networking import *
-conn_dict = dict()
-def clean_quit():
-  if clientMode == "hostServer":
-    serverThread.kill()
-  for conn in conn_dict.values():
-    conn.kill()
-  # Shut down Pygame
-  pygame.quit()
-  quit(0)
-
-if not successfullBoot:
-  clean_quit()
-
-if clientMode == "hostServer":
-  serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
-
-if clientMode == "join":
-  ip: str = gameState
-  try:
-    print("[CONNECTING]")
-    conn_dict = start_client(ip, conn_dict)
-    gameState = None
-  except:
-    print("[CONNECTION ERROR] Client Failed to Connect!")
-    quit(1)
+clientReady = False
+while not clientReady:
+  from pregame import config
+  successfullBoot, clientMode, newGame, gameState = config(gameUtils)
+  
+  from objects.networking import *
+  conn_dict = dict()
+  def clean_quit():
+    for conn in conn_dict.values():
+      conn.kill()
+    if clientMode == "hostServer":
+      serverThread.kill()
+    # Shut down Pygame
+    pygame.quit()
+    quit(0)
+  
+  if not successfullBoot:
+    clean_quit()
+  
+  if clientMode == "hostLocal":
+    clientReady = True
+  
+  elif clientMode == "hostServer":
+    serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
+    clientReady = True
+  
+  elif clientMode == "join":
+    ip: str = gameState
+    try:
+      print("[CONNECTING]")
+      conn_dict = start_client(ip, conn_dict)
+      gameState = None
+      clientReady = True
+    except:
+      print("[CONNECTION ERROR] Client Failed to Connect!")
 
 from pregame import lobby
 successfulStart, gameState = lobby(gameUtils, conn_dict, clientMode, newGame, gameState)

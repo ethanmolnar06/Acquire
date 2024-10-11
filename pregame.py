@@ -360,7 +360,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   elif clientMode == "join":
     waitingForHandshake = True
     while waitingForHandshake:
-      u, _ = fetch_updates(conn_dict)
+      u = fetch_updates(conn_dict)
       for uuid, d in u:
         if d is not None and d.dump() == "set client connection":
           waitingForHandshake = False
@@ -380,8 +380,9 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     waitingForJoin = True
     clicked_player_int: int | None = None
   else:
-    HOST.conn = conn_dict["server"]
-    HOST.conn.uuid = HOST.uuid
+    # wait to assign HOST.conn = conn_dict["server"] until 
+    # AFTER P = deepcopy(HOST)
+    conn_dict["server"].uuid = HOST.uuid
     if newGame:
       setPlayerNameJoin = True
     else:
@@ -389,7 +390,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   
   u_overflow = None
   playernameTxtbx = ""
-  hover_save_int, clicked_save_int = [None]*2
+  hover_save_int, clicked_player_int = [None]*2
   connected_players: list[Player] = [p for p in players if p.connClaimed] # == players if newGame
   unclaimed_players: list[Player] = [p for p in players if not p.connClaimed] # == [] if newGame
   
@@ -458,7 +459,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         drawinfo = (hover_player_int, clicked_player_int)
         player_rects, load_rect = draw_selectPlayerFromSave(drawinfo, unclaimed_players)
       elif setPlayerNameJoin:
-        text_field_rect, confirm_rect = draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox)
+        confirm_rect = draw_setPlayerNameJoin(playernameTxtbx)
       else:
         player_rects, yesandno_rects = draw_waitingForJoin(clientMode, connected_players, clicked_player_int)
       # Update the display
@@ -486,7 +487,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       if event.type == pygame.MOUSEBUTTONDOWN:
         if hover_save_int is not None:
           clicked_player_int = (hover_save_int if clicked_player_int != hover_save_int else None)
-        elif clicked_save_int is not None and load_rect.collidepoint(pos):
+        elif clicked_player_int is not None and load_rect.collidepoint(pos):
           selectPlayerFromSave = False
           P: Player = unclaimed_players[clicked_player_int]
           HOST.conn.send(Command("set player uuid", P.uuid))
@@ -494,19 +495,18 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     
     elif setPlayerNameJoin:
       if event.type == pygame.MOUSEBUTTONDOWN:
-        clicked_textbox = False
         # Get the mouse position
         pos = pygame.mouse.get_pos()
-        if text_field_rect.collidepoint(pos):
-          clicked_textbox = True
-        elif confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 2:
+        if confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 2:
           setPlayerNameJoin = False
           P = deepcopy(HOST)
+          HOST.conn = conn_dict["server"]
           P.setGameObj(tilebag, board)
+          P.conn = Connection("client", None)
           P.name = (playernameTxtbx, len(players)+1)
           players.append(P)
           HOST.conn.send(Command("set server gameState", pack_gameState(tilebag, board, players, bank)))
-      elif event.type == pygame.KEYDOWN and clicked_textbox and pygame.key.get_focused():
+      elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
         playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
     
     elif waitingForJoin:

@@ -34,7 +34,7 @@ class Command:
     return pickle.dumps(self, 5)
   
   def dump(self) -> str:
-    return " ".join(self.action, self.obj, self.key)
+    return " ".join([self.action, self.obj, self.key])
 
 class KillableThread(threading.Thread):
   def __init__(self, group: None = None, target = None, name: str | None = None, args: tuple | list = (), kwargs: tuple[str | None] | None = None, *, daemon: bool | None = None) -> None:
@@ -95,8 +95,8 @@ class Connection:
     data = command.pack()
     data_len = f"{len(data)}".encode(FORMAT)
     data_len_padded = data_len + b' ' * (HEADERSIZE - len(data_len))
-    self.socket.send(data_len_padded)
-    self.socket.send(data)
+    self.sock.send(data_len_padded)
+    self.sock.send(data)
   
   def fetch(self) -> Command | None:
     command = None

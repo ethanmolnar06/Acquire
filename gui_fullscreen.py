@@ -256,7 +256,7 @@ def draw_joinCode(ipTxtBx: str) -> tuple[pygame.Rect, list[pygame.Rect]]:
   
   return text_field_rect, yesandno_rects
 
-def draw_setPlayerNameHost(playernameTxtbx) -> tuple[pygame.Rect, list[pygame.Rect]]:
+def draw_setPlayerNameHost(playernameTxtbx: str) -> tuple[pygame.Rect, list[pygame.Rect]]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -308,7 +308,7 @@ def draw_setPlayerNameHost(playernameTxtbx) -> tuple[pygame.Rect, list[pygame.Re
   
   return text_field_rect, yesandno_rects
 
-def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox) -> tuple[pygame.Rect, pygame.Rect]:
+def draw_setPlayerNameJoin(playernameTxtbx: str) -> tuple[pygame.Rect]:
   # Get the current window size and generate title font size
   window_width, window_height = screen.get_size()
   font_size = min(window_width, window_height) // 20
@@ -327,9 +327,7 @@ def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox) -> tuple[pygame.Rec
   
   text_field_rect = pygame.Rect(pos_x, pos_y, text_field_width, text_field_height)
   pygame.draw.rect(screen, Colors.GRAY, text_field_rect, 0)
-  
-  if clicked_textbox:
-    pygame.draw.rect(screen, Colors.GREEN, text_field_rect, 4)
+  pygame.draw.rect(screen, Colors.GREEN, text_field_rect, 8)
   
   # Render and blit the player name text on the text field
   text_surface = font.render(playernameTxtbx, True, Colors.BLACK)
@@ -356,7 +354,7 @@ def draw_setPlayerNameJoin(playernameTxtbx, clicked_textbox) -> tuple[pygame.Rec
   label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
   screen.blit(label, label_rect)
   
-  return text_field_rect, confirm_rect
+  return confirm_rect
 
 def draw_setPlayerNamesLocal(player_names, clicked_textbox_int) -> tuple[list[pygame.Rect], list[pygame.Rect]]:
   # Get the current window size and generate title font size

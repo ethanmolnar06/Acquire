@@ -89,13 +89,17 @@ def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
       clock.tick(1)
 
 def pack_gameState(tilebag:TileBag, board:Board, players:list[Player], bank:Bank) -> bytes:
-  freshPlayers = deepcopy(players)
-  for p in freshPlayers:
-    if p.conn is not None and p.conn.addr != "host":
-      p.conn = None
+  conn_list = [p.conn for p in players]
+  for p in players:
+    if p.conn is not None and p.conn.sock is not None:
+      p._conn = None
   
-  objects = (tilebag, board, freshPlayers, bank)
+  # cannot pickle sockets
+  objects = (tilebag, board, players, bank)
   gameStateUpdate = pickle.dumps(objects, 5)
+  
+  for i, p in enumerate(players):
+    p._conn = conn_list[i]
   
   return gameStateUpdate
 

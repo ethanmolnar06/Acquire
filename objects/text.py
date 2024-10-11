@@ -27,7 +27,6 @@ def ctrl_handler(key: int, txtbx:str, allowed_char: str | None = None) -> str:
         if char in allowed_char:
           pastestr.append(char)
       paste = ''.join(pastestr)
-    print(txtbx, paste)
     return txtbx + paste
   return txtbx
 
