@@ -14,7 +14,7 @@ class Bank:
                expnDivisor: float = 240., expnPower: float = 2., expnOffsetReduc: float = 3.,
                ):
     #valid sizeCostFunc, from least to most expensive: Logarithmic, Classic, Linear, Exponential
-    self.tilebag = tilebag
+    self._tilebag = tilebag
     self.board = board
     self.name = 'The Stock Market'
     self.balance = 'Balance: Unlimited'
@@ -47,9 +47,9 @@ class Bank:
       else:
         sizecost = ((size - self.smallSize + 4)//10 + self.smallSize + 1)*self.sizeCostRate
       
-      if chain in self.tilebag.chainTierGrouped['cheap']:
+      if chain in self._tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
-      elif chain in self.tilebag.chainTierGrouped['med']:
+      elif chain in self._tilebag.chainTierGrouped['med']:
         fancycost = 1*self.fancyCostRate
       else:
         fancycost = 2*self.fancyCostRate
@@ -58,9 +58,9 @@ class Bank:
     def linearCost(chain, size):
       sizecost = self.sizeCostRate*size + self.theDadTax
       
-      if chain in self.tilebag.chainTierGrouped['cheap']:
+      if chain in self._tilebag.chainTierGrouped['cheap']:
         fancycost = 0*self.fancyCostRate
-      elif chain in self.tilebag.chainTierGrouped['med']:
+      elif chain in self._tilebag.chainTierGrouped['med']:
         fancycost = 1*self.fancyCostRate
       else:
         fancycost = 2*self.fancyCostRate
@@ -97,9 +97,9 @@ class Bank:
       chainsize = self.board.fetchchainsize(chain)
       stockstats = [ [p, p.stocks[chain] ] for p in players if p.stocks[chain] > 0]
       if len(players) < 3: 
-        bankstocktileID = self.tilebag.drawtile()
-        bankstocks = bankstocktileID // self.tilebag.rows + 1
-        bankdrawntile = self.tilebag.tileIDinterp([bankstocktileID])[0]
+        bankstocktileID = self._tilebag.drawtile()
+        bankstocks = bankstocktileID // self._tilebag.rows + 1
+        bankdrawntile = self._tilebag.tileIDinterp([bankstocktileID])[0]
         self.stats.bankTilesDrawn[-1] += 1
         bankStatement = f'The Bank drew {bankdrawntile}, which means it holds {bankstocks} stocks in {chain}.'
         stockstats.append([self, bankstocks])
@@ -146,9 +146,9 @@ class Bank:
   
   def playtile(self, tile: str): #tile must be playable!
     self.board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = self.tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
+    sortactiveIDs = self._tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
     sortactiveIDs.sort()
-    self.board.tilesinplay = self.tilebag.tileIDinterp(sortactiveIDs)
+    self.board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
     return None
   
   def sellallstock(self, players: list[Player]):

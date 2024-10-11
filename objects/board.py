@@ -2,7 +2,7 @@ from objects.tilebag import TileBag
 
 class Board:
   def __init__(self, tilebag:TileBag, maxChainSize: int):
-    self.tilebag = tilebag
+    self._tilebag = tilebag
     self.maxChainSize = int(maxChainSize)
     self.debug_tilesinplayorder = []
     self.debug_count = 0
@@ -15,7 +15,7 @@ class Board:
   
   def fetchactivechains(self): #returns a list
     activechains = {chainvalue for chainvalue in self.chaindict.values()}
-    activechains = [chain for chain in self.tilebag.chainnames if chain in activechains]
+    activechains = [chain for chain in self._tilebag.chainnames if chain in activechains]
     return activechains
   
   def fetchsmallestchain(self):
@@ -29,9 +29,9 @@ class Board:
     return chainsizepairs[-1]
   
   def fetchadjacent(self, tile: str): #tiles in play order may
-    tileID = self.tilebag.tilesToIDs([tile])[0]
-    adjacentIDs = [tileID - self.tilebag.rows, tileID-1, tileID+1, tileID+self.tilebag.rows]
-    adjacent = self.tilebag.tileIDinterp([ID for ID in adjacentIDs if ID >= 0 and ID <= len(self.tilebag.alltiles)-1])
+    tileID = self._tilebag.tilesToIDs([tile])[0]
+    adjacentIDs = [tileID - self._tilebag.rows, tileID-1, tileID+1, tileID+self._tilebag.rows]
+    adjacent = self._tilebag.tileIDinterp([ID for ID in adjacentIDs if ID >= 0 and ID <= len(self._tilebag.alltiles)-1])
     numbqnt = len([char for char in tile if char in "1234567890"])
     adjacent = [check for check in adjacent if (check[:numbqnt] == tile[:numbqnt] or check[numbqnt:] == tile[numbqnt:])]
     adjinplay = [adj for adj in adjacent if adj in self.tilesinplay]
@@ -102,12 +102,12 @@ class Board:
       adjinplay = self.fetchadjacent(tile)
       if len(adjinplay) > 0: #is actually touchind something, check if/what chain
         chainedonly = self.chainsContained(adjinplay)
-        if len(chainedonly) == 0 and (self.fetchactivechains() == self.tilebag.chainnames if checkChainAvail else True): #would found new chain
+        if len(chainedonly) == 0 and (self.fetchactivechains() == self._tilebag.chainnames if checkChainAvail else True): #would found new chain
           makeBabies[i] = True
     return makeBabies
   
   def endgamecheck(self):
     bigtest = any([self.fetchchainsize(chain) >= self.maxChainSize for chain in self.fetchactivechains()] )
-    birthingTilesLeft = self.contraceptcheck(self.tilebag.tileIDinterp(self.tilebag.tilesleft))
+    birthingTilesLeft = self.contraceptcheck(self._tilebag.tileIDinterp(self._tilebag.tilesleft))
     nomovesleft = all(self.toobigtofail()) and not any(birthingTilesLeft)
     return bigtest or nomovesleft

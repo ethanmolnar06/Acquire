@@ -10,15 +10,13 @@ from objects.stats import Stats
 class Player:
   def __init__(self, tilebag: TileBag, board:Board, name: str, creation_n: int,
                startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6, maxPlayers = 6):
-    self.tilebag = tilebag
-    self.board = board
+    self._tilebag = tilebag
+    self._board = board
     
-    self.truename: str = name
-    self.falsename: str = f"Player {creation_n}"
-    self.name = self.falsename if HIDE_PERSONAL_INFO else self.truename
+    self.name = name, creation_n
     
     self.id: uuid.UUID = uuid.uuid4()
-    self.conn: Connection | None = None
+    self._conn: Connection | None = None
     self.connClaimed: bool = True
     self.ready: bool = False
     
@@ -28,12 +26,24 @@ class Player:
     self.stocks: dict[str, int] = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
     self.stats = Stats(tilebag.chainnames, int(startingStockNumber), self.bal)
   
-  def __setObjLinks(self, tilebag: TileBag, board:Board,):
-    self.tilebag = tilebag
-    self.board = board
+  @property
+  def name(self) -> str:
+    return self._falsename if HIDE_PERSONAL_INFO else self._truename
   
-  def __setConn(self, conn: Connection | None):
-    self.conn = conn
+  @name.setter
+  def name(self, name, creation_n):
+    self._truename = name
+    self._falsename: str = f"Player {creation_n}"
+    self.connClaimed: bool = True
+    self.ready: bool = False
+  
+  @property
+  def conn(self) -> Connection:
+    return self._conn
+  
+  @conn.setter
+  def conn(self, conn: Connection | None):
+    self._conn = conn
     self.ready = False
     if conn is not None:
       self.connClaimed = True
@@ -42,33 +52,26 @@ class Player:
       self.connClaimed = False
       self.uuid = uuid.uuid4()
   
-  def __setName(self, name: str, creation_n: int):
-    self.truename: str = name
-    self.falsename: str = f"Player {creation_n}"
-    self.name = self.falsename if HIDE_PERSONAL_INFO else self.truename
-    self.connClaimed: bool = True
-    self.ready: bool = False
-  
-  def __disconn(self):
+  def DISCONN(self):
     self.conn.kill()
   
   def drawtile(self, n: int = 1):
     for i in range(n):
-      newtileID = self.tilebag.drawtile()
+      newtileID = self._tilebag.drawtile()
       if newtileID is not None: 
-        oldtileIDs = self.tilebag.tilesToIDs(self.tiles)
+        oldtileIDs = self._tilebag.tilesToIDs(self.tiles)
         oldtileIDs.append(newtileID)
         oldtileIDs.sort(key=int)
-        self.tiles = self.tilebag.tileIDinterp(oldtileIDs) #stored as human name string, **NOT ID as int**
+        self.tiles = self._tilebag.tileIDinterp(oldtileIDs) #stored as human name string, **NOT ID as int**
       # else: print('Tilebag Empty!')
     return None
   
   def playtile(self, tile: str): #tile must be playable!
     self.tiles.remove(tile)
-    self.board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = self.tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
+    self._board.debug_tilesinplayorder.append(tile)
+    sortactiveIDs = self._tilebag.tilesToIDs(self.board.debug_tilesinplayorder)
     sortactiveIDs.sort()
-    self.board.tilesinplay = self.tilebag.tileIDinterp(sortactiveIDs)
+    self._board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
     return None
   
   def deadduckremoval(self):
@@ -76,7 +79,7 @@ class Player:
     unchecked = set(self.tiles)
     while len(unchecked) != 0:
       for tile in unchecked:
-        if self.board.deadduckcheck(tile):
+        if self._board.deadduckcheck(tile):
           self.tiles.remove(tile)
           self.stats.deadDucksTrashed[-1] += 1
           self.drawtile()
