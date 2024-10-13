@@ -1,13 +1,12 @@
 import pygame
+from uuid import UUID
 
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, pack_save, write_save
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, 
-             gameState: tuple[TileBag, Board, list[Player], Bank]) -> tuple[bool, bytes]:
-  pygame.display.set_caption('Acquire Board')
-  
+             gameState: tuple[TileBag, Board, list[Player], Bank], host_uuid: UUID | None, my_uuid: UUID | None) -> tuple[bool, bytes]:
   global screen, tilebag, board, bank
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState

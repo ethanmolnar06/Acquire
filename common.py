@@ -2,7 +2,7 @@ import datetime
 import os
 import pickle
 import pygame
-from copy import deepcopy
+from uuid import UUID
 
 from objects import *
 
@@ -77,6 +77,12 @@ class Fonts:
   tile = "arial"
   oblivious = r'fonts/oblivious-font.regular.ttf'
 
+def ratio(a: int | float, b: int | float, n: int | float) -> int:
+  r = a/b
+  if r < .98: return int(n*r)
+  elif r > 1.02: return int(n/r)
+  else: return int(.98*n)
+
 def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
   while colorLoop:
     for color in Colors.get_all_colors():
@@ -91,6 +97,7 @@ def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
 def pack_gameState(tilebag:TileBag, board:Board, players:list[Player], bank:Bank) -> bytes:
   conn_list = [p.conn for p in players]
   for p in players:
+    # send actual connections as None, self as dummy "host"/"client", others as None
     if p.conn is not None and p.conn.sock is not None:
       p._conn = None
   
@@ -114,20 +121,21 @@ def pack_save(tilebag:TileBag, board:Board, players:list[Player], bank:Bank, cur
   
   return saveData, currentOrderNames
 
-def unpack_gameState(gameState: bytes, localPlayers: list[Player] | None = None) -> tuple[TileBag, Board, list[Player], Bank]:
+def unpack_gameState(gameState: bytes, conn_dict: dict[UUID, Connection] | None = None) -> tuple[TileBag, Board, list[Player], Bank]:
   objects: tuple[TileBag, Board, list[Player], Bank] = pickle.loads(gameState)
   tilebag, board, players, bank = objects
   
-  # re-link internal Tilebags, Boards, Player names, and Connections (if host)
+  # re-link internal Tilebags, Boards, Player names, and Connections
   board.setGameObj(tilebag)
   bank.setGameObj(tilebag, board)
   for p in players:
     p.setGameObj(tilebag, board)
-    
-    if localPlayers is not None:
-      p.conn = find_player(p.uuid, localPlayers).conn
-      # host writes valid conns to client and dummy conn to host
-      # clients write valid conn to server and None to host
+    if conn_dict is not None:
+      # client only has host in conn_dict
+      if p.uuid in conn_dict.keys():
+        p._conn = conn_dict[p.uuid]
+      # host writes valid conns to clients and dummy to self
+      # clients write valid conn to host, dummy to self, and leaves None on other clients 
   
   return (tilebag, board, players, bank)
 

@@ -6,7 +6,6 @@ from common import ALLOW_SAVES, MAX_FRAMERATE, unpack_gameState, write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted: bool, saveData: bytes):
-  pygame.display.set_caption('Postgame')
   screen, clock = gameUtils
   tilebag, board, players, bank = unpack_gameState(saveData)
   

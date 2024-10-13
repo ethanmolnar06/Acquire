@@ -10,6 +10,7 @@ class Player:
   def __init__(self, tilebag: TileBag, board:Board, name: str, creation_n: int,
                startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6, maxPlayers = 6):
     self.setGameObj(tilebag, board)
+    self.maxPlayers = maxPlayers
     self.name = (name, creation_n)
     
     self.id: uuid.UUID = uuid.uuid4()

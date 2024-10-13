@@ -1,6 +1,7 @@
 import socket
 import threading
 import uuid
+from datetime import datetime
 
 from objects.connection import Command, KillableThread, Connection
 from objects.player import Player
@@ -18,11 +19,12 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   server.settimeout(3.0) # time to wait in sec
   server.bind((ip, PORT))
-  server.listen()
+  print(f"[SERVER INITALIZED]")
   
   from common import pack_gameState
   def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
-    print(f"Listening at {ip}")
+    server.listen()
+    print(f"[LISTENING] Listening at {ip}")
     while not kill_event.isSet():
       try:
         client, addr = server.accept()
@@ -33,14 +35,15 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
       addr = f"{addr[0]}:{addr[1]}"
       newConn = Connection(addr, client)
       conn_dict[newConn.uuid] = newConn
-      print(f"{addr} connected.")
+      print(f"[CONNECTION SUCCESS] {newConn} Connected @ {datetime.now().time()}")
       
       gameStateUpdate = pack_gameState(*gameState)
       handshake = (newGame, gameStateUpdate)
       propagate(conn_dict, None, Command("set client connection", handshake))
     
+    print(f"[LISTENING CLOSED] No Longer Listening at {ip}")
     server.close()
-    print(f"Server Closed")
+    print(f"[SERVER TERMINATED]")
   
   serverThread = KillableThread(target=accept_conn, args=(newGame, gameState))
   serverThread.start()
@@ -69,7 +72,7 @@ def extrctConns(collection: dict[uuid.UUID, Connection] | list[Player] | list[Co
 def propagate(dests: dict[uuid.UUID, Connection] | list[Player] | list[Connection], source: uuid.UUID | Player | Connection | None, command: Command):
   conns = extrctConns(dests)
   for conn in conns:
-    if conn is None:
+    if conn is None or conn.sock is None:
       continue
     elif isinstance(source, uuid.UUID) and conn.uuid == source:
       continue

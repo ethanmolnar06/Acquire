@@ -2,6 +2,7 @@ import pickle
 import socket
 import threading
 import uuid
+from datetime import datetime
 
 # COMM Protocol
 HEADERSIZE = 8
@@ -56,6 +57,9 @@ class Connection:
     self.sock: socket.socket | None = sock
     self.comm: list[Command] | None = None  
   
+  def __str__(self):
+    return f"{self.addr} [{self.uuid}]"
+  
   @property
   def sock(self):
     return self._sock
@@ -74,6 +78,7 @@ class Connection:
       self._sock.close()
       self.kill_thread()
       self.sock = None
+    print(f"[CONNECTION CLOSED] Disconnected from {self} @ {datetime.now().time()}")
   
   def kill_thread(self):
     if self._thread is not None:
@@ -82,7 +87,14 @@ class Connection:
   
   def listen(self, kill_event:threading.Event, sock:socket.socket):
     while not kill_event.isSet():
-      data_len = sock.recv(HEADERSIZE).decode(FORMAT)
+      try:
+        data_len = sock.recv(HEADERSIZE).decode(FORMAT)
+      except ConnectionResetError as err:
+        # to catch "forcibly closed by the remote host" when client crash
+        print(f"[CONNECTION ERROR] Error with {self} @ {datetime.now().time()}")
+        print(f"[CONNECTION ERROR] {err}")
+        kill_event.set()
+        break
       if data_len:
         data: bytes = sock.recv(int(data_len))
         if self.comm is None:
