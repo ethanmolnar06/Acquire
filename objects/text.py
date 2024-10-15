@@ -73,17 +73,17 @@ def crunch_ip(event: pygame.event.Event, ipTxtbx: str) -> str:
       return ctrl_handler(key, ipTxtbx, string.digits + ".")[:16]
   # general char add
   elif is_digit(key) or (key == pygame.K_PERIOD and ipTxtbx.count(".") < 3):
-    # max ip length 255.255.255.255 == 16
-    if len(ipTxtbx) < 16:
+    # max ip length 255.255.255.255 == 15
+    if len(ipTxtbx) < 15:
       # .strip("[]") enables numbpad digits
       return ipTxtbx + pygame.key.name(key).strip("[]")
     else:
-      return ipTxtbx[:16]
-  return ipTxtbx[:16]
+      return ipTxtbx[:15]
+  return ipTxtbx[:15]
 
 def crunch_customSettings_nav(event: pygame.event.Event, settings: dict[str], clicked_textbox_key: str, drawnSettingsKeys: list[str]) -> tuple[dict[str], str]:
   i = drawnSettingsKeys.index(clicked_textbox_key)
-  i = nav_handler(drawnSettingsKeys, i, 2)
+  i = nav_handler(event, drawnSettingsKeys, i, 2)
   clicked_textbox_key = drawnSettingsKeys[(i)%len(drawnSettingsKeys)]
   
   if clicked_textbox_key == "Stock Pricing Function":
@@ -114,5 +114,5 @@ def crunch_customSettings_nav(event: pygame.event.Event, settings: dict[str], cl
   # general char add
   elif is_digit(key) or key == pygame.K_PERIOD:
     if not (key == pygame.K_PERIOD and "." in settings[outerkey][clicked_textbox_key]):
-      settings[outerkey][clicked_textbox_key] += key
+      settings[outerkey][clicked_textbox_key] += pygame.key.name(key).strip("[]")
   return settings, clicked_textbox_key

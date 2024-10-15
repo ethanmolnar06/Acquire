@@ -32,7 +32,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
       elif askShowStats:
         yesandno_rects = draw_fullscreenSelect('endGameStats')
       elif selectStatsGraph:
-        statswap_rects, viewmode_rect = draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewmode, graphfig)
+        statswap_rects, viewByField_rect = draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewByField, graphfig)
       # Update the display
       pygame.display.flip()
       # endregion
@@ -72,7 +72,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
               if i == 1:
                 forceRender = True
                 selectStatsGraph = True
-                viewmode = "STATS"
+                viewByField = True
                 graphrends = {}
                 graphfig = None
                 statlist = list(players[0].stats.__dict__.keys())
@@ -90,15 +90,13 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
         else:
           hover_stat_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
-        if viewmode_rect.collidepoint(pos):
+        if viewByField_rect.collidepoint(pos):
           clicked_stat_int = graphfig = None
-          if viewmode == "STATS":
-            viewmode = "USER"
-          else: viewmode = "STATS"
+          viewByField = not viewByField
         elif hover_stat_int is not None:
           clicked_stat_int = (hover_stat_int if clicked_stat_int != hover_stat_int else None)
           if clicked_stat_int is not None:
-            if viewmode == "USER":
+            if not viewByField:
               p = players[clicked_stat_int]
               if p.name not in graphrends.keys():
                 graph_yaxes = [getattr(p.stats, stat) for stat in statlist if stat not in ('stockChainsOwned', 'stocks', 'mostExpandedChain')]
@@ -132,9 +130,5 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
                 graphrends[stat] = graphfig
               else:
                 graphfig = graphrends[stat]
-        elif viewmode_rect.collidepoint(pos):
-          clicked_stat_int = graphfig = None
-          if viewmode == "STATS": viewmode = "USER"
-          else: viewmode = "STATS"
     
     clock.tick(MAX_FRAMERATE)

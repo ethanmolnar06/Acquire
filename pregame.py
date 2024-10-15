@@ -9,8 +9,8 @@ from common import DIR_PATH, MAX_FRAMERATE, unpack_gameState
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
   global screen
   screen, clock = gameUtils
-  from gui_fullscreen import draw_fullscreenSelect, draw_joinCode, draw_setPlayerNameHost, \
-     draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave
+  from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, \
+                             draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave
   
   # region define statemap & defaults
   stockGameSettings = {
@@ -82,9 +82,11 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
       if askHostJoin:
         yesandno_rects = draw_fullscreenSelect('hostJoin')
       elif askJoinCode:
-        text_field_rect, yesandno_rects = draw_joinCode(ipTxtbx)
+        title = "Enter Host IP"; confirm_label = 'Connect'
+        yesandno_rects = draw_singleTextBox(ipTxtbx, title, confirm_label)
       elif setPlayerNameHost:
-        text_field_rect, yesandno_rects = draw_setPlayerNameHost(playernameTxtbx)
+        title = "Enter Your Username"; confirm_label = 'Start Server'
+        yesandno_rects = draw_singleTextBox(playernameTxtbx, title, confirm_label)
       elif askHostLocal:
         yesandno_rects = draw_fullscreenSelect('hostLocal')
       elif askLoadSave:
@@ -274,7 +276,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
               else:
                 setPlayerNameHost = True
                 playernameTxtbx = ""
-                clicked_textbox = None
+                clicked_textbox_int = None
       elif event.type == pygame.KEYDOWN and clicked_textbox_key is not None and pygame.key.get_focused():
         settings, clicked_textbox_key = text.crunch_customSettings_nav(event, settings, clicked_textbox_key, list(drawnSettings.keys()))
     
@@ -290,21 +292,23 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
           if text_field_rect.collidepoint(pos):
             clicked_textbox_int = i
             break
-        if sum(['' != box for box in settings["playernames"]]) >= 2:
-          # minimum names filled, check for click to go to settings
-          for i, yesorno_rect in enumerate(yesandno_rects):
-            if yesorno_rect.collidepoint(pos):
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
               setPlayerNamesLocal = False; forceRender = True
-              if i == 0:
-                customSettings = True
-                clicked_textbox_key = None
+              customSettings = True
+              clicked_textbox_key = None
+            else:
+              # minimum names filled
+              if sum(['' != box for box in settings["playernames"]]) >= 2:
+                setPlayerNamesLocal = False; forceRender = True
+          
       elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
         clicked_textbox_int = text.nav_handler(event, settings["playernames"], clicked_textbox_int, 2)
         settings["playernames"][clicked_textbox_int] = text.crunch_playername(event, settings["playernames"][clicked_textbox_int])
     
     elif setPlayerNameHost: # only reachable for hostServer
       if event.type == pygame.MOUSEBUTTONDOWN:
-        clicked_textbox = False
         # Get the mouse position
         pos = pygame.mouse.get_pos()
         for i, yesorno_rect in enumerate(yesandno_rects):
