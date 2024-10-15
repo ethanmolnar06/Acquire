@@ -231,11 +231,13 @@ def central_textbox(surface: Surface, text: str):
   
   return textbox_rect
 
-def bottom_right_button(surface: Surface, label: str, color: tuple[int, int, int] = Colors.LIGHTGREEN,
+def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Colors.LIGHTGREEN,
+                        label_color: tuple[int, int, int] = Colors.BLACK, 
                         rect_width_div: int = 7, rect_height_div: int = 7,
                         rect_offest_x: float = 4/5, rect_offest_y: float = 4/5,) -> Rect:
   surface_width, surface_height = surface.get_size()
   
+  # defaults to bottom right of the screen
   rect_width = int(surface_width // rect_width_div)
   rect_height = int(surface_height // rect_height_div)
   
@@ -246,7 +248,7 @@ def bottom_right_button(surface: Surface, label: str, color: tuple[int, int, int
   button_rect = Rect(pos_x, pos_y, rect_width, rect_height)
   pygame.draw.rect(screen, color, button_rect)
   
-  font_size = dynamic_font(surface, button_rect, label, Colors.BLACK, Fonts.main)
+  font_size = dynamic_font(surface, button_rect, label, label_color, Fonts.main)
   
   return button_rect
 
@@ -362,31 +364,8 @@ def draw_setPlayerNameJoin(playernameTxtbx: str) -> tuple[Rect]:
   
   textbox_rect = central_textbox(screen, playernameTxtbx)
   
-  # Get the current window size and generate title font size
-  window_width, window_height = screen.get_size()
-  font_size = min(window_width, window_height) // 20
-  font = pygame.font.SysFont(Fonts.main, font_size)
-  
-  # Calculate the size of each button
-  button_chunk_width = int(window_width // 3)
-  button_chunk_height = int(window_height // 7)
-  
-  # Draw the confirmation button
-  pos_x = (window_width // 2) - (button_chunk_width // 2)
-  pos_y = 5 * window_height // 6
-  pos_x, pos_y = int(pos_x), int(pos_y)
-  
-  # Create a rectangle for the popup_select and add to popup_select_rects
-  confirm_rect = Rect(pos_x, pos_y, button_chunk_width, button_chunk_height)
-  
-  # Draw the popup_select
-  pygame.draw.rect(screen, Colors.GREEN, confirm_rect)
-  
-  # Draw the stock name
-  label = font.render("CONFRIM", 1, Colors.WHITE)
-  label_rect = label.get_rect()
-  label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
-  screen.blit(label, label_rect)
+  confirm_rect = single_button(screen, "CONFRIM", Colors.GREEN, Colors.WHITE, rect_width_div=3, 
+                               rect_offest_x=2, rect_offest_y=5/6)
   
   return confirm_rect
 
@@ -486,7 +465,7 @@ def draw_selectSaveFile(drawinfo: tuple[bool, int, bool, int], saveinfo) -> tupl
   # Draw load save button if save clicked
   load_rect = None
   if clicked_save_int is not None:
-    load_rect = bottom_right_button(screen, "LOAD")
+    load_rect = single_button(screen, "LOAD")
   
   # Create an "x" button to back out of menu
   back_button_rect = top_right_corner_x_button(screen)
@@ -520,7 +499,7 @@ def draw_selectPlayerFromSave(drawinfo, unclaimed_players: list[Player]) -> tupl
   load_rect = None
   if clicked_player_int is not None:
     draw_player_info(unclaimed_players[clicked_player_int], window_width//40)
-    load_rect = bottom_right_button(screen, "SELECT")
+    load_rect = single_button(screen, "SELECT")
   
   # Create an "x" button to back out of menu
   back_button_rect = top_right_corner_x_button(screen)
@@ -613,7 +592,7 @@ def draw_endGameStats(players: list[Player], statlist, hover_stat_int: int, clic
   # Draw button to change viewmode
   label = "View by Field" if viewByField else "View by Player"
   color = Colors.LIGHTGREEN if viewByField else Colors.RED
-  viewByField_rect = bottom_right_button(screen, label, color, rect_width_div=6, rect_height_div=10, rect_offest_y=8/9)
+  viewByField_rect = single_button(screen, label, color, rect_width_div=6, rect_height_div=10, rect_offest_y=8/9)
   
   return (statswap_rects, viewByField_rect)
 
