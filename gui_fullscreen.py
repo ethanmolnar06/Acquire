@@ -398,7 +398,7 @@ def draw_setPlayerNamesLocal(player_names: list[str], clicked_textbox_int: int) 
   
   return player_rects, yesandno_rects, back_button_rect
 
-def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicked_textbox_int: int) -> tuple[list[Rect], list[Rect]]:
+def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicked_textbox_int: int, gameStartable: bool) -> tuple[list[Rect], list[Rect]]:
   
   title_rect = top_center_title(screen, "Lobby: Waiting for Players")
   
@@ -424,13 +424,20 @@ def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicke
                            lambda x: Colors.GRAY, label_color_func, outline_color_func)
   # endregion
   
-  yesandno_labels = ['Disconnect', 'Mark Ready']
+  button_labels = ['Disconnect', 'Mark Ready']
+  rect_colors = [Colors.RED, Colors.GREEN]
   if clientMode == "hostServer":
-    yesandno_labels = ['Kick Player', 'Start Game']
+    button_labels = ['Kick Player', 'Mark Ready']
+    if gameStartable: 
+      button_labels.append('Start Game')
+      rect_colors.append(Colors.DARKGREEN)
   
-  yesandno_rects = row_buttons(screen, yesandno_labels)
+  def rect_color_func(i):
+    return rect_colors[i]
   
-  return player_rects, yesandno_rects
+  button_rects = row_buttons(screen, button_labels, rect_color_func)
+  
+  return player_rects, button_rects
 
 # dropdown-based
 def draw_selectSaveFile(drawinfo: tuple[bool, int, bool, int], saveinfo) -> tuple[Rect, list[Rect], Rect, Rect]:

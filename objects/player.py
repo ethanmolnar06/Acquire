@@ -52,7 +52,8 @@ class Player:
       self.uuid = uuid.uuid4()
   
   def DISCONN(self):
-    self.conn.kill()
+    if self.conn is not None:
+      self.conn.kill()
   
   def setGameObj(self, tilebag, board):
     self._tilebag = tilebag
@@ -97,6 +98,7 @@ def find_player(uuid: uuid.UUID, players: list[Player]) -> Player:
   for p in players:
     if p.uuid == uuid or (p.conn is not None and p.conn.uuid == uuid):
       return p
+  raise LookupError(f"No Player of uuid [{uuid}] found!")
 
 def setPlayerOrder(tilebag: TileBag, board: Board, players: list[Player]):
   order = []

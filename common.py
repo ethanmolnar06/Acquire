@@ -1,7 +1,7 @@
-import datetime
 import os
 import pickle
 import pygame
+from datetime import date
 from uuid import UUID
 
 from objects import *
@@ -128,23 +128,26 @@ def unpack_gameState(gameState: bytes, conn_dict: dict[UUID, Connection] | None 
   # re-link internal Tilebags, Boards, Player names, and Connections
   board.setGameObj(tilebag)
   bank.setGameObj(tilebag, board)
+  
   for p in players:
+    # print(f"unpacking {p.name} {p.conn}")
     p.setGameObj(tilebag, board)
     if conn_dict is not None:
-      # client only has host in conn_dict
       if p.uuid in conn_dict.keys():
         p._conn = conn_dict[p.uuid]
+        # print(f"overwrote {p.name} with {p.conn}")
       # host writes valid conns to clients and dummy to self
-      # clients write valid conn to host, dummy to self, and leaves None on other clients 
+      # clients write valid conn to host, dummy to self, and leaves None on other clients
+  # print("unpack complete")
   
   return (tilebag, board, players, bank)
 
 def write_save(saveData: bytes, currentOrderNames: list[str] = None, turnnumber: int = None, quicksave: bool = False):
-  date = datetime.date.isoformat(datetime.date.today())
+  today = date.isoformat(date.today())
   if quicksave:
     save_file_new = "quicksave"
   else:
-    save_file_new = date
+    save_file_new = today
     if currentOrderNames is not None:
       save_file_new += f'_{len(currentOrderNames)}players_{"".join(currentOrderNames)}'
     if turnnumber is not None:

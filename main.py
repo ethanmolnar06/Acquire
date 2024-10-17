@@ -30,11 +30,13 @@ while not clientReady:
     clean_quit()
   
   if clientMode == "hostLocal":
+    pygame.display.set_caption('Acquire')
     clientReady = True
   
   elif clientMode == "hostServer":
     serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
     clientReady = True
+    pygame.display.set_caption('Game Lobby [Host]')
   
   elif clientMode == "join":
     ip: str = gameState
@@ -44,10 +46,10 @@ while not clientReady:
       print(f"[CONNECTION SUCCESS] Client Connected to {conn_dict["server"]}")
       gameState = None
       clientReady = True
+      pygame.display.set_caption('Game Lobby [Client]')
     except:
       print("[CONNECTION FAILURE] Client Failed to Connect")
 
-pygame.display.set_caption('Game Lobby')
 from pregame import lobby
 successfulStart, gameState, host_uuid, my_uuid = lobby(gameUtils, conn_dict, clientMode, newGame, gameState)
 

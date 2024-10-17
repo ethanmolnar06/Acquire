@@ -1,14 +1,12 @@
 import socket
 import threading
 import uuid
-from datetime import datetime
 
-from objects.connection import Command, KillableThread, Connection
+from objects.connection import Command, KillableThread, Connection, DISCONN
 from objects.player import Player
 
 # NET Protocol
 PORT = 50545
-DISCONN = "!DISCONNECT!"
 
 def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState: tuple) -> tuple[KillableThread, dict[uuid.UUID, Connection]]:
   # TCP style
@@ -35,10 +33,10 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
       addr = f"{addr[0]}:{addr[1]}"
       newConn = Connection(addr, client)
       conn_dict[newConn.uuid] = newConn
-      print(f"[CONNECTION SUCCESS] {newConn} Connected @ {datetime.now().time()}")
+      print(f"[CONNECTION SUCCESS] New Client Connection from {newConn}")
       
       gameStateUpdate = pack_gameState(*gameState)
-      handshake = (newGame, gameStateUpdate)
+      handshake = (newConn.uuid, newGame, gameStateUpdate)
       propagate(conn_dict, None, Command("set client connection", handshake))
     
     print(f"[LISTENING CLOSED] No Longer Listening at {ip}")
@@ -54,7 +52,7 @@ def start_client(ip, conn_dict) -> dict[str, Connection]:
   client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   client.connect((ip, PORT))
   
-  hostConn = Connection("server", client)
+  hostConn = Connection("server", client, "AWAITING HANDSHAKE")
   conn_dict["server"] = hostConn
   
   return conn_dict
