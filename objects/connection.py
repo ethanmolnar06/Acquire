@@ -48,7 +48,6 @@ class KillableThread(threading.Thread):
   
   def kill(self):
     self.kill_event.set()
-    self.join()
 
 class Connection:
   def __init__(self, addr: str, sock:socket.socket | None) -> None:
@@ -57,15 +56,15 @@ class Connection:
     self.sock: socket.socket | None = sock
     self.comm: list[Command] | None = None  
   
-  def __str__(self):
-    return f"{self.addr} [{self.uuid}]"
+  def __str__(self) -> str:
+    return f"{self.addr.capitalize()} [{self.uuid}]"
   
   @property
-  def sock(self):
+  def sock(self) -> socket.socket | None:
     return self._sock
   
   @sock.setter
-  def sock(self, sock: socket.socket | None):
+  def sock(self, sock: socket.socket | None) -> None:
     self._sock = sock
     if sock is not None:
       self._thread = KillableThread(target=self.listen, args=(self._sock,))
@@ -73,28 +72,36 @@ class Connection:
     else:
       self._thread = None
   
-  def kill(self):
+  def kill(self) -> None:
     if self.sock is not None:
       self._sock.close()
       self.kill_thread()
       self.sock = None
-    print(f"[CONNECTION CLOSED] Disconnected from {self} @ {datetime.now().time()}")
+      print(f"[CONNECTION CLOSED] Disconnected from {self} @ {datetime.now().time()}")
   
-  def kill_thread(self):
+  def kill_thread(self) -> None:
     if self._thread is not None:
       self._thread.kill()
       self._thread = None
+  
+  def _error_log(self, err) -> None:
+    print(f"[CONNECTION ERROR] Error with {self} @ {datetime.now().time()}")
+    print(f"[CONNECTION ERROR] {err}")
+    self.kill()
   
   def listen(self, kill_event:threading.Event, sock:socket.socket):
     while not kill_event.isSet():
       try:
         data_len = sock.recv(HEADERSIZE).decode(FORMAT)
       except ConnectionResetError as err:
-        # to catch "forcibly closed by the remote host" when client crash
-        print(f"[CONNECTION ERROR] Error with {self} @ {datetime.now().time()}")
-        print(f"[CONNECTION ERROR] {err}")
-        kill_event.set()
+        # catch when connection quits unexpectedly
+        self._error_log(err)
         break
+      except ConnectionAbortedError as err:
+        # catch when you quit unexpectedly
+        self._error_log(err)
+        break
+      
       if data_len:
         data: bytes = sock.recv(int(data_len))
         if self.comm is None:

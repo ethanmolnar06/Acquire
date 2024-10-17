@@ -337,8 +337,8 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
                     *settings["bankClassic"].values(),
                     *settings["bankLogarithmic"].values(),
                     *settings["bankExponential"].values())
-        
-      gameState: tuple[TileBag, Board, list[Player], Bank] = (tilebag, board, players, bank)
+      if not clientMode == "join":
+        gameState: tuple[TileBag, Board, list[Player], Bank] = (tilebag, board, players, bank)
       acquireSetup = False
       successfullBoot = True
       return successfullBoot, clientMode, newGame, gameState

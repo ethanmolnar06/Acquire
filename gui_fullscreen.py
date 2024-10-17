@@ -8,7 +8,6 @@ from typing import Callable
 
 from objects import *
 from common import HIDE_PERSONAL_INFO, Colors, Fonts, ratio
-from pregame import screen
 
 # region gui components
 
@@ -237,7 +236,7 @@ def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Co
                         rect_offest_x: float = 4/5, rect_offest_y: float = 4/5,) -> Rect:
   surface_width, surface_height = surface.get_size()
   
-  # defaults to bottom right of the screen
+  # defaults to bottom right of the surface
   rect_width = int(surface_width // rect_width_div)
   rect_height = int(surface_height // rect_height_div)
   
@@ -246,7 +245,7 @@ def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Co
   pos_x, pos_y = int(pos_x), int(pos_y)
   
   button_rect = Rect(pos_x, pos_y, rect_width, rect_height)
-  pygame.draw.rect(screen, color, button_rect)
+  pygame.draw.rect(surface, color, button_rect)
   
   font_size = dynamic_font(surface, button_rect, label, label_color, Fonts.main)
   
@@ -315,6 +314,8 @@ def draw_player_info(p: Player, x_offest_sub: int = 0) -> None:
 
 # endregion
 
+from pregame import screen
+
 # region pregame gui
 
 def draw_fullscreenSelect(drawinfo) -> list[Rect]:
@@ -365,13 +366,13 @@ def draw_setPlayerNameJoin(playernameTxtbx: str) -> tuple[Rect]:
   textbox_rect = central_textbox(screen, playernameTxtbx)
   
   confirm_rect = single_button(screen, "CONFRIM", Colors.GREEN, Colors.WHITE, rect_width_div=3, 
-                               rect_offest_x=2, rect_offest_y=5/6)
+                               rect_offest_x=1/3, rect_offest_y=9/12)
   
   return confirm_rect
 
 # gridifier-based
 # TODO combine these two funcs?
-def draw_setPlayerNamesLocal(player_names, clicked_textbox_int) -> tuple[list[Rect], list[Rect]]:
+def draw_setPlayerNamesLocal(player_names: list[str], clicked_textbox_int: int) -> tuple[list[Rect], list[Rect]]:
   window_width, window_height = screen.get_size()
   
   title_rect = top_center_title(screen, "Name The Players")
@@ -472,7 +473,7 @@ def draw_selectSaveFile(drawinfo: tuple[bool, int, bool, int], saveinfo) -> tupl
   
   return header_rect, choice_rects, load_rect, back_button_rect
 
-def draw_selectPlayerFromSave(drawinfo, unclaimed_players: list[Player]) -> tuple[list[Rect], Rect, Rect]:
+def draw_selectPlayerFromSave(drawinfo: tuple[int, int], unclaimed_players: list[Player]) -> tuple[list[Rect], Rect, Rect]:
   hover_player_int, clicked_player_int = drawinfo
   
   title_rect = top_center_title(screen, "Select Player From Save File")
