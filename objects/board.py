@@ -10,7 +10,7 @@ class Board:
     self.deadducks = set()
     self.chaindict = {}
   
-  def setGameObj(self, tilebag):
+  def setGameObj(self, tilebag: TileBag):
     self._tilebag = tilebag
   
   def fetchchainsize(self, chain: str):
@@ -75,7 +75,7 @@ class Board:
       unchecked.difference_update(checked)
     return self.fetchchainsize(chainToSpread) - oldchainsize #growth of chain (new vs old)
   
-  def mergeCart_init(self, chainedonly: list[str]):
+  def mergeCart_init(self, chainedonly: list[str]) -> list[str] | tuple[list[str], list[str]]:
     chainsizepairs = [ [self.fetchchainsize(chain), chain] for chain in chainedonly ]
     chainsizepairs.sort(key=lambda x: x[0], reverse=True)
     truthtables = [ [1 if chainsizepairs[i][0] == chainsizepairs[j][0] else 0 for j in range(len(chainsizepairs))] for i in range(len(chainsizepairs)) ]
@@ -88,7 +88,7 @@ class Board:
     if matchcount == [1, 1, 1, 1]:
       mergeCart = (mergeCart[:2], mergeCart[2:])
       chainoptions = (chainoptions[:2], chainoptions[2:])
-    return (mergeCart, chainoptions) #mergeCart is sorted in order of size
+    return (mergeCart, chainoptions) # mergeCart is sorted in order of size
   
   def toobigtofail(self):
     toobig = [self.fetchchainsize(chain) >= 11 for chain in self.fetchactivechains()]
@@ -103,9 +103,9 @@ class Board:
     makeBabies = [False]*len(tiles)
     for i, tile in enumerate(tiles):
       adjinplay = self.fetchadjacent(tile)
-      if len(adjinplay) > 0: #is actually touching something, check if/what chain
+      if len(adjinplay) > 0: # is actually touching something, check if/what chain
         chainedonly = self.chainsContained(adjinplay)
-        if len(chainedonly) == 0 and (self.fetchactivechains() == self._tilebag.chainnames if checkChainAvail else True): #would found new chain
+        if len(chainedonly) == 0 and (self.fetchactivechains() == self._tilebag.chainnames if checkChainAvail else True): # would found new chain
           makeBabies[i] = True
     return makeBabies
   

@@ -1,126 +1,106 @@
 import pygame
+from pygame import Surface, Rect
+from pygame.font import Font
 import numpy as np
 
 from objects import TileBag, Board, Player, Bank
 from common import Colors, Fonts
-from gameloop import screen, tilebag, board, bank
+from gui_fullscreen import create_square_dims, gridifier, single_button, draw_player_info, dpi
 
-def tile_size_calc():
+# region gui components
+
+def tile_size_calc(surface: Surface):
   # Get the current window size
-  window_width, window_height = screen.get_size()
+  surface_width, surface_height = surface.get_size()
   
   # Calculate the size of each tile
-  tile_width = (window_width * (5/6) - window_width//20) // tilebag.cols
-  tile_height = (window_height - window_height//25) // tilebag.rows
+  tile_width = (surface_width * (5/6) - surface_width//20) // tilebag.cols
+  tile_height = (surface_height - surface_height//25) // tilebag.rows
   
-  return window_width, window_height, tile_width, tile_height
+  return tile_width, tile_height
 
-def draw_grid(active_tiles):
-  window_width, window_height, tile_width, tile_height = tile_size_calc()
+# endregion
+
+from gameloop import screen, tilebag, board, bank
+
+def draw_main_screen(board: Board, p: Player, showTiles: bool, prohibitedTiles: list[bool], defunctMode: bool):
+  window_width, window_height = screen.get_size()
   
-  # Calculate the offset to center the grid
-  offset_x = (window_width - (tile_width * tilebag.cols)) // 25
-  offset_y = (window_height - (tile_height * tilebag.rows)) // 2
-  offset_x, offset_y = int(offset_x), int(offset_y)
+  # region Draw Game Board
+  width = window_width * (3/4)
+  height = window_height * (19/20)
+  top_left = (window_width // 70, window_height//30)
   
-  # Create a list of tile colors and font colors
+  labels = board._tilebag.alltiles
+  active_tiles = board.tilesinplay
+  cols = board._tilebag.cols
+  rows = board._tilebag.rows
   
-  tile_colors = [(Colors.chain(board.chaindict[label]) if label in board.chaindict else Colors.BLACK) if label in active_tiles else Colors.YELLOW for label in tilebag.alltiles]
-  font_colors = [Colors.WHITE if color == Colors.BLACK else Colors.BLACK for color in tile_colors]
+  rect_color_tup = [(Colors.chain(board.chaindict[label]) if label in board.chaindict else Colors.BLACK) if label in active_tiles else Colors.YELLOW for label in labels]
+  def rect_color_func(i):
+    return rect_color_tup[i]
   
-  # Create a font for the tile labels
-  font_size = int(min(tile_width, tile_height) // 2)
-  font = pygame.font.SysFont(Fonts.tile, font_size)
+  def label_color_func(i):
+    return Colors.WHITE if rect_color_tup[i] == Colors.BLACK else Colors.BLACK
   
-  # Draw the grid
-  for i in range(tilebag.cols):
-    for j in range(tilebag.rows):
-      # Calculate the position of the tile
-      pos = (offset_x + i * tile_width + 3, offset_y + j * tile_height + 3)
-      
-      # Draw the tile
-      pygame.draw.rect(screen, tile_colors[i*tilebag.rows+j], (pos[0], pos[1], tile_width, tile_height))
-      
-      # Draw the tile label
-      label = font.render(tilebag.alltiles[i*tilebag.rows+j], 1, font_colors[i*tilebag.rows+j])
-      label_rect = label.get_rect()
-      label_rect.center = (pos[0] + tile_width // 2, pos[1] + tile_height // 2)
-      screen.blit(label, label_rect)
-      
-      # Draw the outline around the tile and board
-      pygame.draw.rect(screen, Colors.OUTLINE, (pos[0], pos[1], tile_width, tile_height), 4)
-      pygame.draw.rect(screen, Colors.OUTLINE, (offset_x, offset_y, tile_width * tilebag.cols + 6, tile_height * tilebag.rows + 6), 4)
-
-def draw_tiles(p, prohibitedTiles):
-  button_labels = p.tiles
-  window_width, window_height, tile_width, tile_height = tile_size_calc()
+  tile_rects = gridifier(screen, width, height, top_left, labels, cols, rows, rect_color_func, label_color_func, 
+                         lambda x: Colors.OUTLINE, outline_width=4, underfill=True, underfill_color=Colors.OUTLINE, 
+                         font_name=Fonts.tile)
+  # endregion
   
-  # Calculate the size of each button
-  grid_width = int(np.round(np.sqrt(len(button_labels)), 0))
-  rows = len(button_labels)//grid_width + (1 if len(button_labels)%grid_width != 0 else 0) 
-  button_width = int(window_width * (1/6) // (grid_width) )
-  button_height = int((window_height * (6/16) - window_height/25) // (rows))
-  button_width = button_height = min(button_width, button_height)
-  w_gap = h_gap = button_width//10
+  # region Draw Tiles or Tile Hider
+  tile_rects = tilehider_rect = None
+  if showTiles:
+    width = window_width // 6.1
+    height = window_height // 2.7
+    top_left = (window_width * (82/100), window_height * (63/100))
+    
+    labels = p.tiles
+    cols, rows = create_square_dims(labels)
+    
+    def rect_color_func(i):
+      return Colors.UNSELECTABLEGRAY if prohibitedTiles[i] else Colors.BLACK
+    
+    def label_color_func(i):
+      return Colors.BLACK if prohibitedTiles[i] else Colors.WHITE
+    
+    def extra_render_func(surface, i: int, rect: Rect, font_size: int):
+      if prohibitedTiles[i]:
+        font = pygame.font.SysFont(Fonts.oblivious, int(font_size*4.5))
+        label_surface = font.render("x", 1, Colors.RED)
+        label_rect = label_surface.get_rect()
+        label_rect.center = rect.center
+        label_rect.centery = rect.centery - rect.height//20
+        surface.blit(label_surface, label_rect)
+    
+    tile_rects = gridifier(screen, width, height, top_left, labels, cols, rows, rect_color_func, label_color_func, 
+                          font_name=Fonts.tile, extra_render_func=extra_render_func)
+    
+  else:
+    
+    label = f"Tiles Hidden: Defuncting" if defunctMode else f"Click to Reveal {p.name}'s Tiles"
+    tilehider_rect = single_button(screen, label, Colors.BLACK, Colors.WHITE, rect_width_div=5.1, rect_offest_x=79/100, rect_offest_y=74/100)
+  # endregion
   
-  # Calculate the offset to position the button grid
-  # offset_x = window_width * (5/6 + 1/128)
-  # offset_y = window_height * (10/16 + 1/128)
-  zone_x = tile_width * tilebag.cols + window_width//50
-  zone_y = window_height * 10/16
-  offset_x = zone_x + (window_width - (zone_x + ((grid_width)*button_width + w_gap*(grid_width-1))))//2
-  offset_y = zone_y + (window_height - (zone_y + ((rows)*button_height + h_gap*(rows-1))))//2
-  offset_x, offset_y = int(offset_x), int(offset_y)
+  dpi(screen, p)
+  
+  draw_player_info(p)
+  
+  return tilehider_rect, tile_rects
 
-  # Create a font for the button labels
-  font_size = min(button_width, button_height) // 2
-  font = pygame.font.SysFont(Fonts.tile, font_size)
 
-  # Draw the grid of buttons
-  tile_rects = []
-  for j in range(rows):
-    for i in range(grid_width):
-      if i + grid_width*j >= len(button_labels):
-        break
-      # Calculate the position of the button
-      pos = (offset_x + i * button_width + w_gap*i, offset_y + j * button_height + h_gap*j)
-
-      # Create a rectangle for the button and add to tile_rects
-      button_rect = pygame.Rect(pos[0], pos[1], button_width, button_height)
-      tile_rects.append(button_rect)
-
-      # Draw the button
-      tile_color = Colors.BLACK if not prohibitedTiles[i + grid_width*j] else Colors.UNSELECTABLEGRAY
-      pygame.draw.rect(screen, tile_color, button_rect)
-
-      # Draw red X blocker if unplayable
-      if prohibitedTiles[i + grid_width*j]:
-        Xfont_size = int(min(button_width, button_height)*1.9)
-        Xfont = pygame.font.Font(Fonts.oblivious, Xfont_size)
-        Xlabel = Xfont.render('x', 1, Colors.RED)
-        Xlabel_rect = Xlabel.get_rect()
-        Xlabel_rect.center = (button_rect.centerx + Xfont_size//30, button_rect.centery - Xfont_size//20)
-        screen.blit(Xlabel, Xlabel_rect)
-
-      # Draw the button label
-      label_color = Colors.WHITE if not prohibitedTiles[i + grid_width*j] else Colors.BLACK
-      label = font.render(button_labels[i + grid_width*j], 1, label_color)
-      label_rect = label.get_rect()
-      label_rect.center = button_rect.center
-      screen.blit(label, label_rect)
-
-  return tile_rects
 
 def draw_popup_selects():
-  window_width, window_height, tile_width, tile_height = tile_size_calc()
+  window_width, window_height = screen.get_size()
+  tile_width, tile_height = tile_size_calc(screen)
  
   # Calculate the size of each popup_select
   popup_select_width = int(window_width - (tile_width * tilebag.cols + window_width//30))
   popup_select_height = int(window_height//20)
-
+  
   zone_x = window_width - window_width // 100 - popup_select_width
   zone_y = window_height * 8/16
-
+  
   popup_select_labels = ['View Other Player Inventories', 'View Hotel Stocks Remaining']
   popup_select_rects = []
   for i, label in enumerate(popup_select_labels):
@@ -128,29 +108,29 @@ def draw_popup_selects():
     offset_x = zone_x
     offset_y = zone_y + i*popup_select_height + i*window_height//40
     offset_x, offset_y = int(offset_x), int(offset_y)
-
+    
     # Create a font for the label
     font_size = min(popup_select_width//7, popup_select_height) // 2
     font = pygame.font.SysFont(Fonts.main, font_size)
-
+    
     # Create a rectangle for the popup select
     popup_select_rect = pygame.Rect(offset_x, offset_y, popup_select_width, popup_select_height)
     popup_select_rects.append(popup_select_rect)
-
+    
     # Draw the popup select
     pygame.draw.rect(screen, Colors.GRAY, popup_select_rect)
-
+    
     # Draw the popup select label
     label = font.render(label, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.center = (offset_x + popup_select_width // 2, offset_y + popup_select_height // 2)
     screen.blit(label, label_rect)
-
+  
   return popup_select_rects
 
 def draw_popup(subdraw_tag, drawinfo):
   # Calculate the size of the popup
-  window_width, window_height, tile_width, tile_height = tile_size_calc()
+  window_width, window_height = screen.get_size()
   popup_width = 2*window_width // 3
   popup_height = 2*window_height // 3
   font_size = min(popup_width, popup_height) // 20
@@ -246,28 +226,28 @@ def vertical_refontsizer(surface_width, surface_height, font_size, pos_y, v_info
   info_font = pygame.font.SysFont(Fonts.main, info_font_size)
   return info_font, info_font_size
 
-def draw_playerStats(popupInfo, otherplayers):
+def draw_playerStats(popupInfo: tuple[Surface, int, int, Font, int], otherplayers):
   popup, popup_width, popup_height, font, font_size = popupInfo
   pos_y = int(popup_height // 20)
-
+  
   h_headers = [p.name for p in otherplayers]
   header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font_size, pos_y, h_headers)
-
+  
   v_info = otherplayers[0].stocks.keys()
   info_font, info_font_size = vertical_refontsizer(popup_width, popup_height, font_size, pos_y, v_info)
-
+  
   # Draw the player information
   for i, player in enumerate(otherplayers):
     # Calculate the position of the player information
     pos_x = (popup_width // (len(otherplayers)+1) )*(i+1)
-
+    
     # Draw the player name
     label = header_font.render(player.name, 1, Colors.BLACK)
     label_rect = label.get_rect()
     label_rect.right = pos_x
     label_rect.top = pos_y
     popup.blit(label, label_rect)
-
+    
     # Draw the player money
     balance = player.balance if 'balance' in player.__dict__.keys() else f'${player.bal}'
     label = header_font.render(balance, 1, Colors.BLACK)
@@ -275,7 +255,7 @@ def draw_playerStats(popupInfo, otherplayers):
     label_rect.right = pos_x
     label_rect.top = pos_y + font_size*1.3
     popup.blit(label, label_rect)
-
+    
     # Draw the player stock holdings
     for i, stock in enumerate(player.stocks):
       label = info_font.render(f'{stock}: {player.stocks[stock]}', 1, Colors.BLACK)
@@ -285,40 +265,7 @@ def draw_playerStats(popupInfo, otherplayers):
       popup.blit(label, label_rect)
   return None
 
-def draw_tilehider(player, showTiles):
-  window_width, window_height, tile_width, tile_height = tile_size_calc()
- 
-  # Calculate the size of each tilehider
-  tilehider_width = int(window_width - (tile_width * tilebag.cols + window_width//30))
-  tilehider_height = int(window_height//20)
-  
-  # calc offset
-  offset_x = window_width - window_width // 100 - tilehider_width
-  offset_y = window_height * 12.5/16
-  offset_x, offset_y = int(offset_x), int(offset_y)
-  
-  # Create a font for the label
-  font_size = min(tilehider_width//7, tilehider_height) // 2
-  font = pygame.font.SysFont(Fonts.main, font_size)
-  
-  # Create a rectangle for the tilehider
-  tilehider_rect = pygame.Rect(offset_x, offset_y, tilehider_width, tilehider_height)
-  
-  # Draw the tilehider
-  pygame.draw.rect(screen, Colors.BLACK, tilehider_rect)
-  
-  # Draw the popup_select label
-  if not showTiles:
-    label = font.render(f"Click to Reveal {player.name}'s Tiles", 1, Colors.WHITE)
-  else:
-    label = font.render(f"Tiles Hidden: Defuncting", 1, Colors.WHITE)
-  label_rect = label.get_rect()
-  label_rect.center = (offset_x + tilehider_width // 2, offset_y + tilehider_height // 2)
-  screen.blit(label, label_rect)
-
-  return tilehider_rect
-
-def draw_newChain(popupInfo, outlinedChain):
+def draw_newChain(popupInfo: tuple[Surface, int, int, Font, int], outlinedChain):
   popup, popup_width, popup_height, font, font_size = popupInfo
   
   unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
@@ -374,7 +321,7 @@ def draw_newChain(popupInfo, outlinedChain):
       popup.blit(label, label_rect)
   return newchain_rects
 
-def draw_mergeChainPriority(popupInfo, mergeCart_vec):
+def draw_mergeChainPriority(popupInfo: tuple[Surface, int, int, Font, int], mergeCart_vec):
   popup, popup_width, popup_height, font, font_size = popupInfo
   mergeCart, chainoptions = mergeCart_vec
   if type(mergeCart) == tuple:
@@ -456,7 +403,7 @@ def draw_mergeChainPriority(popupInfo, mergeCart_vec):
   
   return (mergeChain_rects, mergecart_rects)
 
-def draw_defunctPayout(popupInfo, statementsTup_vec):
+def draw_defunctPayout(popupInfo: tuple[Surface, int, int, Font, int], statementsTup_vec):
   popup, popup_width, popup_height, font, font_size = popupInfo
   statementsTup, iofnStatement = statementsTup_vec
 
@@ -484,7 +431,7 @@ def draw_defunctPayout(popupInfo, statementsTup_vec):
     popup.blit(label, label_rect)
   return None
 
-def draw_defuncter(popupInfo, drawinfo):
+def draw_defuncter(popupInfo: tuple[Surface, int, int, Font, int], drawinfo):
   popup, popup_width, popup_height, font, font_size = popupInfo
   knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctChain, bigchain = drawinfo
   keepnumb = int(knob1_x)
@@ -547,7 +494,7 @@ def draw_defuncter(popupInfo, drawinfo):
   
   return [knob1_rect, knob2_rect, slider_rect]
 
-def draw_yesorno(popupInfo, drawinfo):
+def draw_yesorno(popupInfo: tuple[Surface, int, int, Font, int], drawinfo):
   popup, popup_width, popup_height, font, font_size = popupInfo
   font_size = min(popup_width, popup_height) * 3
 
@@ -597,25 +544,18 @@ def draw_yesorno(popupInfo, drawinfo):
     popup.blit(label, label_rect)
   return button_rects
 
-def draw_stockbuy(popupInfo, stock_p_vec):
+def draw_stockbuy(popupInfo: tuple[Surface, int, int, Font, int], stock_p_vec: tuple[list[str], Player]):
   stockcart, p = stock_p_vec
   popup, popup_width, popup_height, font, font_size = popupInfo
-  buyablechains = [chain for chain in board.fetchactivechains() if bank.stocks[chain] or chain in stockcart]
-  chaingroup1 = [chain for chain in buyablechains if chain in tilebag.chainTierGrouped["cheap"]]
-  chaingroup2 = [chain for chain in buyablechains if chain in tilebag.chainTierGrouped["med"]]
-  chaingroup3 = [chain for chain in buyablechains if chain in tilebag.chainTierGrouped["high"]]
-  buyablechainsgrouped = [chaingroup1, chaingroup2, chaingroup3]
+  chaingroup1 = [chain for chain in board.fetchactivechains() if chain in tilebag.chainTierGrouped["cheap"]]
+  chaingroup2 = [chain for chain in board.fetchactivechains() if chain in tilebag.chainTierGrouped["med"]]
+  chaingroup3 = [chain for chain in board.fetchactivechains() if chain in tilebag.chainTierGrouped["high"]]
+  chainsgrouped = [group for group in [chaingroup1, chaingroup2, chaingroup3] if len(group) > 0]
   
   if len(stockcart) < 3:
     for i in range(3 - len(stockcart)):
       stockcart.append('')
-  
-  # Calculate the size of each popup_select
-  tile_chunk_width = int(popup_width // 5)
-  tile_chunk_height = int(popup_height // 10)
-  plusmin_width = int(popup_width // (16*2))
-  plusmin_height = int(popup_height // (9*2))
-  
+   
   # Draw the title question
   # Calculate the position of the title question
   pos_x = popup_width // 2
@@ -635,58 +575,59 @@ def draw_stockbuy(popupInfo, stock_p_vec):
   pos_y = 2*(popup_height // 15)
   pos_x, pos_y = int(pos_x), int(pos_y)
   
-  
   # Draw the stockcart header
   label = font.render('Stock Cart:', 1, Colors.BLACK)
   label_rect = label.get_rect()
   label_rect.center = (pos_x - 2 * x_spacer - label.get_width() // 2, pos_y)
   popup.blit(label, label_rect)
   
-  # TODO redo this using draw_newChain spacing logic
-  # Draw the stockcart icons
-  for i in range(3):
-    # Create a rectangle for a stockcart square
-    stockcart_rect = pygame.Rect(pos_x + (plusmin_width + plusmin_width // 5) * i, pos_y - label.get_height()//2, plusmin_width, plusmin_height)
-    
-    if stockcart[i] == '': stockcart_color = Colors.WHITE
-    else: stockcart_color = Colors.chain(stockcart[i])
-    
-    # Draw a stockcart square to screen
-    pygame.draw.rect(popup, stockcart_color, stockcart_rect)
+  spacer_allocated = 250
+  
+  # Calculate the size of each popup_select
+  plusmin_width = int(popup_width // (16*2))
+  plusmin_height = int(popup_height // (9*2))
   
   stock_plusmin_rects = []
   # Draw the chain information
-  for i, chaingroup in enumerate(buyablechainsgrouped):
-    # Calculate the position of the chain group
+  for i, chaingroup in enumerate(chainsgrouped):
+    # Calculate the size of each tile_chunk
+    pos_y = popup_height // (len(chainsgrouped)+1) * (i+1)
+    pos_y = int(pos_y)
+    header_font, header_font_size = horizontal_refontsizer(popup_width, popup_height, font_size, pos_y, chaingroup, spacer_allocated)
+    
+    longest_chain_name = max([len(chain) for chain in chaingroup])
+    chain_color_rect_width = int( (popup_width - popup_width//20) / (len(chaingroup) + 2) + longest_chain_name)
+    chain_color_rect_height = int((popup_height // (len(chainsgrouped)+1)) * np.sqrt(header_font_size)/11)
+    # chain_color_rect_height = int(popup_height // 10)
+    
+    # Calculate the position of each chain
     for j, chain in enumerate(chaingroup):
-      pos_x = (popup_width // 15) * (4*j+2) if len(chaingroup) == 3 else popup_width // 5 * (2*j+1)
-      pos_y = popup_height // 4 * (i+1)
-      pos_x, pos_y = int(pos_x), int(pos_y)
       
-      # Create a rectangle for the chain name
-      newchain_rect = pygame.Rect(pos_x, pos_y, tile_chunk_width, tile_chunk_height)
+      # Calculate the position of the chain
+      pos_x = int( ((popup_width // (len(chaingroup)+1) )*(j+1)) - chain_color_rect_width//2)
       
-      # Draw the popup_select
-      pygame.draw.rect(popup, Colors.chain(chain), newchain_rect)
+      # Create a rectangle for the popup_select and add to popup_select_rects
+      buychain_rect = pygame.Rect(pos_x, pos_y, chain_color_rect_width, chain_color_rect_height)
+      pygame.draw.rect(popup, Colors.chain(chain), buychain_rect)
       
       # Draw the stock name
-      label = font.render(chain, 1, Colors.BLACK)
+      label = header_font.render(chain, 1, Colors.BLACK)
       label_rect = label.get_rect()
-      label_rect.center = (pos_x + tile_chunk_width // 2, pos_y + tile_chunk_height // 2)
+      label_rect.center = buychain_rect.center
       popup.blit(label, label_rect)
       
       # Draw the stock's price
       stockprice = bank.stockcost(chain, board.fetchchainsize(chain))
-      pricecolor = Colors.BLACK if stockprice < p.bal else Colors.RED
+      pricecolor = Colors.BLACK if stockprice <= p.bal else Colors.RED
       label2 = font.render(f'${stockprice}', 1, pricecolor)
       label2_rect = label2.get_rect()
-      label2_rect.center = (pos_x + tile_chunk_width // 2, pos_y - tile_chunk_height // 2 + popup_height // 50)
+      label2_rect.center = (buychain_rect.centerx, buychain_rect.centery + popup_height // 50)
       popup.blit(label2, label2_rect)
       
-      minusplus_iterlist = [-1, 1] if (bank.stocks[chain] and stockprice < p.bal) else [-1]
+      minusplus_iterlist = [-1, 1] if (bank.stocks[chain] and stockprice <= p.bal) else [-1]
       for k in minusplus_iterlist: #minus and plus buttons
-        offset_x = tile_chunk_width // 2 - plusmin_width // 2  + (popup_width // 25) * k
-        offset_y = tile_chunk_height + popup_height // 60
+        offset_x = chain_color_rect_width // 2 - plusmin_width // 2  + (popup_width // 25) * k
+        offset_y = chain_color_rect_height + popup_height // 60
         offset_x, offset_y = int(offset_x), int(offset_y)
         
         # Create a rectangle for the interactive piece and add to output rects list
@@ -704,63 +645,3 @@ def draw_stockbuy(popupInfo, stock_p_vec):
         popup.blit(label, label_rect)
   
   return stock_plusmin_rects
-
-def draw_slider(popupInfo, slider_vec):
-  popup, popup_width, popup_height, font, font_size = popupInfo
-  slider_pos, dragging, slider_value, p_stocks = slider_vec
-
-  # Get the current mouse position and state
-  mouse_pos = pygame.mouse.get_pos()
-  mouse_pressed = pygame.mouse.get_pressed()
-
-  # Calculate the x and y coordinates of the center of the slider
-  x = popup_width // 2
-  y = popup_height // 2
-
-  # Calculate the length and height of the slider
-  length = 4 * popup_width // 5
-  height = popup_height // 80
-  num_points = p_stocks // 2 + 1
-
-  # Calculate the coordinates of the end points of the slider
-  x1 = x - length // 2
-  y1 = y - height // 2
-  x2 = x + length // 2
-  y2 = y + height // 2
-
-  # Check if the mouse is currently over the slider
-  if x1 <= mouse_pos[0] <= x2 and y1 <= mouse_pos[1] <= y2:
-    # If the left mouse button is pressed, start dragging the slider
-    if mouse_pressed[0] == 1:
-      dragging = True
-
-  # If the left mouse button is released, stop dragging the slider
-  if mouse_pressed[0] == 0:
-    dragging = False
-
-  # If the slider is being dragged, update the slider position
-  if dragging:
-    slider_pos = mouse_pos[0] - x1
-
-  # Make sure the slider position is within the valid range
-  slider_pos = max(0, min(slider_pos, length))
-
-  # Calculate the current value of the slider
-  slider_value = int(slider_pos / length * num_points)
-
-  # Snap the slider to the nearest integer fraction of the bar
-  slider_pos = int(slider_value / num_points * length)
-
-  # Draw the slider bar
-  slider_rect = pygame.Rect(x1, y1, length, height)
-  pygame.draw.rect(popup, (0, 0, 0), slider_rect)
-
-  # Draw the slider handle
-  bar_rect = pygame.Rect(x1 + slider_pos, y1, 10, height)
-  pygame.draw.rect(popup, (0, 0, 0), bar_rect)
-
-  # Display the current value of the slider
-  text = font.render(str(slider_value), True, (0, 0, 0))
-  popup.blit(text, (x - text.get_width() // 2, y - text.get_height() // 2))
-  
-  return [slider_rect, bar_rect]

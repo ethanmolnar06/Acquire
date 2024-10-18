@@ -60,9 +60,9 @@ def start_client(ip, conn_dict) -> dict[str, Connection]:
 def extrctConns(collection: dict[uuid.UUID, Connection] | list[Player] | list[Connection]) -> set[Connection]:
   if isinstance(collection, dict):
     return set(collection.values())
-  elif isinstance(collection, list) == list and isinstance(collection[0], Player):
+  elif isinstance(collection, list) and isinstance(collection[0], Player):
     return set(p.conn for p in collection if p.conn is not None)
-  elif isinstance(collection) == list and isinstance(collection[0], Connection):
+  elif isinstance(collection, list) and isinstance(collection[0], Connection):
     return set(collection)
   else:
     raise TypeError("Invalid propogation destination")

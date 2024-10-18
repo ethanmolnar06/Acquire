@@ -3,10 +3,10 @@ import itertools
 import random
 
 def make_tileLetterTable(n: int) -> list[str]:
-  maxletterlenght = (n-1)//26
-  tileLetters = [[]]*(maxletterlenght+1)
+  maxletterlength = (n-1)//26
+  tileLetters = [[]]*(maxletterlength+1)
   letters = [''] + list(string.ascii_uppercase)
-  for i in range(maxletterlenght+1):
+  for i in range(maxletterlength+1):
     tileLetters[i] = [letters[i] + l for l in letters[1:]]
   if n%26 != 0: tileLetters[-1] = tileLetters[-1][:n%26]
   return list(itertools.chain(*tileLetters))
@@ -31,7 +31,7 @@ class TileBag:
     self.cols = int(numbers) 
     self.rows = int(letters)
     self.tilelettertable = make_tileLetterTable(self.rows)
-    self.alltiles = [str(n+1)+l for n in range(self.cols) for l in self.tilelettertable]
+    self.alltiles = [str(n+1)+l for l in self.tilelettertable for n in range(self.cols)]
     self.tilesleft = list(range(len(self.alltiles)))
     self.chainTierGrouped = make_chainTierGrouped(int(cheapChains), int(mediumChains), int(pricyChains))
     self.chainnames = list(itertools.chain(*self.chainTierGrouped.values()))

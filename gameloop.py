@@ -12,8 +12,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   global screen, tilebag, board, bank
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
-  from gui_fullscreen import draw_player_info
-  from gui import draw_grid, draw_tilehider, draw_tiles, draw_popup, draw_popup_selects
+  from gui import draw_popup, draw_popup_selects, draw_main_screen
   
   p = None
   pDefuncting = None
@@ -114,9 +113,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     
     while ongoingTurn:
       # region debug
-      # print(ongoingTurn, showTiles, gameEndable)
-      # anyState = any((placePhase, choosingNewChain, tiebreakMerge, defunctPayout, defunctMode, buyPhase))
-      # print(placePhase, choosingNewChain, tiebreakMerge, defunctPayout, defunctMode, buyPhase)
+      # print(p._truename, placePhase, checkGameEndable, turnWrapup)
       # endregion
       
       # region check for updates over network
@@ -240,19 +237,10 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         forceRender = False
         # Clear the screen
         screen.fill((255, 255, 255))
-        draw_grid(board.tilesinplay)
-        if clientMode == "hostLocal":
-          draw_player_info(pDefuncting if defunctMode else p)
-        else:
-          draw_player_info(P)
-        # Draw the tile button grid if showTiles == True
-        if clientMode == "hostLocal":
-          if not showTiles or defunctPayout or defunctMode:
-            tilehider_rect = draw_tilehider(p, showTiles)
-          elif showTiles:
-            tile_rects = draw_tiles(p, prohibitedTiles)
-        else:
-          tile_rects = draw_tiles(P, prohibitedTiles)
+        # Draw the Main Board Screen
+        display_player = (pDefuncting if defunctMode else p) if clientMode == "hostLocal" else P
+        prohibitedTiles = board.contraceptcheck(display_player.tiles, checkChainAvail=True)
+        tilehider_rect, tile_rects = draw_main_screen(board, display_player, showTiles, prohibitedTiles, defunctMode)
         # Draw the popup button grid
         popup_select_rects = draw_popup_selects()
         if popup_open: 
@@ -323,7 +311,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             pos = pygame.mouse.get_pos()
             if tilehider_rect.collidepoint(pos): 
               showTiles = True
-              prohibitedTiles = board.contraceptcheck(p.tiles, checkChainAvail=True)
         
         # Waiting to Draw and Handle Events in Draw Mode
         elif placePhase:
@@ -342,6 +329,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               p.playtile(turntile) 
             mode, chains = board.tileplaymode(turntile)
             if mode == "place":
+              checkGameEndable = True
               send_gameStateUpdate()
             elif mode == "create":
               choosingNewChain = True
@@ -349,19 +337,20 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               p.stats.chainsFounded[-1] += 1
               send_gameStateUpdate()
             elif mode == "expand":
+              checkGameEndable = True
               board.chaindict[turntile] = chains
               chaingrowth = board.tileprop(turntile, chains)
               p.stats.mostExpandedChain[chains][-1] += chaingrowth
               send_gameStateUpdate()
             else: #prep for merge
               prepForMerge = True
-              mergeCartInit = board.mergeCart_init(chains)
+              mergeCartInit = board.mergeCart_init(chains) # mergeCart is sorted in order of size
               send_gameStateUpdate()
-              if isinstance(mergeCartInit, list): #Feeds Directly to Defunct Payout
-                defunctPayout = True
-              else: #merge needs player tiebreaking
+              if isinstance(mergeCartInit, list): # Feeds Directly to prepForMerge
+                mergeCart = mergeCartInit
+              else: # Merge needs player tiebreaking first
                 tiebreakMerge = True
-                mergeCart = mergeCartInit[0] #mergeCart is sorted in order of size
+                mergeCart = mergeCartInit[0] 
                 chainoptions = mergeCartInit[1]
                 defunctchains = bigchain = None
         
@@ -369,7 +358,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif choosingNewChain: 
           for i, newchain_rect in enumerate(newchain_rects):
             # print(newchain_rect, pos, newchain_rect.collidepoint(pos))
-            if newchain_rect.collidepoint(pos): 
+            if newchain_rect.collidepoint(pos):
+              choosingNewChain = False
+              checkGameEndable = True
               newchain = unopenedchains[i]
               board.chaindict[turntile] = newchain
               chaingrowth = board.tileprop(turntile, newchain)
@@ -378,7 +369,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               p.stats.stocksAcquired[-1] += 1
               p.stats.stockChainsOwned[-1].add(newchain)
               bank.stocks[newchain] = bank.stocks[newchain] - 1
-              choosingNewChain = False
               send_gameStateUpdate()
               break
         
@@ -407,8 +397,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         # Setup Variables for Merging
         elif prepForMerge:
           prepForMerge = False
-          bigchain = mergeCartInit[0]
-          defunctchains = mergeCartInit[1:]; defunctchains.reverse() #comes largest to smallest, we want to merge smallest to largest
+          bigchain = mergeCart[0]
+          defunctchains = mergeCart[1:]
+          defunctchains.reverse() # mergeCart displays as largest to smallest, we want to merge smallest to largest
           bankdrawntile, statementsList = bank.chainpayout(players, defunctchains)
           
           if bankdrawntile is not None:
@@ -498,7 +489,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             # Get the mouse position
             pos = pygame.mouse.get_pos()
             if not popup_open:
-              if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): #player finished
+              if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): # Player finished
                 #sell
                 pDefuncting.stocks[defunctchain] -= defunctStockInv['sell']
                 bank.stocks[defunctchain] += defunctStockInv['sell']
@@ -538,6 +529,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         
         #Post Draw Endgame and Buyability Check - SHOULD BE HIT EVERY TURN W/O FAIL
         elif checkGameEndable:
+          checkGameEndable = False
           turnWrapup = True
           gameEndable = board.endgamecheck()
           buyPhase = len(board.fetchactivechains()) > 0 and any([bank.stocks[chain] for chain in board.fetchactivechains()]) and p.bal >= bank.fetchcheapeststock()[1]
@@ -633,14 +625,13 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
     
-    #Endgame or host iter
+    # Endgame or Host Iter
     if "host" in clientMode:
       if gameCompleted:
         # adds payouts directly to players' balance internally
         _ = bank.chainpayout(players, board.fetchactivechains())
         bank.sellallstock(players)
       
-      print(f"{p.name} TURN OVER") # debug
       assignStatVals(players)
       send_gameStateUpdate()
   
