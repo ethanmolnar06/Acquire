@@ -63,7 +63,7 @@ if clientMode == "hostServer":
 
 pygame.display.set_caption('Acquire')
 from gameloop import gameloop
-gameCompleted, saveData = gameloop(gameUtils, newGame, gameState, host_uuid, my_uuid)
+gameCompleted, saveData = gameloop(gameUtils, newGame, gameState, clientMode, my_uuid)
 
 pygame.display.set_caption('Post Game')
 from postgame import postgame

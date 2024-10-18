@@ -110,20 +110,19 @@ def pack_gameState(tilebag:TileBag, board:Board, players:list[Player], bank:Bank
   
   return gameStateUpdate
 
-def pack_save(tilebag:TileBag, board:Board, players:list[Player], bank:Bank, currentP:Player = None) -> tuple[bytes, list[str]]:
-  if currentP is not None:
-    reorderedPlayers = players[players.index(currentP):] + players[:players.index(currentP)]
-  else:
-    reorderedPlayers = players
-  
-  saveData = pack_gameState(tilebag, board, reorderedPlayers, bank)
-  currentOrderNames = [p.name for p in reorderedPlayers]
-  
-  return saveData, currentOrderNames
-
-def unpack_gameState(gameState: bytes, conn_dict: dict[UUID, Connection] | None = None) -> tuple[TileBag, Board, list[Player], Bank]:
+def unpack_gameState(gameState: bytes, currentConns: dict[UUID, Connection] | list[Player] | None = None) -> tuple[TileBag, Board, list[Player], Bank]:
   objects: tuple[TileBag, Board, list[Player], Bank] = pickle.loads(gameState)
   tilebag, board, players, bank = objects
+  
+  if currentConns is not None:
+    if isinstance(currentConns, dict):
+      conns = set(currentConns.keys())
+      def getConn(uuid):
+        return currentConns[uuid]
+    elif isinstance(currentConns, list):
+      conns = set(p.conn for p in currentConns)
+      def getConn(uuid):
+        return find_player(uuid, currentConns).conn
   
   # re-link internal Tilebags, Boards, Player names, and Connections
   board.setGameObj(tilebag)
@@ -132,24 +131,24 @@ def unpack_gameState(gameState: bytes, conn_dict: dict[UUID, Connection] | None 
   for p in players:
     # print(f"unpacking {p.name} {p.conn}")
     p.setGameObj(tilebag, board)
-    if conn_dict is not None:
-      if p.uuid in conn_dict.keys():
-        p._conn = conn_dict[p.uuid]
-        # print(f"overwrote {p.name} with {p.conn}")
+    if currentConns is not None:
       # host writes valid conns to clients and dummy to self
       # clients write valid conn to host, dummy to self, and leaves None on other clients
+      if p.uuid in conns:
+        p._conn = getConn(p.uuid)
+        # print(f"overwrote {p.name} with {p.conn}")
   # print("unpack complete")
   
   return (tilebag, board, players, bank)
 
-def write_save(saveData: bytes, currentOrderNames: list[str] = None, turnnumber: int = None, quicksave: bool = False):
+def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int = None, quicksave: bool = False):
   today = date.isoformat(date.today())
   if quicksave:
     save_file_new = "quicksave"
   else:
     save_file_new = today
-    if currentOrderNames is not None:
-      save_file_new += f'_{len(currentOrderNames)}players_{"".join(currentOrderNames)}'
+    if playernames is not None:
+      save_file_new += f'_{len(playernames)}players_{"".join(playernames)}'
     if turnnumber is not None:
       save_file_new += f'_turn{turnnumber}'
   

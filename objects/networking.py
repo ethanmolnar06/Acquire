@@ -70,6 +70,7 @@ def extrctConns(collection: dict[uuid.UUID, Connection] | list[Player] | list[Co
 def propagate(dests: dict[uuid.UUID, Connection] | list[Player] | list[Connection], source: uuid.UUID | Player | Connection | None, command: Command):
   conns = extrctConns(dests)
   for conn in conns:
+    # should be safe to just drop in for hostLocal
     if conn is None or conn.sock is None:
       continue
     elif isinstance(source, uuid.UUID) and conn.uuid == source:

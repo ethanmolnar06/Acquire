@@ -37,8 +37,8 @@ class Bank:
     # endregion
   
   def setGameObj(self, tilebag, board):
-    self._tilebag = tilebag
-    self._board = board
+    self._tilebag: TileBag = tilebag
+    self._board: Board = board
   
   def stockcost(self, chain: str, size: int):
     if size == 0:
@@ -93,7 +93,7 @@ class Bank:
     chaincostpair.sort(key=lambda x: x[1])
     return chaincostpair[0]
   
-  def chainpayout(self, players: list[Player], defunctchains: list[str]):
+  def chainpayout(self, players: list[Player], defunctchains: list[str]) -> tuple[str | None, list[str]]:
     # adds payout directly to players' balance internally
     statementsList = []
     for chain in defunctchains:

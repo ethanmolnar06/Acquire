@@ -291,22 +291,22 @@ def draw_tilehider(player, showTiles):
   # Calculate the size of each tilehider
   tilehider_width = int(window_width - (tile_width * tilebag.cols + window_width//30))
   tilehider_height = int(window_height//20)
-
+  
   # calc offset
   offset_x = window_width - window_width // 100 - tilehider_width
   offset_y = window_height * 12.5/16
   offset_x, offset_y = int(offset_x), int(offset_y)
-
+  
   # Create a font for the label
   font_size = min(tilehider_width//7, tilehider_height) // 2
   font = pygame.font.SysFont(Fonts.main, font_size)
-
+  
   # Create a rectangle for the tilehider
   tilehider_rect = pygame.Rect(offset_x, offset_y, tilehider_width, tilehider_height)
-
+  
   # Draw the tilehider
   pygame.draw.rect(screen, Colors.BLACK, tilehider_rect)
-
+  
   # Draw the popup_select label
   if not showTiles:
     label = font.render(f"Click to Reveal {player.name}'s Tiles", 1, Colors.WHITE)

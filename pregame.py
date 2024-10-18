@@ -337,7 +337,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
                     *settings["bankClassic"].values(),
                     *settings["bankLogarithmic"].values(),
                     *settings["bankExponential"].values())
-      if not clientMode == "join":
+      if "host" in clientMode:
         gameState: tuple[TileBag, Board, list[Player], Bank] = (tilebag, board, players, bank)
       acquireSetup = False
       successfullBoot = True
@@ -393,9 +393,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     conn_dict["server"].uuid = host_uuid
     conn_dict[host_uuid] = conn_dict["server"]
     del conn_dict["server"]
+    HOST.conn = conn_dict[host_uuid]
     print(f"[HANDSHAKE COMPLETE] Client Connected to {conn_dict[host_uuid]}")
-    # wait to assign HOST.conn = conn_dict[host_uuid] until 
-    # AFTER P = deepcopy(HOST)
     if newGame:
       setPlayerNameJoin = True
     else:
@@ -411,18 +410,26 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   def send_gameStateUpdate():
     gameStateUpdate = pack_gameState(tilebag, board, players, bank)
     target = "client" if clientMode == "hostServer" else "server"
-    source = uuid if u_overflow is not None else None
-    propagate(conn_dict, source, Command(f"set {target} gameState", gameStateUpdate))
+    propagate(conn_dict, None, Command(f"set {target} gameState", gameStateUpdate))
+  
+  def overflow_update(update: tuple[UUID, Command] | None):
+    global u, u_overflow
+    # try to be super safe, not drop any updates in either queue
+    if update is not None:
+      u_overflow += [update,]
+    u_overflow += copy(u) 
+    u = []
   
   while inLobby:
     # region check for updates over network
-    u = fetch_updates(conn_dict) if u_overflow is None else u_overflow
+    u = fetch_updates(conn_dict) if not u_overflow else u_overflow
     while len(u):
       uuid, comm = u.pop(0)
       if clientMode == "hostServer":
         # command revieved from clients
         if comm.dump() == "set server connection" and comm.val == DISCONN:
           p = find_player(uuid, players)
+          print(f"[PLAYER DROPPED] Disconnect Message Recieved from {p.conn}")
           p.DISCONN()
           if newGame:
             players.remove(p) # this should deref p
@@ -430,24 +437,25 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
             p.conn = None
           del conn_dict[uuid] # this should deref p.conn
         
-        # TODO rewrite this to just send player data??
-        elif comm.dump() == "set server gameState": # create new player
-          gameStateUpdate: bytes = comm.val
-          tilebag, board, players, bank = unpack_gameState(gameStateUpdate, conn_dict)
-          u_overflow = copy(u); u = []
+        elif comm.dump() == "set player name": # create new player
+          newplayer: Player = comm.val
+          newplayer.setGameObj(tilebag, board)
+          newplayer.conn = conn_dict[uuid]
+          players.append(newplayer)
+          overflow_update()
         
         elif comm.dump() == "set player uuid": # claim player from save
           sel_p_uuid: UUID = comm.val
           newplayer = find_player(sel_p_uuid, players)
           if newplayer.connClaimed: # prevent race condition
-            print(f"invalid claim of player {newplayer.name} by {conn_dict[uuid]}")
+            print(f"[PLAYER CLAIM ERROR] Invalid Claim of {newplayer.name} from {p.conn}")
             conn_dict[uuid].send(Command("set client selectionConfirmed", False))
             continue
           # overwrite old sel_p_uuid with client conn's real uuid
           newplayer.conn = conn_dict[uuid]
-          print(f"{newplayer.name} joined")
+          print(f"[PLAYER CLAIMED] {newplayer.name} Claimed by {p.conn}")
           newplayer.conn.send(Command("set client selectionConfirmed", True))
-          u_overflow = copy(u); u = []
+          overflow_update()
         
         elif comm.dump() == "set player ready":
           readiness: bool = comm.val
@@ -491,8 +499,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         P = find_player(my_uuid, players)
       forceRender = True
     # endregion
-    
-    if u_overflow == []: u_overflow = None
     
     event = pygame.event.poll()
     # region Render Process
@@ -543,13 +549,14 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           awaitResponse = True
     
     elif setPlayerNameJoin:
+      print(HOST, HOST.conn.sock)
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = pygame.mouse.get_pos()
         if confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 2:
           setPlayerNameJoin = False
           waitingForJoin = True
-          # TODO deeepcopy fails if client recieves gameStateUpdate between connection init and selection???
+          HOST.conn = None
           P = deepcopy(HOST)
           HOST.conn = conn_dict[host_uuid]
           P.setGameObj(tilebag, board)
@@ -557,7 +564,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           conn_dict[my_uuid] = P.conn
           P.name = (playernameTxtbx, len(players)+1)
           players.append(P)
-          HOST.conn.send(Command("set server gameState", pack_gameState(tilebag, board, players, bank)))
+          HOST.conn.send(Command("set player name", P))
           connected_players: list[Player] = [p for p in players if p.connClaimed]
           unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
           forceRender = True
@@ -597,7 +604,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
                 forceRender = True
                 break
               elif i == 2:
-                # TODO finish this
                 gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
                 if gameStartable:
                   waitingForJoin = False

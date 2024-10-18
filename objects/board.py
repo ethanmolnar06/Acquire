@@ -59,7 +59,7 @@ class Board:
   
   def tileprop(self, tile: str, chainToSpread: str, targetChain: str | None = None, ignoreTile: str | tuple[str] = None):
     #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
-    ignoreTile = ignoreTile[0] if type(ignoreTile) == tuple else ignoreTile
+    ignoreTile = ignoreTile[0] if isinstance(ignoreTile, tuple) else ignoreTile
     oldchainsize = self.fetchchainsize(chainToSpread)
     checked = {tile} if ignoreTile is None else {tile, ignoreTile}
     for pairs in self.chaindict.items():
@@ -103,7 +103,7 @@ class Board:
     makeBabies = [False]*len(tiles)
     for i, tile in enumerate(tiles):
       adjinplay = self.fetchadjacent(tile)
-      if len(adjinplay) > 0: #is actually touchind something, check if/what chain
+      if len(adjinplay) > 0: #is actually touching something, check if/what chain
         chainedonly = self.chainsContained(adjinplay)
         if len(chainedonly) == 0 and (self.fetchactivechains() == self._tilebag.chainnames if checkChainAvail else True): #would found new chain
           makeBabies[i] = True
