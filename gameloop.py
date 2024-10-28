@@ -12,7 +12,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   global screen, tilebag, board, bank
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
-  from gui import draw_popup, draw_popup_selects, draw_main_screen
+  from gui import draw_popup, draw_main_screen
   
   p = None
   pDefuncting = None
@@ -240,10 +240,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         # Draw the Main Board Screen
         display_player = (pDefuncting if defunctMode else p) if clientMode == "hostLocal" else P
         prohibitedTiles = board.contraceptcheck(display_player.tiles, checkChainAvail=True)
-        tilehider_rect, tile_rects = draw_main_screen(board, display_player, showTiles, prohibitedTiles, defunctMode)
-        # Draw the popup button grid
-        popup_select_rects = draw_popup_selects()
-        if popup_open: 
+        tilehider_rect, tile_rects, popup_select_rects = draw_main_screen(board, display_player, showTiles, prohibitedTiles, defunctMode)
+        if popup_open:
           # draw over current popup-sized event
           close_button_rect, _ = draw_popup('playerStats', drawinfo)
         else:

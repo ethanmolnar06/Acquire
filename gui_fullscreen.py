@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Callable
 
 from objects import *
-from common import HIDE_PERSONAL_INFO, Colors, Fonts, ratio
+from common import HIDE_PERSONAL_INFO, Colors, Fonts
 
 # region gui components
 
@@ -17,39 +17,42 @@ def clear_screen():
 def resize_screen(event) -> Surface:
   return pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
 
-# TODO maybe remake these?
+# TODO maybe remake these two?
 # resize rects to fit font
-# def horizontal_refontsizer(rect_width: int, default_font_size: int, 
-#                            labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250):
-#   # resize all font across grid to fit largest entry
-#   longestheader = max([len(h) for h in labels])
-#   if longestheader * default_font_size * len(labels) + spacer_allocated > rect_width:
-#     font_size = int(1.7 * (rect_width - spacer_allocated) / (longestheader * len(labels)))
-#   header_font = pygame.font.SysFont(font_name, font_size)
-#   return header_font, font_size
+def horizontal_refontsizer(rect_width: int, default_font_size: int, 
+                           labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250):
+  # resize all font across grid to fit largest entry
+  longestheader = max([len(h) for h in labels])
+  font_size = default_font_size
+  if longestheader * default_font_size * len(labels) + spacer_allocated > rect_width:
+    font_size = int(1.7 * (rect_width - spacer_allocated) / (longestheader * len(labels)))
+  header_font = pygame.font.SysFont(font_name, font_size)
+  return header_font, font_size
 
-# def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, 
-#                          labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250):
-#   col_stand_height = pos_y + (2 + len(labels)) * default_font_size * 11/10
-#   if col_stand_height >= rect_height:
-#     font_size = int(default_font_size * (1 - (col_stand_height - rect_height)/rect_height) )
-#   info_font = pygame.font.SysFont(font_name, font_size)
-#   return info_font, font_size
+def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, 
+                         labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250):
+  col_stand_height = pos_y + (2 + len(labels)) * default_font_size * 11/10
+  font_size = default_font_size
+  if col_stand_height >= rect_height:
+    font_size = int(default_font_size * (1 - (col_stand_height - rect_height)/rect_height) )
+  info_font = pygame.font.SysFont(font_name, font_size)
+  return info_font, font_size
 
 # resize font to fit in a rect
 def dynamic_font(surface: Surface, rect: Rect, label: str, label_color: tuple[int, int, int], font_name: str, 
-                 font_scale_max: int | float = .95, font_scale_min: int | float = .9, y_offset_div: int | None = None,
-                 justification: str = "centered", noBlit = False, shared_font_size: int | None = None) -> int:
+                 font_scale_max: int | float = .95, font_offset_div: int = 0,
+                 justification: str = "centered", noBlit = False, share_font_size: int = 0) -> int:
   if not label:
     return 0
-  default_font_size = min(rect.w, rect.h) // 2 if shared_font_size is None else shared_font_size
+  default_font_size = min(rect.w, rect.h) // 2 if not share_font_size else share_font_size
   font = pygame.font.SysFont(font_name, default_font_size)
   label_surface = font.render(label, 1, label_color)
   
   font_size = default_font_size
-  while label_surface.get_width() / rect.w > font_scale_max and shared_font_size is None:
-    # print(label_surface.get_width(), font_scale_max * rect.w, font_scale_min * rect.w)
-    font_size = ratio(label_surface.get_width(), rect.w, font_size, font_scale_max)
+  while label_surface.get_width() / rect.w > font_scale_max or label_surface.get_height() / rect.h > font_scale_max:
+    # print(label_surface.get_width(), rect.w, label_surface.get_width() / rect.w,
+    #       label_surface.get_height(), rect.h, label_surface.get_height() / rect.h)
+    font_size = int(font_size * font_scale_max)
     font = pygame.font.SysFont(font_name, font_size)
     label_surface = font.render(label, 1, label_color)
   
@@ -63,8 +66,8 @@ def dynamic_font(surface: Surface, rect: Rect, label: str, label_color: tuple[in
     label_rect.centerx = rect.centerx
   
   label_rect.centery = rect.centery
-  if y_offset_div is not None:
-    label_rect.top = rect.top + rect.h//y_offset_div
+  if font_offset_div:
+    label_rect.top = rect.top + rect.h//font_offset_div
   if not noBlit: surface.blit(label_surface, label_rect)
   return font_size
 
@@ -80,8 +83,7 @@ def gridifier(surface: Surface, width: int, height: int, top_left: tuple[int, in
               outline_color_func: Callable[[int], tuple[int, int, int] | None] | None = None, outline_width: int = 8, 
               underfill: bool = False, underfill_color: tuple[int, int, int] | None = None, font_name: str = Fonts.main, 
               rect_width_factor: int | float = 1, rect_height_factor: int | float = 1, font_scale_max: int | float = .95, 
-              font_scale_min: int = .8, shared_font_size: int | None = None, 
-              extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> list[Rect]:
+              share_font_size: int = 0, extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> list[Rect]:
   
   # Calculate rect sizing and arangement spacing
   rect_width  = int(width       // (cols + .5))
@@ -123,7 +125,7 @@ def gridifier(surface: Surface, width: int, height: int, top_left: tuple[int, in
       # Create the label and draw to surface
       if label_color_func is not None and label_color_func(i + cols*j) is not None:
         font_size = dynamic_font(screen, rect, labels[i + cols*j], label_color_func(i + cols*j), font_name, 
-                                 font_scale_max=font_scale_max, font_scale_min=font_scale_min, shared_font_size=shared_font_size)
+                                 font_scale_max=font_scale_max, share_font_size=share_font_size)
       
       # Do extra stuff per rect if necessary
       if extra_render_func is not None:
@@ -137,16 +139,16 @@ def dropdown(surface: Surface, width: int, height: int, top_left: tuple[int, int
              choice_label_color_func: Callable[[int], tuple[int, int, int] | None] | None,
              header_outline_color: tuple[int, int, int] | None = None, 
              choice_outline_color_func: Callable[[int], tuple[int, int, int] | None] | None = None, header_outline_thick: int = 8, 
-             choice_outline_thick: int = 8, font_name: str = Fonts.main, choice_share_font_size: bool = False, 
-             label_justification: str = "centered", choice_justification: str = "centered",
+             choice_outline_thick: int = 8, font_name: str = Fonts.main, share_font_size: int = 0, extras_index: int = 0,
+             label_justification: str = "centered", choice_justification: str = "centered", extras_justification: str = "centered",
              header_extra_render_func: Callable[[Surface, Rect, int], None] | None = None,
-             choice_extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> list[Rect]:
+             choice_extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> tuple[Rect, list[Rect]]:
   
   # Calculate dropdown arangement
   if choices is None:
-    rows = 10
+    rows = 6
   else:
-    rows = max(len(choices), 10)
+    rows = max(len(choices), 6)
   
   # Calculate rect sizing and arangement spacing
   rect_width  = int(width  // (1.1))
@@ -164,21 +166,29 @@ def dropdown(surface: Surface, width: int, height: int, top_left: tuple[int, int
   if header_rect_color is not None:
     pygame.draw.rect(surface, header_rect_color, header_rect, 0)
   
+  if share_font_size:
+    choices_for_calc_font = choices
+    if extras_index:
+      choices_for_calc_font = choices[:extras_index]
+    shared_font_size = min([dynamic_font(surface, header_rect, choice, Colors.BLACK, font_name, 
+                                         share_font_size=share_font_size, noBlit=True) for choice in choices_for_calc_font] + 
+                           [dynamic_font(surface, header_rect, header, Colors.BLACK, font_name, share_font_size=share_font_size, noBlit=True)])
+  
   # Draw outline around header rect if necessary
   if header_outline_color is not None:
     pygame.draw.rect(surface, header_outline_color, header_rect, header_outline_thick)
   
   # Create the label and blit to surface
   if header_label_color is not None:
-    header_font_size = dynamic_font(surface, header_rect, header, header_label_color, font_name, justification=label_justification)
+    if share_font_size:
+      header_font_size = dynamic_font(surface, header_rect, header, header_label_color, font_name, 
+                                      justification=label_justification, share_font_size=share_font_size)
+    else:
+      header_font_size = dynamic_font(surface, header_rect, header, header_label_color, font_name, justification=label_justification)
   
   # Do extra stuff to header rect if necessary
   if header_extra_render_func is not None:
     header_extra_render_func(screen, header_rect, header_font_size)
-  
-  if choice_share_font_size:
-    shared_font_size = min([dynamic_font(surface, header_rect, choice, Colors.BLACK, font_name, default_font_size=45, noBlit=True) for choice in choices])
-    print(shared_font_size)
   
   # Draw the Choices
   choice_rects = None
@@ -201,11 +211,12 @@ def dropdown(surface: Surface, width: int, height: int, top_left: tuple[int, int
       
       # Create the label and blit to surface
       if choice_label_color_func is not None and choice_label_color_func(i) is not None:
-        if choice_share_font_size:
+        justification = choice_justification if i < len(choices[:extras_index]) else extras_justification
+        if share_font_size:
           choice_font_size = dynamic_font(surface, choice_rect, choice, choice_label_color_func(i), font_name, 
-                                          justification=choice_justification, shared_font_size=shared_font_size)
+                                          justification=justification, share_font_size=share_font_size)
         else:
-          choice_font_size = dynamic_font(surface, choice_rect, choice, choice_label_color_func(i), font_name, justification=choice_justification)
+          choice_font_size = dynamic_font(surface, choice_rect, choice, choice_label_color_func(i), font_name, justification=justification)
       
       # Do extra stuff per rect if necessary
       if choice_extra_render_func is not None:
@@ -280,23 +291,24 @@ def draw_slider(surface: Surface, slider_vec):
 
 # region gui prebuilts
 
-def top_center_title(surface: Surface, title: str, y_offset_div: int = 60) -> Rect:
+def top_center_title(surface: Surface, title: str, y_offset_div: int = 0, font_offset_div: int = 60) -> Rect:
   surface_width, surface_height = surface.get_size()
   
   rect_width = surface_width * (2/3)
   rect_height = surface_height // 10
-  rect = pygame.Rect(surface_width //2 - rect_width//2, 0,
-                     rect_width, rect_height)
+  top_left = (surface_width //2 - rect_width//2,
+              surface_height//y_offset_div if y_offset_div else y_offset_div)
+  rect = pygame.Rect(top_left[0], top_left[1], rect_width, rect_height)
   # pygame.draw.rect(surface, Colors.GRAY, rect)
   
-  font_size = dynamic_font(screen, rect, title, Colors.BLACK, Fonts.main, y_offset_div=y_offset_div)
+  font_size = dynamic_font(surface, rect, title, Colors.BLACK, Fonts.main, font_offset_div=font_offset_div)
   
   return rect
 
 def row_buttons(surface: Surface, choices: list[str], rect_color_func: Callable[[int], tuple[int, int, int]] | None = None, 
                 outline_color_func: Callable[[int], tuple[int, int, int]] | None = None, 
                 row_align = "bottom", row_width_div: int = 1, row_height_div: int = 4,
-                font_scale_max: int =.8, font_scale_min: int =.7, shared_font_size: int | None = None):
+                font_scale_max: int =.8, share_font_size: int = 0):
   surface_width, surface_height = surface.get_size()
   width = surface_width // row_width_div
   height = surface_height // row_height_div
@@ -314,8 +326,8 @@ def row_buttons(surface: Surface, choices: list[str], rect_color_func: Callable[
   
   button_rects = gridifier(surface, width, height, top_left, choices, len(choices), 1, 
                              rect_color_func, lambda x: Colors.WHITE, outline_color_func,
-                             rect_width_factor=.9, font_scale_max=font_scale_max, font_scale_min=font_scale_min,
-                             shared_font_size=shared_font_size)
+                             rect_width_factor=.9, font_scale_max=font_scale_max,
+                             share_font_size=share_font_size)
   
   return button_rects
 
@@ -351,19 +363,32 @@ def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Co
   
   return button_rect
 
-# TODO finish this
-def dpi(surface: Surface, p: Player, rect_width_div=4):
+def draw_player_info(surface: Surface, p: Player, info_width_factor: float = 7/32, info_height_factor: float = 16/24,
+                     info_top_left_x_by_width: bool = True, info_top_left_x_factor: float = 27/32, info_top_left_y_factor: float = 0, 
+                     extra_text: list[str] | None = None) -> list[Rect]:
   surface_width, surface_height = surface.get_size()
   
-  width = surface_width // rect_width_div
-  height = surface_height * (7/12)
-  top_left = (surface_width - width, 0)
+  width = surface_width * info_width_factor
+  height = surface_height * info_height_factor
+  top_left = (surface_width - width if info_top_left_x_by_width else surface_width * info_top_left_x_factor,
+              surface_height * info_top_left_y_factor)
   
   choices = [f'${p.bal}',] + [f'{stock}: {p.stocks[stock]}' for stock in p.stocks.keys()]
+  n_choices = len(choices)
   
-  text_rects = dropdown(surface, width, height, top_left, p.name, choices, None, Colors.BLACK, lambda x: [Colors.RED, Colors.YELLOW][x%2], lambda x: Colors.BLACK,
-                        choice_share_font_size=True, choice_justification="right", label_justification="right")
-
+  def choice_rect_color_func(i):
+    if i < n_choices:
+      return None # [Colors.RED, Colors.YELLOW][i%2]
+    else:
+      return Colors.GRAY
+  
+  if extra_text is not None:
+    choices += extra_text
+  
+  header_rect, choice_rects = dropdown(surface, width, height, top_left, p.name, choices, None, Colors.BLACK, choice_rect_color_func, lambda x: Colors.BLACK,
+                        share_font_size=45, choice_justification="right", label_justification="right", extras_index=-len(extra_text))
+  
+  return choice_rects
 
 # TODO remake this
 def top_right_corner_x_button(surface: Surface) -> Rect:
@@ -384,48 +409,6 @@ def top_right_corner_x_button(surface: Surface) -> Rect:
   surface.blit(label, label_rect)
   
   return back_button_rect
-
-# TODO remake this
-def draw_player_info(p: Player, x_offest_sub: int = 0) -> None:
-  # Get the current window size and generate title font size
-  window_width, window_height = screen.get_size()
-  font_size = min(window_width, window_height) // 20
-  font = pygame.font.SysFont(Fonts.main, font_size)
-  
-  # Get the current window size and generate font
-  font_size = min(window_width, window_height) // 20
-  font = pygame.font.SysFont(Fonts.main, font_size)
-  
-  # Calculate the position of the player information
-  # Use the right edge of the screen as the x-coordinate
-  offset_x = window_width - window_width // 100 - x_offest_sub
-  offset_y = window_height // 9 - window_height // 10
-  offset_x, offset_y = int(offset_x), int(offset_y)
-  
-  # Draw the player name
-  label = font.render(p.name, 1, Colors.BLACK)
-  label_rect = label.get_rect()
-  label_rect.right = offset_x
-  label_rect.top = offset_y
-  screen.blit(label, label_rect)
-  
-  # Draw the player money
-  label = font.render(f'${p.bal}', 1, Colors.BLACK)
-  label_rect = label.get_rect()
-  label_rect.right = offset_x
-  label_rect.top = offset_y + font_size
-  screen.blit(label, label_rect)
-  
-  # Draw the player stock holdings
-  font_size_stock = int((min(window_width, window_height) / 19) * (7 / (len(p.stocks))))
-  font_stock = pygame.font.SysFont(Fonts.main, font_size_stock)
-  for i, stock in enumerate(p.stocks):
-    label = font_stock.render(f'{stock}: {p.stocks[stock]}', 1, Colors.BLACK)
-    label_rect = label.get_rect()
-    label_rect.right = offset_x
-    label_rect.top = offset_y + 2*font_size + i*font_size_stock
-    screen.blit(label, label_rect)
-
 
 # endregion
 
@@ -461,7 +444,7 @@ def draw_fullscreenSelect(drawinfo) -> list[Rect]:
   title_rect = top_center_title(screen, title)
   
   yesandno_rects = row_buttons(screen, bianary_choices, row_align="center", row_height_div=2,
-                               font_scale_max=0.65, font_scale_min=0.6)
+                               font_scale_max=0.75)
   
   return yesandno_rects
 

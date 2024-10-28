@@ -77,12 +77,6 @@ class Fonts:
   tile = "arial"
   oblivious = r'fonts/oblivious-font.regular.ttf'
 
-def ratio(a: int | float, b: int | float, n: int | float, boundary: int | float = .95) -> int:
-  r = a/b
-  if r < boundary: return int(n/r)
-  elif r > boundary + .5: return int(n/r)
-  else: return int(n*boundary)
-
 def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
   while colorLoop:
     for color in Colors.get_all_colors():
