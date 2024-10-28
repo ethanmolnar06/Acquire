@@ -30,9 +30,8 @@ class Board:
   def fetchadjacent(self, tile: str): #tiles in play order may
     tileID = tilebag.tilesToIDs([tile])[0]
     adjacentIDs = [tileID - tilebag.rows, tileID-1, tileID+1, tileID+tilebag.rows]
-    adjacent = tilebag.tileIDinterp([ID for ID in adjacentIDs if ID >= 0 and ID <= len(tilebag.alltiles)-1])
-    numbqnt = len([char for char in tile if char in "1234567890"])
-    adjacent = [check for check in adjacent if (check[:numbqnt] == tile[:numbqnt] or check[numbqnt:] == tile[numbqnt:])]
+    filtered = [ID for ID in adjacentIDs if ID >= 0 and ID < len(tilebag.alltiles)]
+    adjacent = tilebag.tileIDinterp([ID for ID in filtered if (ID % tilebag.rows - tileID % tilebag.rows) in {-1, 0, 1}])
     adjinplay = [adj for adj in adjacent if adj in self.tilesinplay]
     return adjinplay
   

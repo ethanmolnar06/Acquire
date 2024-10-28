@@ -156,7 +156,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
             placePhase = False
             forceRender = True
             if pendingTileHandler is None:
-              p.playtile(turntile) 
+              p.playtile(turntile)
             mode, chains = board.tileplaymode(turntile)
             if mode == "place":
               pass
@@ -420,6 +420,7 @@ def gameloop(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fr
               for buykey in stockcart:
                 p.stats.stockChainsOwned[-1].add(buykey)
               buyPhase = False
+              currentTurn = False
       
       #turn finished handling
       assignStatVals(players)

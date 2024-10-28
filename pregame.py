@@ -156,6 +156,7 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         elif clicked_directory and hover_save_int is not None:
           clicked_save_int = (hover_save_int if clicked_save_int != hover_save_int else None)
         elif clicked_save_int is not None and load_rect.collidepoint(pos):
+          selectSaveFile = False
           savefile = savefiles[clicked_save_int]
           with open(rf'{saves_path}\{savefile}', 'rb') as file:
             data = pickle.load(file)
@@ -170,7 +171,10 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
               p.name = f"Player {i+1}"
           else: 
             personal_info_names = None
-          selectSaveFile = False
+          pygame.display.set_caption('Acquire Board')
+          acquireSetup = False
+          successfullBoot = True
+          return successfullBoot, tilebag, board, bank, players, personal_info_names, globalStats
     
     elif newGameInit:
       if event.type == pygame.MOUSEBUTTONDOWN:
