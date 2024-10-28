@@ -5,7 +5,7 @@ from copy import copy
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, pack_gameState, unpack_gameState, write_save
+from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
              clientMode: str, my_uuid: UUID | None) -> tuple[bool, bytes]:
@@ -233,7 +233,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       event = pygame.event.poll()
       # region Render Process
-      if forceRender or event.type:
+      if forceRender or event.type not in NO_RENDER_EVENTS:
         forceRender = False
         # Clear the screen
         screen.fill((255, 255, 255))

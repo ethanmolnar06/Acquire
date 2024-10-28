@@ -2,7 +2,7 @@ import pygame
 from plotly import graph_objects as ptgo
 
 from objects import *
-from common import ALLOW_SAVES, MAX_FRAMERATE, unpack_gameState, write_save
+from common import ALLOW_SAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted: bool, saveData: bytes):
@@ -22,7 +22,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
     
     event = pygame.event.poll()
     # region Render Process
-    if forceRender or event.type:
+    if forceRender or event.type not in NO_RENDER_EVENTS:
       forceRender = False
       # Clear the screen
       screen.fill((255, 255, 255))

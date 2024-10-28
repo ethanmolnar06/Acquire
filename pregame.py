@@ -4,7 +4,7 @@ from copy import copy, deepcopy
 
 from objects import *
 from objects.networking import DISCONN
-from common import DIR_PATH, MAX_FRAMERATE, unpack_gameState
+from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
   global screen
@@ -56,6 +56,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
   longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values() if type(d) == dict])
   
   forceRender: bool = True
+  watchMousePos: bool = False
   acquireSetup: bool = True
   successfullBoot: bool = False
   newGame: bool | None = None
@@ -74,7 +75,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
   while acquireSetup:
     event = pygame.event.poll()
     # region Render Process
-    if forceRender or event.type:
+    if forceRender or (watchMousePos and event.type) or event.type not in NO_RENDER_EVENTS:
       forceRender = False
       # Clear the screen
       screen.fill((255, 255, 255))
@@ -179,10 +180,10 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
           if yesorno_rect.collidepoint(pos):
             askLoadSave = False; forceRender = True
             if i == 1:
-              selectSaveFile = True
+              selectSaveFile = True; watchMousePos = True
               newGame = False
               saves_path = DIR_PATH + r'\saves'
-              savefiles = os.listdir(DIR_PATH + r'\saves'); savefiles.sort()
+              savefiles = os.listdir(saves_path); savefiles.sort()
               hover_directory, clicked_directory = [False]*2
               hover_save_int, clicked_save_int = [None]*2
             else:
@@ -192,7 +193,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
               settings = deepcopy(stockGameSettings)
     
     elif selectSaveFile:
-      # Get the mouse position
+      # Get the mouse position -> watchMousePos = True
       pos = pygame.mouse.get_pos()
       if directory_rect.collidepoint(pos):
         hover_directory = True
@@ -208,7 +209,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
           hover_save_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
         if back_button_rect.collidepoint(pos):
-          selectSaveFile = False; forceRender = True
+          selectSaveFile = False; watchMousePos = False
           askHostJoin = True
           clicked_textbox_int = None
         if hover_directory:
@@ -216,9 +217,9 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
         elif clicked_directory and hover_save_int is not None:
           clicked_save_int = (hover_save_int if clicked_save_int != hover_save_int else None)
         elif clicked_save_int is not None and load_rect.collidepoint(pos):
-          selectSaveFile = False; forceRender = True
+          selectSaveFile = False; watchMousePos = False
           if clientMode == "hostServer":
-            selectPlayerFromSave = True
+            selectPlayerFromSave = True; watchMousePos = True
             hover_player_int, clicked_player_int = [None]*2
           
           savefile = savefiles[clicked_save_int]
@@ -229,7 +230,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
             p.conn = None
     
     elif selectPlayerFromSave: # only reachable for hostServer
-      # Get the mouse position
+      # Get the mouse position -> watchMousePos = True
       pos = pygame.mouse.get_pos()
       for i, player_rect in enumerate(player_rects):
         if player_rect.collidepoint(pos):
@@ -239,8 +240,8 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
           hover_player_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
         if back_button_rect.collidepoint(pos):
-          selectPlayerFromSave = False; forceRender = True
-          selectSaveFile = True
+          selectPlayerFromSave = False
+          selectSaveFile = True; watchMousePos = True
           saves_path = DIR_PATH + r'\saves'
           savefiles = os.listdir(DIR_PATH + r'\saves'); savefiles.sort()
           hover_directory, clicked_directory = [False]*2
@@ -248,7 +249,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
         if hover_player_int is not None:
           clicked_player_int = (hover_player_int if clicked_player_int != hover_player_int else None)
         elif clicked_player_int is not None and load_rect.collidepoint(pos):
-          selectPlayerFromSave = False; forceRender = True
+          selectPlayerFromSave = False; watchMousePos = False
           players[clicked_player_int].conn = Connection("host", None)
     
     elif customSettings:
