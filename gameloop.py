@@ -14,21 +14,17 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   tilebag, board, players, bank = gameState
   from gui import draw_popup, draw_main_screen
   
-  p = None
-  pDefuncting = None
-  P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
-  
   def send_gameStateUpdate():
     gameStateUpdate = pack_gameState(tilebag, board, players, bank)
     target = "client" if clientMode == "hostServer" else "server"
     propagate(players, None, Command(f"set {target} gameState", gameStateUpdate))
   
-  def overflow_update(update: tuple[UUID, Command] | None):
+  def overflow_update(update: tuple[UUID, Command] | None = None):
     global u, u_overflow
     # try to be super safe, not drop any updates in either queue
     if update is not None:
-      u_overflow += [update,]
-    u_overflow += copy(u) 
+      u_overflow = u_overflow + [update,]
+    u_overflow = u_overflow + copy(u) 
     u = []
   
   def cycle_pDefuncting() -> tuple[str, Player]:
@@ -60,10 +56,15 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     players = setPlayerOrder(tilebag, board, players)
     send_gameStateUpdate()
   
+  u_overflow = []
+  p = None
+  pDefuncting = None
+  P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
+  
   cyclingPlayers = True
   gameCompleted = False
   skipStatIncrem = True
-  u_overflow = []
+  
   while cyclingPlayers:
     
     # region Save Game and Player Cycle
@@ -86,28 +87,29 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     # endregion
     
     # region StateMap Declarations
-    forceRender = True
-    ongoingTurn = True
-    showTiles = False if clientMode == "hostLocal" else True
-    turntile = None
-    gameEndable = None
-    bankdrawntile = None
-    pendingTileHandler = None
+    forceRender: bool = True
+    skipRender: bool = False
+    ongoingTurn: bool = True
+    showTiles: bool = False if clientMode == "hostLocal" else True
+    turntile: bool = None
+    gameEndable: bool = None
+    bankdrawntile: bool = None
+    pendingTileHandler: bool = None
     
-    placePhase = True if clientMode == "hostLocal" or (clientMode == "hostServer" and p.uuid == my_uuid) else False
-    choosingNewChain = False
-    tiebreakMerge = False
-    prepForMerge = False
-    defunctPayout = False
-    setupDefunctVars = False
-    defunctMode = False
-    checkGameEndable = False
-    askToBuy = False
-    buyPhase = False
-    turnWrapup = False
+    placePhase: bool = True if clientMode == "hostLocal" or (clientMode == "hostServer" and p.uuid == my_uuid) else False
+    choosingNewChain: bool = False
+    tiebreakMerge: bool = False
+    prepForMerge: bool = False
+    defunctPayout: bool = False
+    setupDefunctVars: bool = False
+    defunctMode: bool = False
+    checkGameEndable: bool = False
+    askToBuy: bool = False
+    buyPhase: bool = False
+    turnWrapup: bool = False
     
-    popup_open = False
-    popupToClose = False
+    popup_open: bool = False
+    popupToClose: bool = False
     dragging_knob1, dragging_knob2 = [False]*2
     # endregion
     
@@ -233,7 +235,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       event = pygame.event.poll()
       # region Render Process
-      if forceRender or event.type not in NO_RENDER_EVENTS:
+      if (forceRender or event.type not in NO_RENDER_EVENTS) and not skipRender:
         forceRender = False
         # Clear the screen
         screen.fill((255, 255, 255))
@@ -270,6 +272,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             stopbuy_button_rect, stock_plusmin_rects = draw_popup('stockBuy', [stockcart, p])
         # Update the display
         pygame.display.flip()
+      skipRender = False
       # endregion
       
       # region Handle common events
@@ -322,20 +325,19 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 break
           if turntile is not None:
             placePhase = False
-            forceRender = True
             if pendingTileHandler is None:
               p.playtile(turntile) 
             mode, chains = board.tileplaymode(turntile)
             if mode == "place":
-              checkGameEndable = True
+              checkGameEndable = True; skipRender = True
               send_gameStateUpdate()
             elif mode == "create":
-              choosingNewChain = True
+              choosingNewChain = True; forceRender = True
               unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
               p.stats.chainsFounded[-1] += 1
               send_gameStateUpdate()
             elif mode == "expand":
-              checkGameEndable = True
+              checkGameEndable = True; skipRender = True
               board.chaindict[turntile] = chains
               chaingrowth = board.tileprop(turntile, chains)
               p.stats.mostExpandedChain[chains][-1] += chaingrowth
@@ -358,7 +360,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             # print(newchain_rect, pos, newchain_rect.collidepoint(pos))
             if newchain_rect.collidepoint(pos):
               choosingNewChain = False
-              checkGameEndable = True
+              checkGameEndable = True; skipRender = True
               newchain = unopenedchains[i]
               board.chaindict[turntile] = newchain
               chaingrowth = board.tileprop(turntile, newchain)
@@ -512,7 +514,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                     knob2_x = defunctingStocks
                   else:
                     defunctMode = False
-                    checkGameEndable = True
+                    checkGameEndable = True; skipRender = True
                     if pendingTileHandler is not None:
                       turntile = pendingTileHandler
                       pendingTileHandler = None
@@ -534,6 +536,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           # print(gameEndable, buyPhase)
           if buyPhase:
             askToBuy = True
+          if not gameEndable and not askToBuy:
+            skipRender = True
         
         #Waiting for Player to Choose to End Game
         elif gameEndable:

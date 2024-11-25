@@ -353,15 +353,6 @@ from objects.networking import fetch_updates, propagate
 def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool,
           gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None,  UUID | None]:  
   
-  forceRender: bool = True
-  inLobby: bool = True
-  successfulStart: bool = False
-  
-  selectPlayerFromSave: bool = False
-  setPlayerNameJoin: bool = False
-  waitingForJoin: bool = False
-  gameStartable: bool = False
-  
   if clientMode == "hostLocal":
     successfulStart = True
     return successfulStart, gameState, None, None
@@ -385,6 +376,34 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   HOST: Player = [p for p in players if p.conn is not None][0]
   host_uuid = HOST.uuid; P = None
   
+  def send_gameStateUpdate():
+    gameStateUpdate = pack_gameState(tilebag, board, players, bank)
+    target = "client" if clientMode == "hostServer" else "server"
+    propagate(conn_dict, None, Command(f"set {target} gameState", gameStateUpdate))
+  
+  def overflow_update(update: tuple[UUID, Command] | None = None):
+    global u, u_overflow
+    # try to be super safe, not drop any updates in either queue
+    if update is not None:
+      u_overflow = u_overflow + [update,]
+    u_overflow = u_overflow + copy(u) 
+    u = []
+  
+  u_overflow = []
+  playernameTxtbx = ""
+  hover_save_int, clicked_player_int = [None]*2
+  connected_players: list[Player] = [p for p in players if p.connClaimed] # == players if newGame
+  unclaimed_players: list[Player] = [p for p in players if not p.connClaimed] # == [] if newGame
+  
+  forceRender: bool = True
+  inLobby: bool = True
+  successfulStart: bool = False
+  
+  selectPlayerFromSave: bool = False
+  setPlayerNameJoin: bool = False
+  waitingForJoin: bool = False
+  gameStartable: bool = False
+  
   if clientMode == "hostServer":
     P = HOST; my_uuid = host_uuid
     conn_dict[my_uuid] = P.conn
@@ -402,25 +421,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       selectPlayerFromSave = True
       awaitResponse = False
   
-  u_overflow = None
-  playernameTxtbx = ""
-  hover_save_int, clicked_player_int = [None]*2
-  connected_players: list[Player] = [p for p in players if p.connClaimed] # == players if newGame
-  unclaimed_players: list[Player] = [p for p in players if not p.connClaimed] # == [] if newGame
-  
-  def send_gameStateUpdate():
-    gameStateUpdate = pack_gameState(tilebag, board, players, bank)
-    target = "client" if clientMode == "hostServer" else "server"
-    propagate(conn_dict, None, Command(f"set {target} gameState", gameStateUpdate))
-  
-  def overflow_update(update: tuple[UUID, Command] | None):
-    global u, u_overflow
-    # try to be super safe, not drop any updates in either queue
-    if update is not None:
-      u_overflow += [update,]
-    u_overflow += copy(u) 
-    u = []
-  
   while inLobby:
     # region check for updates over network
     u = fetch_updates(conn_dict) if not u_overflow else u_overflow
@@ -429,13 +429,17 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       if clientMode == "hostServer":
         # command revieved from clients
         if comm.dump() == "set server connection" and comm.val == DISCONN:
-          p = find_player(uuid, players)
-          print(f"[PLAYER DROPPED] Disconnect Message Recieved from {p.conn}")
-          p.DISCONN()
-          if newGame:
-            players.remove(p) # this should deref p
-          else:
-            p.conn = None
+          try:
+            p = find_player(uuid, players)
+            p.DISCONN()
+            if newGame:
+              players.remove(p) # this should deref p
+            else:
+              p.conn = None
+          except:
+            # Connection not yet assigned to player
+            pass
+          print(f"[PLAYER DROPPED] Disconnect Message Recieved from {conn_dict[uuid]}")
           del conn_dict[uuid] # this should deref p.conn
         
         elif comm.dump() == "set player name": # create new player
@@ -550,7 +554,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           awaitResponse = True
     
     elif setPlayerNameJoin:
-      print(HOST, HOST.conn.sock)
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = pygame.mouse.get_pos()
