@@ -45,38 +45,19 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     propagate(players, None, Command("set game start", True))
   
   u_overflow = []
-  p = None
-  pDefuncting = None
-  P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
   saveData = None
+  P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
+  focus_content = GUI_area()
   
   cyclingPlayers = True
   gameCompleted = False
   skipStatIncrem = True
   
-  focus_content = GUI_area()
-  
   while cyclingPlayers:
-    # region Save Game and Player Cycle
-    if "host" in clientMode:
-      if skipStatIncrem:
-        skipStatIncrem = False
-      else:
-        statIncrement(players)
-        bank.stats.turnCounter += [bank.stats.turnCounter[-1] + 1]
-        bank.stats.bankTilesDrawn += [bank.stats.bankTilesDrawn[-1]]
-      saveData = pack_gameState(tilebag, board, players, bank)
-      
-      if ALLOW_QUICKSAVES:
-        write_save(saveData, [p._truename for p in players], bank.stats.turnCounter[-1], quicksave=True)
-      
-      p = players.pop(0)
-      players.append(p)
-      send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-      propagate(players, None, Command("set player turn", p.uuid))
-    # endregion
-    
     # region StateMap Declarations
+    p = None
+    pDefuncting = None
+    
     forceRender: bool = True
     skipRender: bool = False
     ongoingTurn: bool = True
@@ -103,9 +84,28 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     dragging_knob1, dragging_knob2 = [False]*2
     # endregion
     
+    # region Save Game and Player Cycle
+    if "host" in clientMode:
+      if skipStatIncrem:
+        skipStatIncrem = False
+      else:
+        statIncrement(players)
+        bank.stats.turnCounter += [bank.stats.turnCounter[-1] + 1]
+        bank.stats.bankTilesDrawn += [bank.stats.bankTilesDrawn[-1]]
+      saveData = pack_gameState(tilebag, board, players, bank)
+      
+      if ALLOW_QUICKSAVES:
+        write_save(saveData, [p._truename for p in players], bank.stats.turnCounter[-1], quicksave=True)
+      
+      p = players.pop(0)
+      players.append(p)
+      send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+      propagate(players, None, Command("set player turn", p.uuid))
+    # endregion
+    
     while ongoingTurn:
       # region debug
-      # print(p._truename, placePhase, checkGameEndable, turnWrapup)
+      # print(p, placePhase, checkGameEndable, turnWrapup)
       # endregion
       
       # region check for updates over network
@@ -134,8 +134,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           elif comm.dump() == "set game completed" and comm.val:
             gameCompleted = True
           
-          # expecting u_overflow
-          elif comm.dump() == "set bank merge":
+          elif comm.dump() == "set bank merge": # expecting u_overflow
             datatup: tuple[str, str, list[str], str | tuple[str], list[str], list[int, int]] = comm.val
             turntile, bigchain, defunctchains, pendingTileHandler, statementsList, iofnStatement = datatup
             defunctPayout = True
@@ -150,8 +149,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             propagate(players, None, Command("set player defunct", pDefuncting.uuid))
           
-          # expecting u_overflow
-          elif comm.dump() == "set player defunct" and not comm.val:
+          elif comm.dump() == "set player defunct" and not comm.val: # expecting u_overflow
             defunctchain, pDefuncting = cycle_pDefuncting()
             if pDefuncting is not None:
               if pDefuncting.uuid == my_uuid:
@@ -186,9 +184,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             gameStateUpdate: bytes = comm.val
             tilebag, board, players, bank = unpack_gameState(gameStateUpdate, players)
           
-          elif comm.dump() == "set player turn" and comm.val:
-            p_uuid: UUID = comm.val
-            if my_uuid == p_uuid:
+          elif comm.dump() == "set player turn":
+            p_uuid: UUID | bool = comm.val
+            if comm.val and my_uuid == p_uuid:
               p = P
               placePhase = True
             else:
@@ -229,6 +227,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             print("UNEXPECTED COMMAND:", comm)
             continue
         
+        # P is given a new memory address each time gameState is updated over network, this fixes that
         if my_uuid in [p.uuid for p in players]:
           P = find_player(my_uuid, players)
         forceRender = True
@@ -311,7 +310,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         #   popupToClose = True
         for i, popup_select_rect in enumerate(popup_select_rects): # Check if any of the popup_selects were clicked
           if popup_select_rect.collidepoint(pos):
-            propagate(players, None, Command("test test test", False))
+            # propagate(players, None, Command("test test test", False)) # DEBUG NETWORK COMMAND
             focus_content.change_showing(i)
       # endregion
       
@@ -328,7 +327,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         
         # Waiting to Draw and Handle Events in Draw Mode
         elif placePhase:
-          if turntile is None and event.type == pygame.MOUSEBUTTONDOWN:
+          if turntile is None and tile_rects is not None and event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = pygame.mouse.get_pos()
             # Check if any of the tile_rects were clicked
@@ -636,8 +635,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             p.drawtile()
             p.deadduckremoval()
           send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-          if "host" in clientMode:
-            ongoingTurn = False
+          ongoingTurn = False
           propagate(players, None, Command("set player turn", False))
           p = None
           pDefuncting = None

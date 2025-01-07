@@ -102,7 +102,7 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
     
     tile_rects = gridifier(surface, subrect, p.tiles, cols, rows, rect_color_func, label_color_func, 
                           font_name=Fonts.tile, extra_render_func=extra_render_func)
-  else:
+  elif not showTiles:
     label = f"Tiles Hidden: Defuncting" if defunctMode else f"Click to Reveal {p.name}'s Tiles"
     tilehider_rect = single_button(surface, label, Colors.BLACK, Colors.WHITE, rect_width_div=5.1, rect_offest_x=9, rect_offest_y=1.2)
   # endregion
