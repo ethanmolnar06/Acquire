@@ -13,8 +13,8 @@ class Player:
     self.maxPlayers = maxPlayers
     self.name = (name, creation_n)
     
-    self.id: uuid.UUID = uuid.uuid4()
-    self.conn: Connection | None = Connection("host", None)
+    self.uuid: uuid.UUID = uuid.uuid4()
+    self.conn: Connection | None = Connection("host", None, self.uuid)
     self.connClaimed: bool = True
     self.ready: bool = False
     
@@ -23,6 +23,9 @@ class Player:
     self.bal = round(int(startCash), -2)
     self.stocks: dict[str, int] = {chain: int(startingStockNumber) for chain in tilebag.chainnames}
     self.stats = Stats(tilebag.chainnames, int(startingStockNumber), self.bal)
+  
+  def __str__(self) -> str:
+    return f"{self.name} ({self.uuid}) <{id(self)}>"
   
   @property
   def name(self) -> str:
@@ -67,7 +70,8 @@ class Player:
         oldtileIDs.append(newtileID)
         oldtileIDs.sort(key=int)
         self.tiles = self._tilebag.tileIDinterp(oldtileIDs) #stored as human name string, **NOT ID as int**
-      # else: print('Tilebag Empty!')
+      # else:
+      #   print('Tilebag Empty!')
     return None
   
   def playtile(self, tile: str): #tile must be playable!

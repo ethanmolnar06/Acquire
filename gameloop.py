@@ -9,10 +9,10 @@ from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, pack_gameS
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
              clientMode: str, my_uuid: UUID | None) -> tuple[bool, bytes]:
-  global screen, tilebag, board, bank
+  global screen, tilebag, board, bank, u, u_overflow
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
-  from gui import draw_popup, draw_main_screen
+  from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen
   
   def send_gameStateUpdate():
     gameStateUpdate = pack_gameState(tilebag, board, players, bank)
@@ -54,20 +54,24 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   
   if newGame and "host" in clientMode:
     players = setPlayerOrder(tilebag, board, players)
+    # print("set player order!")
     send_gameStateUpdate()
   
   u_overflow = []
   p = None
   pDefuncting = None
   P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
+  saveData = None
   
   cyclingPlayers = True
   gameCompleted = False
   skipStatIncrem = True
   
+  focus_content = GUI_area()
+  
   while cyclingPlayers:
-    
     # region Save Game and Player Cycle
+    # print("players cycled!")
     if "host" in clientMode:
       if skipStatIncrem:
         skipStatIncrem = False
@@ -81,6 +85,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         write_save(saveData, [p._truename for p in players], bank.stats.turnCounter[-1], quicksave=True)
       
       p = players.pop(0)
+      # print(f"new player set! {p}")
       players.append(p)
       send_gameStateUpdate()
       propagate(players, None, Command("set player turn", p.uuid))
@@ -136,6 +141,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             overflow_update()
           
           elif comm.dump() == "set player turn" and not comm.val:
+            # print("recieved player turn propagate command")
             ongoingTurn = False
           
           elif comm.dump() == "set game completed" and comm.val:
@@ -191,6 +197,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           
           elif comm.dump() == "set player turn" and comm.val:
             p_uuid: UUID = comm.val
+            # print("recieved player turn propagate command")
             if my_uuid == p_uuid:
               p = P
               placePhase = True
@@ -233,43 +240,55 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         forceRender = True
       # endregion
       
+      iAmPlayer = (p is not None and p.uuid == my_uuid) or (pDefuncting is not None and pDefuncting.uuid == my_uuid)
+      
       event = pygame.event.poll()
       # region Render Process
       if (forceRender or event.type not in NO_RENDER_EVENTS) and not skipRender:
         forceRender = False
+        
         # Clear the screen
         screen.fill((255, 255, 255))
-        # Draw the Main Board Screen
+        
+        # Draw Sidebar Area
         display_player = (pDefuncting if defunctMode else p) if clientMode == "hostLocal" else P
+        indicate_player_turn = iAmPlayer and not clientMode == "hostLocal"
         prohibitedTiles = board.contraceptcheck(display_player.tiles, checkChainAvail=True)
-        tilehider_rect, tile_rects, popup_select_rects = draw_main_screen(board, display_player, showTiles, prohibitedTiles, defunctMode)
-        if popup_open:
-          # draw over current popup-sized event
-          close_button_rect, _ = draw_popup('playerStats', drawinfo)
-        else:
+        tilehider_rect, tile_rects, popup_select_rects = draw_main_screen(screen, display_player, showTiles, prohibitedTiles, 
+                                                                          defunctMode, indicate_player_turn, focus_content)
+        
+        # Focus Area
+        if focus_content.game_board:
+          draw_game_board(screen, board)
+        elif focus_content.other_player_stats:
+          draw_other_player_stats(screen, bank, [player for player in players if player is not (P if not clientMode == "hostLocal" else p)])
+        elif choosingNewChain and focus_content.newchain:
+          newchain_rects = draw_newChain_fullscreen(screen, board)
+        elif buyPhase and focus_content.stockbuy:
+          stockbuy_confirm_rect, stock_plusmin_rects = draw_stockbuy_fullscreen(screen, board, bank, display_player, stockcart)
+        
+        if not popup_open:
           # TODO fewer pop-sized events, make more full screen with option to view board and/or stats
           #Draw ask to end game popup
           if gameEndable:
-            _, yesandno_rects = draw_popup('endGameConfirm', None)
-          # Draw choose new chain selection if choosingNewChain is True
-          elif choosingNewChain: _, newchain_rects = draw_popup('newChain', None)
+            _, yesandno_rects = draw_popup(screen, 'endGameConfirm', None)
           # Draw merger prioritization if tiebreakMerge is True
           elif tiebreakMerge:
-            stopmerger_button_rect, subdraw_output = draw_popup('mergeChainPriority', (mergeCart, chainoptions))
+            stopmerger_button_rect, subdraw_output = draw_popup(screen, 'mergeChainPriority', (mergeCart, chainoptions))
             mergeChain_rects, mergecart_rects = subdraw_output
           # Draw defunct payout if defunctMode is True
           elif defunctPayout:
-            stopdefunctpayout_button_rect, _ = draw_popup('defunctPayout', (statementsList[0], iofnStatement))
+            stopdefunctpayout_button_rect, _ = draw_popup(screen, 'defunctPayout', (statementsList[0], iofnStatement))
           # Draw defunct stock allocation if defunctMode is True
           elif defunctMode:
-            stopdefunct_button_rect, knobs_slider_rects = draw_popup('defuncter', (knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctchains[0], bigchain))
+            stopdefunct_button_rect, knobs_slider_rects = draw_popup(screen, 'defuncter', (bank, knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctchains[0], bigchain))
             knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
             slider_x = slider_rect.x; slider_width = slider_rect.width
           #Draw ask to buy popup if askToBuy == True
           elif askToBuy and not gameEndable:
-            _, yesandno_rects = draw_popup('askToBuy', None)
-          elif buyPhase and not gameEndable:
-            stopbuy_button_rect, stock_plusmin_rects = draw_popup('stockBuy', [stockcart, p])
+            _, yesandno_rects = draw_popup(screen, 'askToBuy', None)
+          # elif buyPhase and not gameEndable:
+            # stopbuy_button_rect, stock_plusmin_rects = draw_popup(screen, 'stockBuy', [board, bank, stockcart, p])
         # Update the display
         pygame.display.flip()
       skipRender = False
@@ -294,16 +313,16 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       elif event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = pygame.mouse.get_pos()
-        if popup_open and close_button_rect.collidepoint(pos): # Check if popup_close was clicked
-          popupToClose = True
+        # if popup_open and close_button_rect.collidepoint(pos): # Check if popup_close was clicked
+        #   popupToClose = True
         for i, popup_select_rect in enumerate(popup_select_rects): # Check if any of the popup_selects were clicked
           if popup_select_rect.collidepoint(pos):
-            drawinfo = [play for play in players if play != p] if i == 0 else [bank]
-            popup_open = True
+            propagate(players, None, Command("test test test", False))
+            focus_content.change_showing(i)
       # endregion
       
       # region gameState elifs
-      if clientMode == "hostLocal" or (p is not None and p.uuid == my_uuid) or (pDefuncting is not None and pDefuncting.uuid == my_uuid):
+      if clientMode == "hostLocal" or iAmPlayer:
         
         # Hide Tiles from Players if clientMode == "hostLocal"
         if not showTiles:
@@ -335,6 +354,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               choosingNewChain = True; forceRender = True
               unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
               p.stats.chainsFounded[-1] += 1
+              focus_content.clear("newchain")
               send_gameStateUpdate()
             elif mode == "expand":
               checkGameEndable = True; skipRender = True
@@ -369,6 +389,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               p.stats.stocksAcquired[-1] += 1
               p.stats.stockChainsOwned[-1].add(newchain)
               bank.stocks[newchain] = bank.stocks[newchain] - 1
+              focus_content.clear()
               send_gameStateUpdate()
               break
         
@@ -570,6 +591,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                     stockcart = []
                     buyablechains = [chain for chain in board.fetchactivechains() if bank.stocks[chain] or chain in stockcart]
                     preBuyBal = p.bal
+                    focus_content.clear("stockbuy")
                   else:
                     buyPhase = False
         
@@ -604,11 +626,12 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   else: 
                     print('no cheating :(')
             # Check if stockbuy close was clicked
-            if stopbuy_button_rect.collidepoint(pos) and not popup_open:
+            if stockbuy_confirm_rect.collidepoint(pos) and not popup_open:
               p.stats.moneySpent[-1] += preBuyBal - p.bal
               p.stats.stocksAcquired[-1] += len(stockcart)
               for buykey in stockcart:
                 p.stats.stockChainsOwned[-1].add(buykey)
+              focus_content.clear()
               buyPhase = False
         
         # Turn Over

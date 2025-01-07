@@ -6,7 +6,7 @@ from objects.connection import Command, KillableThread, Connection, DISCONN
 from objects.player import Player
 
 # NET Protocol
-PORT = 50545
+PORT = 30545
 
 def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState: tuple) -> tuple[KillableThread, dict[uuid.UUID, Connection]]:
   # TCP style
@@ -39,9 +39,8 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
       handshake = (newConn.uuid, newGame, gameStateUpdate)
       propagate(conn_dict, None, Command("set client connection", handshake))
     
-    print(f"[LISTENING CLOSED] No Longer Listening at {ip}")
+    print(f"[LISTENING CLOSED] No Longer Listening for New Connections at {ip}")
     server.close()
-    print(f"[SERVER TERMINATED]")
   
   serverThread = KillableThread(target=accept_conn, args=(newGame, gameState))
   serverThread.start()
@@ -77,6 +76,7 @@ def propagate(dests: dict[uuid.UUID, Connection] | list[Player] | list[Connectio
       continue
     elif isinstance(source, (Player, Connection)) and conn.uuid == source.uuid:
       continue
+    # print(conn)
     conn.send(command)
 
 def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Connection]) -> list[tuple[uuid.UUID, Command]] | list:
@@ -87,6 +87,7 @@ def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Con
     if conn.comm is None:
       continue
     while conn.comm is not None:
+      # print(conn.comm)
       u = (conn.uuid, conn.fetch())
       updates.append(u)
   return updates

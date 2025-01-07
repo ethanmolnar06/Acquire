@@ -13,13 +13,13 @@ class Command:
   def __init__(self, action_obj_key:str, val) -> None:
     action, obj, key = action_obj_key.split()
     # offer support for more granular control later, if deemed necessary
-    if action in {"set", 
+    if action in {"set", "test",
                   "add", "sub",}:
       self.action = action
     else:
       raise TypeError(f"Invalid Command action {action}")
     
-    if obj in {"server", "client", "game",
+    if obj in {"server", "client", "game", "test",
                "tilebag", "board", "player", "stats", "bank",}:
       self.obj = obj
     else:
@@ -31,6 +31,10 @@ class Command:
       raise KeyError(f"Invalid Command key {key}")
     
     self.val = val
+  
+  def __str__(self) -> str:
+    command_text = "gameState" if "gameState" in self.key else self.val
+    return f"{self.dump()} == {command_text}"
   
   def pack(self) -> bytes:
     return pickle.dumps(self, 5)
@@ -66,6 +70,7 @@ class Connection:
   
   @sock.setter
   def sock(self, sock: socket.socket | None) -> None:
+    # print("setting sockets!")
     self._sock = sock
     if sock is not None:
       self._thread = KillableThread(target=self.listen, args=(self._sock,))
@@ -110,13 +115,13 @@ class Connection:
       if data_len:
         data: bytes = sock.recv(int(data_len))
         comm: Command = pickle.loads(data)
-        if comm.val == DISCONN:
-          kill_event.set()
         if self.comm is None:
-          self.comm = [comm]
+          self.comm = [comm,]
         else:
           self.comm.append(comm)
-        # print(data)
+        if comm.val == DISCONN:
+          return
+        # print(data_len, comm)
   
   def send(self, command: Command):
     data = command.pack()

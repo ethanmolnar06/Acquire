@@ -1,4 +1,5 @@
 from objects.tilebag import TileBag
+from copy import deepcopy
 
 class Board:
   def __init__(self, tilebag:TileBag, maxChainSize: int):
@@ -16,7 +17,7 @@ class Board:
   def fetchchainsize(self, chain: str):
     return sum(chainvalue == chain for chainvalue in self.chaindict.values())
   
-  def fetchactivechains(self): #returns a list
+  def fetchactivechains(self): #returns an ordered list
     activechains = {chainvalue for chainvalue in self.chaindict.values()}
     activechains = [chain for chain in self._tilebag.chainnames if chain in activechains]
     return activechains
@@ -38,6 +39,17 @@ class Board:
     adjacent = self._tilebag.tileIDinterp([ID for ID in filtered if (ID % self._tilebag.rows - tileID % self._tilebag.rows) in {-1, 0, 1}])
     adjinplay = [adj for adj in adjacent if adj in self.tilesinplay]
     return adjinplay
+  
+  def fetchchainsgrouped(self, chain_subset : list[str] | None = None, invert_subset: bool = False) -> list[list[str]]:
+    if not chain_subset:
+      chain_subset = self.fetchactivechains()
+    if invert_subset:
+      chain_subset = [chain for chain in self._tilebag.chainnames if chain not in chain_subset]
+    
+    chaingroup1 = [chain for chain in chain_subset if chain in self._tilebag.chainTierGrouped['cheap']]
+    chaingroup2 = [chain for chain in chain_subset if chain in self._tilebag.chainTierGrouped['med']]
+    chaingroup3 = [chain for chain in chain_subset if chain in self._tilebag.chainTierGrouped['high']]
+    return [group for group in [chaingroup1, chaingroup2, chaingroup3] if len(group) > 0]
   
   def chainsContained(self, tiles: list[str]):
     tileandchains = [self.chaindict[tile] for i, tile in enumerate(tiles) if tile in self.chaindict]

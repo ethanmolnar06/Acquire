@@ -81,33 +81,33 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
       screen.fill((255, 255, 255))
       #Draw depending on current state
       if askHostJoin:
-        yesandno_rects = draw_fullscreenSelect('hostJoin')
+        yesandno_rects = draw_fullscreenSelect(screen, 'hostJoin')
       elif askJoinCode:
         title = "Enter Host IP"; confirm_label = 'Connect'
-        yesandno_rects = draw_singleTextBox(ipTxtbx, title, confirm_label)
+        yesandno_rects = draw_singleTextBox(screen, ipTxtbx, title, confirm_label)
       elif setPlayerNameHost:
         title = "Enter Your Username"; confirm_label = 'Start Server'
-        yesandno_rects = draw_singleTextBox(playernameTxtbx, title, confirm_label)
+        yesandno_rects = draw_singleTextBox(screen, playernameTxtbx, title, confirm_label)
       elif askHostLocal:
-        yesandno_rects = draw_fullscreenSelect('hostLocal')
+        yesandno_rects = draw_fullscreenSelect(screen, 'hostLocal')
       elif askLoadSave:
-        yesandno_rects = draw_fullscreenSelect('loadSave')
+        yesandno_rects = draw_fullscreenSelect(screen, 'loadSave')
       elif selectSaveFile:
         drawinfo: tuple[bool, int, bool, int] = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
         saveinfo: tuple[str, list[str]] = (saves_path, savefiles)
-        save_rects_vec = draw_selectSaveFile(drawinfo, saveinfo)
+        save_rects_vec = draw_selectSaveFile(screen, drawinfo, saveinfo)
         directory_rect, savefile_rects, load_rect, back_button_rect = save_rects_vec
       elif selectPlayerFromSave:
         drawinfo = (hover_player_int, clicked_player_int)
-        player_rects, load_rect, back_button_rect = draw_selectPlayerFromSave(drawinfo, players)
+        player_rects, load_rect, back_button_rect = draw_selectPlayerFromSave(screen, drawinfo, players)
       elif setPlayerNamesLocal:
-        text_field_rects, yesandno_rects, back_button_rect = draw_setPlayerNamesLocal(settings["playernames"], clicked_textbox_int)
+        text_field_rects, yesandno_rects, back_button_rect = draw_setPlayerNamesLocal(screen, settings["playernames"], clicked_textbox_int)
       elif customSettings:
         drawnSettings = {**settings["board"], **settings["player"], **settings["bank"]}
         if settings["bank"]["Stock Pricing Function"] in {"Logarithmic", "Exponential"}:
           drawnSettings.update(**settings["bankLinear"])
         drawnSettings.update(**settings["bank" + settings["bank"]["Stock Pricing Function"]])
-        text_field_rects, yesandno_rects, back_button_rect = draw_customSettings(drawnSettings, clicked_textbox_key, longestKey)
+        text_field_rects, yesandno_rects, back_button_rect = draw_customSettings(screen, drawnSettings, clicked_textbox_key, longestKey)
       # Update the display
       pygame.display.flip()
     # endregion
@@ -183,7 +183,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
               selectSaveFile = True; watchMousePos = True
               newGame = False
               saves_path = DIR_PATH + r'\saves'
-              savefiles = os.listdir(saves_path); savefiles.sort()
+              savefiles = os.listdir(saves_path); savefiles.sort(reverse=True)
               hover_directory, clicked_directory = [False]*2
               hover_save_int, clicked_save_int = [None]*2
             else:
@@ -352,10 +352,11 @@ from objects.networking import fetch_updates, propagate
 
 def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool,
           gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None,  UUID | None]:  
+  global u, u_overflow
   
   if clientMode == "hostLocal":
     successfulStart = True
-    return successfulStart, gameState, None, None
+    return successfulStart, gameState, None
   elif clientMode == "join":
     waitingForHandshake = True
     while waitingForHandshake:
@@ -363,7 +364,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       for uuid, d in u:
         if d is not None and d.dump() == "set client connection":
           waitingForHandshake = False
-          handshake: tuple[UUID, bool, bytes]= d.val
+          handshake: tuple[UUID, bool, bytes] = d.val
           my_uuid, newGame, gameStateUpdate = handshake
           gameState = unpack_gameState(gameStateUpdate, conn_dict)
           break
@@ -372,7 +373,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   tilebag, board, players, bank = gameState
   from gui_fullscreen import draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
   
-  # host will always send own conn as Connection("host", None) and any clients as None
+  # host will always send own conn as Connection("host", None, host_uuid) and any clients as None
   HOST: Player = [p for p in players if p.conn is not None][0]
   host_uuid = HOST.uuid; P = None
   
@@ -431,6 +432,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         if comm.dump() == "set server connection" and comm.val == DISCONN:
           try:
             p = find_player(uuid, players)
+            print(f"[PLAYER DROPPED] Disconnect Message Recieved from {conn_dict[uuid]}")
             p.DISCONN()
             if newGame:
               players.remove(p) # this should deref p
@@ -439,7 +441,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           except:
             # Connection not yet assigned to player
             pass
-          print(f"[PLAYER DROPPED] Disconnect Message Recieved from {conn_dict[uuid]}")
+          
           del conn_dict[uuid] # this should deref p.conn
         
         elif comm.dump() == "set player name": # create new player
@@ -514,11 +516,11 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       #Draw depending on current state
       if selectPlayerFromSave:
         drawinfo = (hover_player_int, clicked_player_int)
-        player_rects, load_rect = draw_selectPlayerFromSave(drawinfo, unclaimed_players)
+        player_rects, load_rect = draw_selectPlayerFromSave(screen, drawinfo, unclaimed_players)
       elif setPlayerNameJoin:
-        confirm_rect = draw_setPlayerNameJoin(playernameTxtbx)
+        confirm_rect = draw_setPlayerNameJoin(screen, playernameTxtbx)
       else:
-        player_rects, yesandno_rects = draw_waitingForJoin(clientMode, connected_players, clicked_player_int, gameStartable)
+        player_rects, yesandno_rects = draw_waitingForJoin(screen, clientMode, connected_players, clicked_player_int, gameStartable)
       # Update the display
       pygame.display.flip()
     # endregion
@@ -577,6 +579,10 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
     
     elif waitingForJoin:
+      # if event.type == pygame.MOUSEBUTTONDOWN:
+      #   print([str(conn) for conn in conn_dict.values()])
+      #   print([str(p) for p in players])
+      
       if clientMode == "hostServer":
         if event.type == pygame.MOUSEBUTTONDOWN:
           # Get the mouse position
@@ -644,4 +650,4 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     
     clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
   
-  return successfulStart, gameState, host_uuid, my_uuid
+  return successfulStart, gameState, my_uuid

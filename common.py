@@ -66,6 +66,8 @@ class Colors:
   
   @classmethod
   def chain(cls, chainname: str) -> tuple[int, int, int]:
+    if not chainname:
+      return None
     CC = cls.ChainColors
     try:
       chaincolor = CC.__getattribute__(CC, chainname)
@@ -78,6 +80,15 @@ class Fonts:
   main = 'timesnewroman'
   tile = "arial"
   oblivious = r'fonts/oblivious-font.regular.ttf'
+
+def iter_flatten(iterable: list) -> list:
+  flattened = []
+  for item in iterable:
+    if isinstance(item, (list, tuple)):
+      flattened.extend(iter_flatten(item))
+    else:
+      flattened.append(item)
+  return flattened
 
 def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
   while colorLoop:

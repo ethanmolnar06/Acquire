@@ -6,8 +6,11 @@ from common import ALLOW_SAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameStat
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted: bool, saveData: bytes):
+  if saveData is None:
+    return
+  
   screen, clock = gameUtils
-  tilebag, board, players, bank = unpack_gameState(saveData)
+  _, _, players, bank = unpack_gameState(saveData)
   
   postGaming = True
   forceRender = True
@@ -28,9 +31,9 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
       screen.fill((255, 255, 255))
       #Draw ask to make savestate
       if ALLOW_SAVES and askMakeSave:
-        yesandno_rects = draw_fullscreenSelect('makeSave')
+        yesandno_rects = draw_fullscreenSelect(screen, 'makeSave')
       elif askShowStats:
-        yesandno_rects = draw_fullscreenSelect('endGameStats')
+        yesandno_rects = draw_fullscreenSelect(screen,'endGameStats')
       elif selectStatsGraph:
         statswap_rects, viewByField_rect = draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewByField, graphfig)
       # Update the display

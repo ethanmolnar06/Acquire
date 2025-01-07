@@ -1,5 +1,6 @@
 import pygame
 from pygame import Surface, Rect
+from pygame.font import Font
 import plotly
 # plotly.io.kaleido.scope.mathjax = None
 import numpy as np
@@ -7,20 +8,19 @@ from io import BytesIO
 from typing import Callable
 
 from objects import *
-from common import HIDE_PERSONAL_INFO, Colors, Fonts
+from common import HIDE_PERSONAL_INFO, Colors, Fonts, iter_flatten
 
 # region gui components
 
-def clear_screen():
-  screen.fill((255, 255, 255))
+def clear_screen(surface: Surface):
+  surface.fill((255, 255, 255))
 
 def resize_screen(event) -> Surface:
   return pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
 
 # TODO maybe remake these two?
 # resize rects to fit font
-def horizontal_refontsizer(rect_width: int, default_font_size: int, 
-                           labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250):
+def horizontal_refontsizer(rect_width: int, default_font_size: int, labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250) -> tuple[Font, int]:
   # resize all font across grid to fit largest entry
   longestheader = max([len(h) for h in labels])
   font_size = default_font_size
@@ -29,8 +29,7 @@ def horizontal_refontsizer(rect_width: int, default_font_size: int,
   header_font = pygame.font.SysFont(font_name, font_size)
   return header_font, font_size
 
-def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, 
-                         labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250):
+def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, labels: list[str], font_name: str = Fonts.main) -> tuple[Font, int]:
   col_stand_height = pos_y + (2 + len(labels)) * default_font_size * 11/10
   font_size = default_font_size
   if col_stand_height >= rect_height:
@@ -39,23 +38,31 @@ def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int,
   return info_font, font_size
 
 # resize font to fit in a rect
-def dynamic_font(surface: Surface, rect: Rect, label: str, label_color: tuple[int, int, int], font_name: str, 
-                 font_scale_max: int | float = .95, font_offset_div: int = 0,
-                 justification: str = "centered", noBlit = False, share_font_size: int = 0) -> int:
+def dynamic_font(rect: Rect, label: str, font_name: str, font_scale_max: int | float = .95, default_font_size: int = 0) -> tuple[Font, int]:
   if not label:
-    return 0
-  default_font_size = min(rect.w, rect.h) // 2 if not share_font_size else share_font_size
+    return None, 0
+  if not default_font_size:
+    default_font_size = max(min(rect.w, rect.h) // 2, 50)
   font = pygame.font.SysFont(font_name, default_font_size)
-  label_surface = font.render(label, 1, label_color)
-  
+  label_surface = font.render(label, 1, Colors.BLACK)
   font_size = default_font_size
+  
+  # print(label, font_size, round(label_surface.get_width() / rect.w, 2), round(label_surface.get_height() / rect.h, 2))
+  # print(font_scale_max, label_surface.get_width() / rect.w > font_scale_max, label_surface.get_height() / rect.h > font_scale_max)
+  
   while label_surface.get_width() / rect.w > font_scale_max or label_surface.get_height() / rect.h > font_scale_max:
-    # print(label_surface.get_width(), rect.w, label_surface.get_width() / rect.w,
-    #       label_surface.get_height(), rect.h, label_surface.get_height() / rect.h)
+    # print(label, font_size, round(label_surface.get_width() / rect.w, 2), round(label_surface.get_height() / rect.h, 2))
     font_size = int(font_size * font_scale_max)
     font = pygame.font.SysFont(font_name, font_size)
-    label_surface = font.render(label, 1, label_color)
+    label_surface = font.render(label, 1, Colors.BLACK)
   
+  # print(label, font_size, round(label_surface.get_width() / rect.w, 2), round(label_surface.get_height() / rect.h, 2))
+  
+  return font, font_size
+
+def blit_font_to_rect(surface: Surface, font: Font, rect: Rect, label: str, label_color: tuple[int, int, int],
+                      justification: str = "centered", vert_justification: str = "centered", font_offset_div: int = 0) -> Rect:
+  label_surface = font.render(label, 1, label_color)
   label_rect = label_surface.get_rect()
   
   if justification == "right":
@@ -65,11 +72,18 @@ def dynamic_font(surface: Surface, rect: Rect, label: str, label_color: tuple[in
   else:
     label_rect.centerx = rect.centerx
   
-  label_rect.centery = rect.centery
+  if vert_justification == "top":
+    label_rect.top = rect.top
+  elif vert_justification == "bottom":
+    label_rect.bottom = rect.bottom
+  else:
+    label_rect.centery = rect.centery
+  
   if font_offset_div:
-    label_rect.top = rect.top + rect.h//font_offset_div
-  if not noBlit: surface.blit(label_surface, label_rect)
-  return font_size
+    label_rect.centery += rect.h//font_offset_div
+  surface.blit(label_surface, label_rect)
+  
+  return label_rect
 
 def create_square_dims(list: list) -> tuple[int, int]:
   # Calculate grid arangement (aim for square)
@@ -77,24 +91,38 @@ def create_square_dims(list: list) -> tuple[int, int]:
   rows = len(list)//cols + (1 if len(list)%cols != 0 else 0)
   return cols, rows
 
-def gridifier(surface: Surface, width: int, height: int, top_left: tuple[int, int], labels: list[str], cols: int, rows: int,
+def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str]], cols: int | None, rows: int | None,
               rect_color_func: Callable[[int], tuple[int, int, int] | None] | None, 
               label_color_func: Callable[[int], tuple[int, int, int] | None] | None,
               outline_color_func: Callable[[int], tuple[int, int, int] | None] | None = None, outline_width: int = 8, 
-              underfill: bool = False, underfill_color: tuple[int, int, int] | None = None, font_name: str = Fonts.main, 
-              rect_width_factor: int | float = 1, rect_height_factor: int | float = 1, font_scale_max: int | float = .95, 
-              share_font_size: int = 0, extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> list[Rect]:
+              underfill: bool = False, underfill_color: tuple[int, int, int] | None = None, 
+              rect_width_factor: int | float = 1, rect_height_factor: int | float = 1, rect_width_spacing_factor: int | float = 1,
+              rect_height_spacing_factor: int | float = 1, extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None,
+              font_name: str = Fonts.main, font_scale_max: int | float = .95, share_font_size: bool = False, default_font_size: int = 0,
+               allignment: str = "left") -> list[Rect]:
+  
+  # compensate for non-symmetric grids
+  if isinstance(labels[0], list):
+    rows = len(labels)
+    cols = max([len(l) for l in labels])
+  label_text = iter_flatten(labels)
   
   # Calculate rect sizing and arangement spacing
-  rect_width  = int(width       // (cols + .5))
-  rect_height = int(height      // (rows + .5))
-  w_gap       = int((width - rect_width * cols) // (cols+1))
-  h_gap       = int((height - rect_height * rows) // (rows+1))
+  rect_width  = int(subrect.w  // (cols + .5 * rect_width_spacing_factor) )
+  rect_height = int(subrect.h // (rows + .5 * rect_height_spacing_factor))
+  w_gap       = int((subrect.w - rect_width * cols) // (cols+1))
+  h_gap       = int((subrect.h - rect_height * rows) // (rows+1))
   
   # Calculate the grid starting offset from (0, 0) of the surface
-  offset_x = top_left[0] + w_gap + (cols-1) * rect_width * (1-rect_width_factor)
-  offset_y = top_left[1] + h_gap + (rows-1) * rect_height * (1-rect_height_factor)
+  offset_x = subrect.left + w_gap + (cols-1) * rect_width * (1-rect_width_factor)
+  offset_y = subrect.top + h_gap + (rows-1) * rect_height * (1-rect_height_factor)
   offset_x, offset_y = int(offset_x), int(offset_y)
+  
+  if share_font_size:
+    textlengthpairs = [(text, len(text)) for text in label_text]
+    textlengthpairs.sort(key=lambda x: x[1], reverse=True)
+    font, font_size = dynamic_font(Rect(0, 0, rect_width, rect_height), textlengthpairs[0][0], font_name,
+                                   font_scale_max=font_scale_max, default_font_size=default_font_size)
   
   if underfill and underfill_color is not None:
     max_x = offset_x + cols * rect_width * rect_width_factor + cols * w_gap
@@ -103,10 +131,22 @@ def gridifier(surface: Surface, width: int, height: int, top_left: tuple[int, in
     pygame.draw.rect(surface, underfill_color, underfill_rect)
   
   # Create grid of rects
+  n = 0
   rects = []
   for j in range(rows):
+    if isinstance(labels[0], list):
+      cols = len(labels[j])
+    
+    # Calculate the grid starting offset from (0, 0) of the surface
+    if allignment == "center":
+      offset_x = subrect.left + (subrect.w - rect_width * rect_width_factor * cols - w_gap * (cols-1))//2
+    else:
+      offset_x = subrect.left + w_gap + (cols-1) * rect_width * (1-rect_width_factor)
+    offset_y = subrect.top + h_gap + (rows-1) * rect_height * (1-rect_height_factor)
+    offset_x, offset_y = int(offset_x), int(offset_y)
+    
     for i in range(cols):
-      if i + cols*j >= len(labels):
+      if not isinstance(labels[0], list) and n >= len(labels):
         break
       # Calculate the position of the rect
       pos = (offset_x + i * rect_width * rect_width_factor + i * w_gap, 
@@ -115,32 +155,38 @@ def gridifier(surface: Surface, width: int, height: int, top_left: tuple[int, in
       # Create the rect, add to rects, and draw to screen
       rect = Rect(int(pos[0]), int(pos[1]), int(rect_width * rect_width_factor), int(rect_height * rect_height_factor))
       rects.append(rect)
-      if rect_color_func is not None and rect_color_func(i + cols*j) is not None:
-        pygame.draw.rect(surface, rect_color_func(i + cols*j), rect)
+      if rect_color_func is not None and rect_color_func(n) is not None:
+        pygame.draw.rect(surface, rect_color_func(n), rect)
       
       # Draw outline around rect if necessary
-      if outline_color_func is not None and outline_color_func(i + cols*j) is not None:
-        pygame.draw.rect(surface, outline_color_func(i + cols*j), rect, outline_width)
+      if outline_color_func is not None and outline_color_func(n) is not None:
+        pygame.draw.rect(surface, outline_color_func(n), rect, outline_width)
       
       # Create the label and draw to surface
-      if label_color_func is not None and label_color_func(i + cols*j) is not None:
-        font_size = dynamic_font(screen, rect, labels[i + cols*j], label_color_func(i + cols*j), font_name, 
-                                 font_scale_max=font_scale_max, share_font_size=share_font_size)
+      if label_text[n] and label_color_func is not None and label_color_func(n) is not None:
+        if not share_font_size:
+          font, font_size = dynamic_font(rect, label_text[n], font_name, font_scale_max=font_scale_max, default_font_size=default_font_size)
+        if font is not None:
+          blit_font_to_rect(surface, font, rect, label_text[n], label_color_func(n))
       
       # Do extra stuff per rect if necessary
       if extra_render_func is not None:
-        extra_render_func(screen, i + cols*j, rect, font_size)
+        extra_render_func(surface, n, rect, font_size)
+      
+      n += 1
   
   return rects
 
-def dropdown(surface: Surface, width: int, height: int, top_left: tuple[int, int], header: str, choices: list[str] | None, 
+def dropdown(surface: Surface, subrect: Rect, header: str, choices: list[str] | None, 
              header_rect_color: tuple[int, int, int] | None, header_label_color: tuple[int, int, int] | None,
              choice_rect_color_func: Callable[[int], tuple[int, int, int] | None] | None, 
              choice_label_color_func: Callable[[int], tuple[int, int, int] | None] | None,
              header_outline_color: tuple[int, int, int] | None = None, 
-             choice_outline_color_func: Callable[[int], tuple[int, int, int] | None] | None = None, header_outline_thick: int = 8, 
-             choice_outline_thick: int = 8, font_name: str = Fonts.main, share_font_size: int = 0, extras_index: int = 0,
-             label_justification: str = "centered", choice_justification: str = "centered", extras_justification: str = "centered",
+             choice_outline_color_func: Callable[[int], tuple[int, int, int] | None] | None = None, 
+             header_outline_thick: int = 8, choice_outline_thick: int = 8, 
+             font_name: str = Fonts.main, share_font_size: bool = False, default_font_size: int = 0,
+             label_justification: str = "centered", choice_justification: str = "centered", 
+             extras_index: int | None = None, extras_justification: str = "centered",
              header_extra_render_func: Callable[[Surface, Rect, int], None] | None = None,
              choice_extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> tuple[Rect, list[Rect]]:
   
@@ -151,76 +197,74 @@ def dropdown(surface: Surface, width: int, height: int, top_left: tuple[int, int
     rows = max(len(choices), 6)
   
   # Calculate rect sizing and arangement spacing
-  rect_width  = int(width  // (1.1))
-  rect_height = int(height // (rows + 1))
   w_gap       = 0
   h_gap       = 0
-  
-  # Calculate the grid starting offset from (0, 0) of the surface
-  offset_x = top_left[0] + w_gap
-  offset_y = top_left[1] + h_gap
-  offset_x, offset_y = int(offset_x), int(offset_y)
+  header_rect = Rect(subrect.left + w_gap, subrect.top + h_gap, 
+                     int(subrect.w  // (1.1)), int(subrect.h // (rows + 1)))
   
   # Create the header rect and draw to screen
-  header_rect = Rect(offset_x, offset_y, rect_width, rect_height)
   if header_rect_color is not None:
     pygame.draw.rect(surface, header_rect_color, header_rect, 0)
-  
-  if share_font_size:
-    choices_for_calc_font = choices
-    if extras_index:
-      choices_for_calc_font = choices[:extras_index]
-    shared_font_size = min([dynamic_font(surface, header_rect, choice, Colors.BLACK, font_name, 
-                                         share_font_size=share_font_size, noBlit=True) for choice in choices_for_calc_font] + 
-                           [dynamic_font(surface, header_rect, header, Colors.BLACK, font_name, share_font_size=share_font_size, noBlit=True)])
   
   # Draw outline around header rect if necessary
   if header_outline_color is not None:
     pygame.draw.rect(surface, header_outline_color, header_rect, header_outline_thick)
   
   # Create the label and blit to surface
-  if header_label_color is not None:
-    if share_font_size:
-      header_font_size = dynamic_font(surface, header_rect, header, header_label_color, font_name, 
-                                      justification=label_justification, share_font_size=share_font_size)
-    else:
-      header_font_size = dynamic_font(surface, header_rect, header, header_label_color, font_name, justification=label_justification)
+  if header and header_label_color is not None:
+    font, font_size = dynamic_font(header_rect, header, font_name, default_font_size=default_font_size)
+    if font is not None:
+      blit_font_to_rect(surface, font, header_rect, header, header_label_color, justification=label_justification)
   
   # Do extra stuff to header rect if necessary
   if header_extra_render_func is not None:
-    header_extra_render_func(screen, header_rect, header_font_size)
+    header_extra_render_func(surface, header_rect, font_size)
   
   # Draw the Choices
+  if share_font_size:
+    textlengthpairs = [(text, len(text)) for text in choices[:extras_index]]
+    textlengthpairs.sort(key=lambda x: x[1], reverse=True)
+    font, font_size = dynamic_font(header_rect, textlengthpairs[0][0], font_name, default_font_size=default_font_size)
+  
   choice_rects = None
   if choices is not None:
     choice_rects = []
     for i, choice in enumerate(choices):
-      # Calculate the position of the choice
-      choice_rect = header_rect.copy()
-      choice_rect.y += (i+1) * choice_rect.height
-      choice_rects.append(choice_rect)
-      
-      if choice_rect_color_func is not None and choice_rect_color_func(i) is not None:
-        pygame.draw.rect(surface, choice_rect_color_func(i), choice_rect, 0)
-      
-      # Draw outline around rect if necessary
-      if choice_outline_color_func is not None and choice_outline_color_func(i) is not None:
-        choice_outline_color = choice_outline_color_func(i)
-        if choice_outline_color is not None:
-          pygame.draw.rect(surface, choice_outline_color, choice_rect, choice_outline_thick)
-      
-      # Create the label and blit to surface
-      if choice_label_color_func is not None and choice_label_color_func(i) is not None:
-        justification = choice_justification if i < len(choices[:extras_index]) else extras_justification
-        if share_font_size:
-          choice_font_size = dynamic_font(surface, choice_rect, choice, choice_label_color_func(i), font_name, 
-                                          justification=justification, share_font_size=share_font_size)
-        else:
-          choice_font_size = dynamic_font(surface, choice_rect, choice, choice_label_color_func(i), font_name, justification=justification)
-      
-      # Do extra stuff per rect if necessary
-      if choice_extra_render_func is not None:
-        choice_extra_render_func(screen, i, choice_rect, choice_font_size)
+      if choice:
+        # Calculate the position of the choice
+        choice_rect = header_rect.copy()
+        choice_rect.y += (i+1) * choice_rect.height
+        choice_rects.append(choice_rect)
+        
+        if choice_rect_color_func is not None and choice_rect_color_func(i) is not None:
+          pygame.draw.rect(surface, choice_rect_color_func(i), choice_rect, 0)
+        
+        # Draw outline around rect if necessary
+        if choice_outline_color_func is not None and choice_outline_color_func(i) is not None:
+          choice_outline_color = choice_outline_color_func(i)
+          if choice_outline_color is not None:
+            pygame.draw.rect(surface, choice_outline_color, choice_rect, choice_outline_thick)
+        
+        # Create the label and blit to surface
+        if choice_label_color_func is not None and choice_label_color_func(i) is not None:
+          if not share_font_size or i >= len(choices[:extras_index]):
+            font, font_size = dynamic_font(header_rect, choice, font_name, default_font_size=default_font_size)
+          if font is not None:
+            justification = choice_justification if i < len(choices[:extras_index]) else extras_justification
+            font_offset_div = 0
+            if i < len(choices) - 1 and choices[i + 1] == "":
+              # I know this is a terrible, horrible way to do this
+              # too bad!
+              choice_rect.y += choice_rect.height
+              choice_rects.append(choice_rect.copy())
+              pygame.draw.rect(surface, choice_rect_color_func(i + 1), choice_rect, 0)
+              choice_rect.y -= choice_rect.height
+              font_offset_div = 2
+            blit_font_to_rect(surface, font, choice_rect, choice, choice_label_color_func(i), justification=justification, font_offset_div=font_offset_div)
+        
+        # Do extra stuff per rect if necessary
+        if choice_extra_render_func is not None:
+          choice_extra_render_func(surface, i, choice_rect, font_size)
   
   return header_rect, choice_rects
 
@@ -291,40 +335,51 @@ def draw_slider(surface: Surface, slider_vec):
 
 # region gui prebuilts
 
-def top_center_title(surface: Surface, title: str, y_offset_div: int = 0, font_offset_div: int = 60) -> Rect:
-  surface_width, surface_height = surface.get_size()
+def default_dropdown_rect(surface: Surface) -> Rect:
+  window_width, window_height = surface.get_size()
   
-  rect_width = surface_width * (2/3)
-  rect_height = surface_height // 10
-  top_left = (surface_width //2 - rect_width//2,
-              surface_height//y_offset_div if y_offset_div else y_offset_div)
-  rect = pygame.Rect(top_left[0], top_left[1], rect_width, rect_height)
-  # pygame.draw.rect(surface, Colors.GRAY, rect)
+  width = window_width * (3/7)
+  height = window_height - window_height // 24
+  top_left = (window_width//120, window_height // 24)
   
-  font_size = dynamic_font(surface, rect, title, Colors.BLACK, Fonts.main, font_offset_div=font_offset_div)
+  return Rect(top_left[0], top_left[1], width, height)
+
+def top_rect_title(surface: Surface, title: str, y_offset_div: int = 0, font_offset_div: int = 50, surface_subrect: Rect = None, justification: str = "centered") -> Rect:
+  if surface_subrect:
+    rect = surface_subrect.copy()
+  else:
+    surface_width, surface_height = surface.get_size()
+    rect = pygame.Rect(0, 0, surface_width, surface_height)
   
-  return rect
+  text_rect = rect.scale_by(2/3, 1/15)
+  text_rect.top = rect.top
+  text_rect.top += rect.h//y_offset_div if y_offset_div else y_offset_div
+  # pygame.draw.rect(surface, Colors.GREEN, text_rect) # DEBUG
+  
+  font, font_size = dynamic_font(text_rect, title, Fonts.main)
+  label_rect = blit_font_to_rect(surface, font, text_rect, title, Colors.BLACK, justification=justification,
+                                 vert_justification="top", font_offset_div=font_offset_div)
+  
+  return label_rect
 
 def row_buttons(surface: Surface, choices: list[str], rect_color_func: Callable[[int], tuple[int, int, int]] | None = None, 
                 outline_color_func: Callable[[int], tuple[int, int, int]] | None = None, 
                 row_align = "bottom", row_width_div: int = 1, row_height_div: int = 4,
-                font_scale_max: int =.8, share_font_size: int = 0):
+                font_scale_max: int =.8, share_font_size: bool = True):
   surface_width, surface_height = surface.get_size()
-  width = surface_width // row_width_div
-  height = surface_height // row_height_div
+  subrect = Rect(0,                              0,
+                 surface_width // row_width_div, surface_height // row_height_div)
   
   if row_align == "bottom":
-    top_left = (0, surface_height - height)
-  elif row_align == "top":
-    top_left = (0, 0)
-  else: # center
-    top_left = (0, (surface_height - height) // 2)
+    subrect.bottom =  surface_height
+  elif row_align == "center":
+    subrect.centery =  surface_height // 2
   
   if rect_color_func is None:
     def rect_color_func(i: int) -> tuple[int, int, int]:
       return Colors.RED if i == 0 else Colors.GREEN
   
-  button_rects = gridifier(surface, width, height, top_left, choices, len(choices), 1, 
+  button_rects = gridifier(surface, subrect, choices, len(choices), 1, 
                              rect_color_func, lambda x: Colors.WHITE, outline_color_func,
                              rect_width_factor=.9, font_scale_max=font_scale_max,
                              share_font_size=share_font_size)
@@ -333,48 +388,51 @@ def row_buttons(surface: Surface, choices: list[str], rect_color_func: Callable[
 
 def central_textbox(surface: Surface, text: str):
   surface_width, surface_height = surface.get_size()
-  width = surface_width
-  height = int(surface_height * (2/5))
-  top_left = (0, surface_height // 3 - height // 5)
+  subrect_height = surface_height * (2/5)
+  subrect = Rect(0, surface_height // 3 - subrect_height // 5,
+              surface_width, subrect_height)
   
-  textbox_rect = gridifier(surface, width, height, top_left, [text,], 1, 1, lambda x: Colors.GRAY,
+  textbox_rect = gridifier(surface, subrect, [text,], 1, 1, lambda x: Colors.GRAY,
                            lambda x: Colors.BLACK, lambda x: Colors.GREEN)[0]
   
   return textbox_rect
 
 def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Colors.LIGHTGREEN,
-                        label_color: tuple[int, int, int] = Colors.BLACK, 
+                        label_color: tuple[int, int, int] = Colors.BLACK, surface_subrect: Rect | None = None,
                         rect_width_div: int = 7, rect_height_div: int = 7,
-                        rect_offest_x: float = 4/5, rect_offest_y: float = 4/5,) -> Rect:
-  surface_width, surface_height = surface.get_size()
+                        rect_offest_x: int | float = 5, rect_offest_y: float = 5,) -> Rect:
+  if surface_subrect:
+    rect = surface_subrect.copy()
+  else:
+    surface_width, surface_height = surface.get_size()
+    rect = pygame.Rect(0, 0, surface_width, surface_height)
   
   # defaults to bottom right of the surface
-  rect_width = int(surface_width // rect_width_div)
-  rect_height = int(surface_height // rect_height_div)
+  button_rect = rect.scale_by(1/rect_width_div, 1/rect_height_div)
+  button_rect.bottomright = rect.bottomright
+  button_rect.right -= button_rect.w // rect_offest_x
+  button_rect.bottom -= button_rect.h // rect_offest_y
   
-  pos_x = surface_width * rect_offest_x
-  pos_y = surface_height * rect_offest_y
-  pos_x, pos_y = int(pos_x), int(pos_y)
-  
-  button_rect = Rect(pos_x, pos_y, rect_width, rect_height)
   pygame.draw.rect(surface, color, button_rect)
   
-  font_size = dynamic_font(surface, button_rect, label, label_color, Fonts.main)
+  font, font_size = dynamic_font(button_rect, label, Fonts.main)
+  blit_font_to_rect(surface, font, button_rect, label, label_color)
   
   return button_rect
 
-def draw_player_info(surface: Surface, p: Player, info_width_factor: float = 7/32, info_height_factor: float = 16/24,
-                     info_top_left_x_by_width: bool = True, info_top_left_x_factor: float = 27/32, info_top_left_y_factor: float = 0, 
-                     extra_text: list[str] | None = None) -> list[Rect]:
+def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = None, extra_text: list[str] | None = None,
+                     label_justification: str = "right", choice_justification: str = "right", highlight_player_name: bool = False) -> list[Rect]:
   surface_width, surface_height = surface.get_size()
   
-  width = surface_width * info_width_factor
-  height = surface_height * info_height_factor
-  top_left = (surface_width - width if info_top_left_x_by_width else surface_width * info_top_left_x_factor,
-              surface_height * info_top_left_y_factor)
+  if subrect is None:
+    subrect = Rect(surface_width * 25/32, 0,
+                   surface_width * 7/32, surface_height * 16/24)
   
-  choices = [f'${p.bal}',] + [f'{stock}: {p.stocks[stock]}' for stock in p.stocks.keys()]
+  balance = p.balance if 'balance' in p.__dict__.keys() else f'${p.bal}'
+  choices = [balance,] + [f'{stock}: {p.stocks[stock]}' for stock in p.stocks.keys()]
   n_choices = len(choices)
+  
+  header_label_color = Colors.RED if highlight_player_name else Colors.BLACK
   
   def choice_rect_color_func(i):
     if i < n_choices:
@@ -382,15 +440,18 @@ def draw_player_info(surface: Surface, p: Player, info_width_factor: float = 7/3
     else:
       return Colors.GRAY
   
+  extras_index = None
   if extra_text is not None:
     choices += extra_text
+    extras_index = -len(extra_text)
   
-  header_rect, choice_rects = dropdown(surface, width, height, top_left, p.name, choices, None, Colors.BLACK, choice_rect_color_func, lambda x: Colors.BLACK,
-                        share_font_size=45, choice_justification="right", label_justification="right", extras_index=-len(extra_text))
+  header_rect, choice_rects = dropdown(surface, subrect, p.name, choices, None, 
+                                       header_label_color, choice_rect_color_func, lambda x: Colors.BLACK, share_font_size=True, 
+                                       label_justification=label_justification, choice_justification=choice_justification, extras_index=extras_index)
   
   return choice_rects
 
-# TODO remake this
+# TODO remake this?
 def top_right_corner_x_button(surface: Surface) -> Rect:
   window_width, window_height = surface.get_size()
   
@@ -412,11 +473,12 @@ def top_right_corner_x_button(surface: Surface) -> Rect:
 
 # endregion
 
-from pregame import screen
+def clear_screen(surface: Surface):
+  surface.fill((255, 255, 255))
 
 # region pregame gui
-
-def draw_fullscreenSelect(drawinfo) -> list[Rect]:
+# pre-built-based
+def draw_fullscreenSelect(surface: Surface, drawinfo: str) -> list[Rect]:
   # Decide title and button labels
   title = 'Default Yes/No Question?'
   bianary_choices = ['No', 'Yes']
@@ -441,71 +503,67 @@ def draw_fullscreenSelect(drawinfo) -> list[Rect]:
   elif drawinfo == 'endGameStats': 
     title = 'Would You Like to Show End Game Stats?'
   
-  title_rect = top_center_title(screen, title)
+  title_rect = top_rect_title(surface, title)
   
-  yesandno_rects = row_buttons(screen, bianary_choices, row_align="center", row_height_div=2,
+  yesandno_rects = row_buttons(surface, bianary_choices, row_align="center", row_height_div=2,
                                font_scale_max=0.75)
   
   return yesandno_rects
 
-def draw_singleTextBox(ipTxtBx: str, title: str, confirm_label: str) -> list[Rect]:
+def draw_singleTextBox(surface: Surface, ipTxtBx: str, title: str, confirm_label: str) -> list[Rect]:
   
-  title_rect = top_center_title(screen, title)
+  title_rect = top_rect_title(surface, title)
   
-  textbox_rect = central_textbox(screen, ipTxtBx)
+  textbox_rect = central_textbox(surface, ipTxtBx)
   
-  yesandno_rects = row_buttons(screen, ['Back', confirm_label])
+  yesandno_rects = row_buttons(surface, ['Back', confirm_label])
   
   return yesandno_rects
 
-def draw_setPlayerNameJoin(playernameTxtbx: str) -> tuple[Rect]:
+def draw_setPlayerNameJoin(surface: Surface, playernameTxtbx: str) -> tuple[Rect]:
   
-  title_rect = top_center_title(screen, "Enter Your Username")
+  title_rect = top_rect_title(surface, "Enter Your Username")
   
-  textbox_rect = central_textbox(screen, playernameTxtbx)
+  textbox_rect = central_textbox(surface, playernameTxtbx)
   
-  confirm_rect = single_button(screen, "CONFRIM", Colors.GREEN, Colors.WHITE, rect_width_div=3, 
-                               rect_offest_x=1/3, rect_offest_y=9/12)
+  confirm_rect = single_button(surface, "CONFRIM", Colors.GREEN, Colors.WHITE, rect_width_div=3, 
+                               rect_offest_x=3, rect_offest_y=4)
   
   return confirm_rect
 
 # gridifier-based
-# TODO combine these two funcs?
-def draw_setPlayerNamesLocal(player_names: list[str], clicked_textbox_int: int) -> tuple[list[Rect], list[Rect]]:
-  window_width, window_height = screen.get_size()
-  
-  title_rect = top_center_title(screen, "Name The Players")
+def draw_setPlayerNamesLocal(surface: Surface, player_names: list[str], clicked_textbox_int: int) -> tuple[list[Rect], list[Rect]]:
+  title_rect = top_rect_title(surface, "Name The Players")
   
   # region Draw player name grid
-  grid_width = int(window_width)
-  grid_height = int(window_height * (72/100))
-  top_left = (0, window_width // 30)
+  window_width, window_height = surface.get_size()
+  subrect = Rect(0, window_width // 30,
+                 window_width, int(window_height * (72/100)))
   
   def outline_color_func(i: int) -> tuple[int, int, int]:
     return Colors.GREEN if i == clicked_textbox_int else None
   
   cols, rows = create_square_dims(player_names)
   
-  player_rects = gridifier(screen, grid_width, grid_height, top_left, player_names, cols, rows, 
+  player_rects = gridifier(surface, subrect, player_names, cols, rows, 
                            lambda x: Colors.GRAY, lambda x: Colors.BLACK, outline_color_func)
   # endregion
   
-  yesandno_rects = row_buttons(screen, ['Back to Settings', 'Start Game'])
+  yesandno_rects = row_buttons(surface, ['Back to Settings', 'Start Game'])
   
   # Create an "x" button to back out of menu
-  back_button_rect = top_right_corner_x_button(screen)
+  back_button_rect = top_right_corner_x_button(surface)
   
   return player_rects, yesandno_rects, back_button_rect
 
-def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicked_textbox_int: int, gameStartable: bool) -> tuple[list[Rect], list[Rect]]:
+def draw_waitingForJoin(surface: Surface, clientMode: str, connected_players: list[Player], clicked_textbox_int: int, gameStartable: bool) -> tuple[list[Rect], list[Rect]]:
   
-  title_rect = top_center_title(screen, "Lobby: Waiting for Players")
+  title_rect = top_rect_title(surface, "Lobby: Waiting for Players")
   
   # region Draw player name grid
-  window_width, window_height = screen.get_size()
-  grid_width = int(window_width)
-  grid_height = int(window_height * (4/5))
-  top_left = (0, window_width // 40)
+  window_width, window_height = surface.get_size()
+  subrect = Rect(0, window_width // 40,
+                 window_width, int(window_height * (19/25)))
   
   player_names = [p.name for p in connected_players]
   cols, rows = create_square_dims(player_names)
@@ -519,8 +577,8 @@ def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicke
   def label_color_func(i: int) -> tuple[int, int, int]:
     return Colors.GREEN if ready[i] else Colors.BLACK
   
-  player_rects = gridifier(screen, grid_width, grid_height, top_left, player_names, cols, rows,
-                           lambda x: Colors.GRAY, label_color_func, outline_color_func)
+  player_rects = gridifier(surface, subrect, player_names, cols, rows,
+                           lambda x: Colors.GRAY, label_color_func, outline_color_func, rect_height_spacing_factor=.9)
   # endregion
   
   button_labels = ['Disconnect', 'Mark Ready']
@@ -534,22 +592,19 @@ def draw_waitingForJoin(clientMode: str, connected_players: list[Player], clicke
   def rect_color_func(i):
     return rect_colors[i]
   
-  button_rects = row_buttons(screen, button_labels, rect_color_func)
+  button_rects = row_buttons(surface, button_labels, rect_color_func)
   
   return player_rects, button_rects
 
 # dropdown-based
-def draw_selectSaveFile(drawinfo: tuple[bool, int, bool, int], saveinfo) -> tuple[Rect, list[Rect], Rect, Rect]:
+def draw_selectSaveFile(surface: Surface, drawinfo: tuple[bool, int, bool, int], saveinfo) -> tuple[Rect, list[Rect], Rect, Rect]:
   hover_directory, hover_save_int, clicked_directory, clicked_save_int = drawinfo
   saves_path, savefiles = saveinfo
   
-  title_rect = top_center_title(screen, "Select Save File")
+  title_rect = top_rect_title(surface, "Select Save File")
   
   # region Create save dropdown
-  window_width, window_height = screen.get_size()
-  width = window_width * (3/7)
-  height = window_height - window_height // 24
-  top_left = (window_width//120, window_height // 24)
+  drect: Rect = default_dropdown_rect(surface)
   
   header = saves_path if not HIDE_PERSONAL_INFO else "Saves Directory"
   header_rect_color = Colors.RED if clicked_directory else Colors.GRAY
@@ -563,7 +618,7 @@ def draw_selectSaveFile(drawinfo: tuple[bool, int, bool, int], saveinfo) -> tupl
   def choice_outline_color_func(i: int) -> tuple[int, int, int]:
     return Colors.GREEN if i == hover_save_int and not hover_directory else None
   
-  header_rect, choice_rects = dropdown(screen, width, height, top_left, header, choices if clicked_directory else None,
+  header_rect, choice_rects = dropdown(surface, drect, header, choices if clicked_directory else None,
                                        header_rect_color, Colors.BLACK, 
                                        choice_rect_color_func, lambda x: Colors.BLACK, 
                                        header_outline_color, choice_outline_color_func)
@@ -572,23 +627,20 @@ def draw_selectSaveFile(drawinfo: tuple[bool, int, bool, int], saveinfo) -> tupl
   # Draw load save button if save clicked
   load_rect = None
   if clicked_save_int is not None:
-    load_rect = single_button(screen, "LOAD")
+    load_rect = single_button(surface, "LOAD")
   
   # Create an "x" button to back out of menu
-  back_button_rect = top_right_corner_x_button(screen)
+  back_button_rect = top_right_corner_x_button(surface)
   
   return header_rect, choice_rects, load_rect, back_button_rect
 
-def draw_selectPlayerFromSave(drawinfo: tuple[int, int], unclaimed_players: list[Player]) -> tuple[list[Rect], Rect, Rect]:
+def draw_selectPlayerFromSave(surface: Surface, drawinfo: tuple[int, int], unclaimed_players: list[Player]) -> tuple[list[Rect], Rect, Rect]:
   hover_player_int, clicked_player_int = drawinfo
   
-  title_rect = top_center_title(screen, "Select Player From Save File")
+  title_rect = top_rect_title(surface, "Select Player From Save File")
   
   # region Create player dropdown
-  window_width, window_height = screen.get_size()
-  width = window_width * (3/7)
-  height = window_height - window_height // 24
-  top_left = (window_width//120, window_height // 24)
+  drect: Rect = default_dropdown_rect(surface)
   
   def choice_rect_color_func(i: int) -> tuple[int, int, int]:
     return Colors.LIGHTGREEN if i == clicked_player_int else Colors.GRAY
@@ -596,7 +648,7 @@ def draw_selectPlayerFromSave(drawinfo: tuple[int, int], unclaimed_players: list
   def choice_outline_color_func(i: int) -> tuple[int, int, int]:
     return Colors.GREEN if i == hover_player_int else None
   
-  header_rect, player_rects = dropdown(screen, width, height, top_left, "  Players  ", unclaimed_players,
+  header_rect, player_rects = dropdown(surface, drect, "  Players  ", unclaimed_players,
                                        Colors.RED, Colors.BLACK, 
                                        choice_rect_color_func, lambda x: Colors.BLACK, 
                                        Colors.BLACK, choice_outline_color_func)
@@ -605,23 +657,23 @@ def draw_selectPlayerFromSave(drawinfo: tuple[int, int], unclaimed_players: list
   # Draw player info and select player button if player clicked
   load_rect = None
   if clicked_player_int is not None:
-    draw_player_info(unclaimed_players[clicked_player_int], window_width//40)
-    load_rect = single_button(screen, "SELECT")
+    draw_player_info(surface, unclaimed_players[clicked_player_int])
+    load_rect = single_button(surface, "SELECT")
   
   # Create an "x" button to back out of menu
-  back_button_rect = top_right_corner_x_button(screen)
+  back_button_rect = top_right_corner_x_button(surface)
   
   return player_rects, load_rect, back_button_rect
 
 # non-template
-def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKey: str) -> tuple[list[Rect], list[Rect], Rect]:
+def draw_customSettings(surface: Surface, drawnSettings: dict, clicked_textbox_key: str, longestKey: str) -> tuple[list[Rect], list[Rect], Rect]:
   
-  title_rect = top_center_title(screen, "Set Custom Settings")
+  title_rect = top_rect_title(surface, "Set Custom Settings")
   
   numbcols = 2
   numbrows = 10
   # Calculate text field sizing
-  window_width, window_height = screen.get_size()
+  window_width, window_height = surface.get_size()
   font_size = min(window_width, window_height) // 30
   font = pygame.font.SysFont(Fonts.main, font_size)
   key_text_width = int( (window_width - window_width//20) / (numbcols + 2) + longestKey)
@@ -637,26 +689,26 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKe
     pos_y = window_height//12 + (window_width//45 + text_field_height) * (i%numbrows)
     pos_x, pos_y = int(pos_x), int(pos_y)
     key_surface = font.render(k, True, Colors.BLACK)
-    screen.blit(key_surface, (pos_x, pos_y))
+    surface.blit(key_surface, (pos_x, pos_y))
     
     # Draw Text Box and Value
     pos_x = pos_x + key_text_width + window_width//30
     pos_y = pos_y
     text_field_rect = Rect(pos_x, pos_y, val_text_width, text_field_height + window_width//250)
-    pygame.draw.rect(screen, Colors.GRAY, text_field_rect, 0)
+    pygame.draw.rect(surface, Colors.GRAY, text_field_rect, 0)
     text_field_rects.append(text_field_rect)
     
     if clicked_textbox_key == k:
-      pygame.draw.rect(screen, Colors.GREEN, text_field_rect, 4)
+      pygame.draw.rect(surface, Colors.GREEN, text_field_rect, 4)
     
     # Render and blit the text on the text field
     text_surface = font.render(str(v), True, Colors.BLACK)
-    screen.blit(text_surface, (pos_x + window_width//150, pos_y))
+    surface.blit(text_surface, (pos_x + window_width//150, pos_y))
   
-  yesandno_rects = row_buttons(screen, ['Reset to Default', 'Create Players'], row_height_div=6)
+  yesandno_rects = row_buttons(surface, ['Reset to Default', 'Create Players'], row_height_div=6)
   
   # Create an "x" button to back out of menu
-  back_button_rect = top_right_corner_x_button(screen)
+  back_button_rect = top_right_corner_x_button(surface)
   
   return text_field_rects, yesandno_rects, back_button_rect
 
@@ -664,15 +716,12 @@ def draw_customSettings(drawnSettings: dict, clicked_textbox_key: str, longestKe
 
 # region postgame gui
 
-def draw_endGameStats(players: list[Player], statlist, hover_stat_int: int, clicked_stat_int: int, viewByField: bool, graphfig) -> tuple[list[Rect], Rect]:
+def draw_endGameStats(surface: Surface, players: list[Player], statlist, hover_stat_int: int, clicked_stat_int: int, viewByField: bool, graphfig) -> tuple[list[Rect], Rect]:
   
-  title_rect = top_center_title(screen, "End Game Stats")
+  title_rect = top_rect_title(surface, "End Game Stats")
   
   # region Create stats/player dropdown
-  window_width, window_height = screen.get_size()
-  width = window_width * (3/7)
-  height = window_height - window_height // 24
-  top_left = (window_width//120, window_height // 24)
+  drect: Rect = default_dropdown_rect(surface)
   
   header = "Stats by Field" if viewByField else "Stats by Player"
   choices = statlist if viewByField else [p.name for p in players] 
@@ -683,7 +732,7 @@ def draw_endGameStats(players: list[Player], statlist, hover_stat_int: int, clic
   def choice_outline_color_func(i: int) -> tuple[int, int, int]:
     return Colors.GREEN if i == hover_stat_int else None
   
-  header_rect, statswap_rects = dropdown(screen, width, height, top_left, header, choices,
+  header_rect, statswap_rects = dropdown(surface, drect, header, choices,
                                        Colors.RED, Colors.BLACK, 
                                        choice_rect_color_func, lambda x: Colors.BLACK, 
                                        Colors.BLACK, choice_outline_color_func)
@@ -691,15 +740,16 @@ def draw_endGameStats(players: list[Player], statlist, hover_stat_int: int, clic
   
   #Draw graph to the screen
   if clicked_stat_int is not None and graphfig is not None:
+    window_width, window_height = surface.get_size()
     scale = min(1.35 * window_width/1600, 1.3 * window_height/900)
     figBytes = BytesIO(plotly.io.to_image(graphfig, format='png', scale=scale))
     graph_surface = pygame.image.load(figBytes)
-    screen.blit(graph_surface, graph_surface.get_rect(right=window_width, centery=window_height//2))
+    surface.blit(graph_surface, graph_surface.get_rect(right=window_width, centery=window_height//2))
   
   # Draw button to change viewmode
   label = "View by Field" if viewByField else "View by Player"
   color = Colors.LIGHTGREEN if viewByField else Colors.RED
-  viewByField_rect = single_button(screen, label, color, rect_width_div=6, rect_height_div=10, rect_offest_y=8/9)
+  viewByField_rect = single_button(surface, label, color, rect_width_div=6, rect_height_div=10, rect_offest_y=8/9)
   
   return (statswap_rects, viewByField_rect)
 
