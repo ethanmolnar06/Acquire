@@ -7,7 +7,6 @@ from objects.networking import DISCONN
 from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
-  global screen
   screen, clock = gameUtils
   from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, \
                              draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave
@@ -347,12 +346,11 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
     clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
 
 from uuid import UUID
-from common import pack_gameState, find_player
+from common import send_gameStateUpdate, find_player, overflow_update
 from objects.networking import fetch_updates, propagate
 
 def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool,
           gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None,  UUID | None]:  
-  global u, u_overflow
   
   if clientMode == "hostLocal":
     successfulStart = True
@@ -377,19 +375,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   HOST: Player = [p for p in players if p.conn is not None][0]
   host_uuid = HOST.uuid; P = None
   
-  def send_gameStateUpdate():
-    gameStateUpdate = pack_gameState(tilebag, board, players, bank)
-    target = "client" if clientMode == "hostServer" else "server"
-    propagate(conn_dict, None, Command(f"set {target} gameState", gameStateUpdate))
-  
-  def overflow_update(update: tuple[UUID, Command] | None = None):
-    global u, u_overflow
-    # try to be super safe, not drop any updates in either queue
-    if update is not None:
-      u_overflow = u_overflow + [update,]
-    u_overflow = u_overflow + copy(u) 
-    u = []
-  
   u_overflow = []
   playernameTxtbx = ""
   hover_save_int, clicked_player_int = [None]*2
@@ -403,6 +388,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   selectPlayerFromSave: bool = False
   setPlayerNameJoin: bool = False
   waitingForJoin: bool = False
+  confirmClientInGameloop: bool = False
   gameStartable: bool = False
   
   if clientMode == "hostServer":
@@ -449,7 +435,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           newplayer.setGameObj(tilebag, board)
           newplayer.conn = conn_dict[uuid]
           players.append(newplayer)
-          overflow_update()
+          overflow_update(u, u_overflow)
         
         elif comm.dump() == "set player uuid": # claim player from save
           sel_p_uuid: UUID = comm.val
@@ -462,13 +448,20 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           newplayer.conn = conn_dict[uuid]
           print(f"[PLAYER CLAIMED] {newplayer.name} Claimed by {p.conn}")
           newplayer.conn.send(Command("set client selectionConfirmed", True))
-          overflow_update()
+          overflow_update(u, u_overflow)
         
         elif comm.dump() == "set player ready":
           readiness: bool = comm.val
           find_player(uuid, players).ready = readiness
         
-        send_gameStateUpdate()
+        elif comm.dump() == "set game start" and comm.val:
+          clientsInGameloop += 1
+        
+        else: # unexpected / unknown command
+          print("UNEXPECTED COMMAND:", comm)
+          continue
+        
+        send_gameStateUpdate(tilebag, board, players, bank, clientMode)
       
       else:
         # command recieved from server
@@ -497,6 +490,10 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         
         elif comm.dump() == "set game start" and comm.val:
           waitingForJoin = False
+        
+        else: # unexpected / unknown command
+          print("UNEXPECTED COMMAND:", comm)
+          continue
       
       connected_players: list[Player] = [p for p in players if p.connClaimed]
       unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
@@ -579,10 +576,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
     
     elif waitingForJoin:
-      # if event.type == pygame.MOUSEBUTTONDOWN:
-      #   print([str(conn) for conn in conn_dict.values()])
-      #   print([str(p) for p in players])
-      
       if clientMode == "hostServer":
         if event.type == pygame.MOUSEBUTTONDOWN:
           # Get the mouse position
@@ -600,7 +593,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
                 else:
                   p.conn = None
                 del conn_dict[p.uuid] # this should deref p.conn
-                send_gameStateUpdate()
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                 connected_players: list[Player] = [p for p in players if p.connClaimed]
                 unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
                 gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
@@ -608,7 +601,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
                 break
               elif i == 1:
                 P.ready = not P.ready
-                send_gameStateUpdate()
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                 #                                              (requires all savedPlayers are connected)
                 gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
                 forceRender = True
@@ -617,6 +610,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
                 gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
                 if gameStartable:
                   waitingForJoin = False
+                  confirmClientInGameloop = True
+                  clientsInGameloop = 0
                   propagate(conn_dict, None, Command("set game start", True))
           for i, player_rect in enumerate(player_rects):
             clicked_player_int = None
@@ -642,6 +637,11 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
                 HOST.conn.send(Command("set player ready", P.ready))
         elif event.type == pygame.KEYDOWN and clicked_player_int is not None and pygame.key.get_focused():
           clicked_player_int = text.nav_handler(event, connected_players, clicked_player_int, 2)
+    
+    elif confirmClientInGameloop: # only reachable for hostServer
+      # make sure all clients in gameloop before doing host-only gameloop setup
+      if clientsInGameloop == len(players) - 1:
+        confirmClientInGameloop = False
     
     else: #prep for game startup
       successfulStart = True

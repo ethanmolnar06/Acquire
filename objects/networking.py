@@ -64,7 +64,7 @@ def extrctConns(collection: dict[uuid.UUID, Connection] | list[Player] | list[Co
   elif isinstance(collection, list) and isinstance(collection[0], Connection):
     return set(collection)
   else:
-    raise TypeError("Invalid propogation destination")
+    raise TypeError("Invalid Source of Connections")
 
 def propagate(dests: dict[uuid.UUID, Connection] | list[Player] | list[Connection], source: uuid.UUID | Player | Connection | None, command: Command):
   conns = extrctConns(dests)
@@ -83,11 +83,12 @@ def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Con
   # command order is preserved within each player but NOT between players
   conns = extrctConns(sources)
   updates: list[tuple[uuid.UUID, Command]] = []
+  # print([str(conn) for conn in conns])
   for conn in conns:
     if conn.comm is None:
       continue
     while conn.comm is not None:
-      # print(conn.comm)
+      # print([str(comm) for comm in conn.comm])
       u = (conn.uuid, conn.fetch())
       updates.append(u)
   return updates

@@ -8,6 +8,7 @@ from datetime import datetime
 HEADERSIZE = 8
 FORMAT = "utf-8"
 DISCONN = "!DISCONNECT!"
+PRINT_NETWORKING_DEBUG = True
 
 class Command:
   def __init__(self, action_obj_key:str, val) -> None:
@@ -33,7 +34,7 @@ class Command:
     self.val = val
   
   def __str__(self) -> str:
-    command_text = "gameState" if "gameState" in self.key else self.val
+    command_text = "gameState" if "gameState" in self.key else ("handshake" if isinstance(self.val, tuple) else self.val)
     return f"{self.dump()} == {command_text}"
   
   def pack(self) -> bytes:
@@ -115,13 +116,16 @@ class Connection:
       if data_len:
         data: bytes = sock.recv(int(data_len))
         comm: Command = pickle.loads(data)
+        
+        if PRINT_NETWORKING_DEBUG:
+          print(data_len, comm)
+        
         if self.comm is None:
           self.comm = [comm,]
         else:
           self.comm.append(comm)
         if comm.val == DISCONN:
           return
-        # print(data_len, comm)
   
   def send(self, command: Command):
     data = command.pack()

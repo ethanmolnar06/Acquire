@@ -3,12 +3,13 @@ import pickle
 import pygame
 from datetime import date
 from uuid import UUID
+from copy import copy
 
 from objects import *
+from objects.networking import extrctConns, propagate
 
 # TODO move these permisions to config.json & add argparse for cmd line launching
 # GLOBAL GAME PERMISSIONS
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "silent"
 DIR_PATH = os.path.realpath(os.curdir)
 HIDE_PERSONAL_INFO = False
 ALLOW_SAVES = True
@@ -101,6 +102,13 @@ def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
         break
       clock.tick(1)
 
+def overflow_update(u, u_overflow, update: tuple[UUID, Command] | None = None):
+  # try to be super safe, not drop any updates in either queue
+  if update is not None:
+    u_overflow = u_overflow + [update,]
+  u_overflow = u_overflow + copy(u) 
+  u = []
+
 def pack_gameState(tilebag:TileBag, board:Board, players:list[Player], bank:Bank) -> bytes:
   conn_list = [p.conn for p in players]
   for p in players:
@@ -121,29 +129,29 @@ def unpack_gameState(gameState: bytes, currentConns: dict[UUID, Connection] | li
   objects: tuple[TileBag, Board, list[Player], Bank] = pickle.loads(gameState)
   tilebag, board, players, bank = objects
   
+  # re-link internal Tilebags, Boards
+  board.setGameObj(tilebag)
+  bank.setGameObj(tilebag, board)
+  
+  # re-link internal  Player names, and Connections
   if currentConns is not None:
+    conns = extrctConns(currentConns)
+    conn_uuids = {conn.uuid for conn in conns}
     if isinstance(currentConns, dict):
-      conns = set(currentConns.keys())
       def getConn(uuid):
         return currentConns[uuid]
     elif isinstance(currentConns, list):
-      conns = set(p.conn for p in currentConns)
       def getConn(uuid):
         return find_player(uuid, currentConns).conn
-  
-  # re-link internal Tilebags, Boards, Player names, and Connections
-  board.setGameObj(tilebag)
-  bank.setGameObj(tilebag, board)
   
   for p in players:
     # print(f"unpacking {p.name} {p.conn}")
     p.setGameObj(tilebag, board)
-    if currentConns is not None:
+    if currentConns is not None and p.uuid in conn_uuids:
       # host writes valid conns to clients and dummy to self
       # clients write valid conn to host, dummy to self, and leaves None on other clients
-      if p.uuid in conns:
-        p._conn = getConn(p.uuid)
-        # print(f"overwrote {p.name} with {p.conn}")
+      p._conn = getConn(p.uuid)
+      # print(f"overwrote {p.name} with {p.conn}")
   # print("unpack complete")
   
   return (tilebag, board, players, bank)
@@ -165,3 +173,8 @@ def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int =
   with open(rf'{DIR_PATH}\saves\{save_file_new}', 'wb') as file:
     file.write(saveData)
   return
+
+def send_gameStateUpdate(tilebag, board, players, bank, clientMode, source: UUID | None = None):
+  gameStateUpdate = pack_gameState(tilebag, board, players, bank)
+  target = "client" if clientMode == "hostServer" else "server"
+  propagate(players, source, Command(f"set {target} gameState", gameStateUpdate))

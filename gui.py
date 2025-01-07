@@ -79,12 +79,11 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
   
   # region Draw Tiles or Tile Hider
   tile_rects = tilehider_rect = None
-  if showTiles:
+  if showTiles and p.tiles:
     subrect = Rect(int(window_width * (81/100)), int(window_height * (66/100)),
                   window_width // 6.2, window_height // 2.9)
     
-    labels = p.tiles
-    cols, rows = create_square_dims(labels)
+    cols, rows = create_square_dims(p.tiles)
     
     def rect_color_func(i):
       return Colors.UNSELECTABLEGRAY if prohibitedTiles[i] else Colors.BLACK
@@ -101,7 +100,7 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
         label_rect.centery = rect.centery - rect.height//20
         surface.blit(label_surface, label_rect)
     
-    tile_rects = gridifier(surface, subrect, labels, cols, rows, rect_color_func, label_color_func, 
+    tile_rects = gridifier(surface, subrect, p.tiles, cols, rows, rect_color_func, label_color_func, 
                           font_name=Fonts.tile, extra_render_func=extra_render_func)
   else:
     label = f"Tiles Hidden: Defuncting" if defunctMode else f"Click to Reveal {p.name}'s Tiles"

@@ -1,4 +1,6 @@
 # region Initialize Pygame
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "silent"
 import pygame
 pygame.init()
 window_size = (1600, 900)
@@ -16,8 +18,7 @@ successfullBoot, clientMode, newGame, gameState = config(gameUtils)
 
 from objects.networking import *
 conn_dict = dict()
-def clean_quit():
-  global conn_dict
+def clean_quit(conn_dict):
   for conn in conn_dict.values():
     conn.kill()
   del conn_dict
@@ -28,7 +29,7 @@ def clean_quit():
   quit(0)
 
 if not successfullBoot:
-  clean_quit()
+  clean_quit(conn_dict)
 
 if clientMode == "hostLocal":
   pygame.display.set_caption('Acquire')
@@ -57,7 +58,7 @@ from pregame import lobby
 successfulStart, gameState, my_uuid = lobby(gameUtils, conn_dict, clientMode, newGame, gameState)
 
 if not successfulStart:
-  clean_quit()
+  clean_quit(conn_dict)
 
 # stop looking for new client connections
 # if clientMode == "hostServer":
@@ -72,4 +73,4 @@ from postgame import postgame
 postgame(gameUtils, gameCompleted, saveData)
 
 # Shut Down
-clean_quit()
+clean_quit(conn_dict)

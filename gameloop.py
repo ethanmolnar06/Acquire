@@ -1,34 +1,19 @@
 import pygame
 from uuid import UUID
-from copy import copy
 
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save
+from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
              clientMode: str, my_uuid: UUID | None) -> tuple[bool, bytes]:
-  global screen, tilebag, board, bank, u, u_overflow
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
   from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen
   
-  def send_gameStateUpdate():
-    gameStateUpdate = pack_gameState(tilebag, board, players, bank)
-    target = "client" if clientMode == "hostServer" else "server"
-    propagate(players, None, Command(f"set {target} gameState", gameStateUpdate))
-  
-  def overflow_update(update: tuple[UUID, Command] | None = None):
-    global u, u_overflow
-    # try to be super safe, not drop any updates in either queue
-    if update is not None:
-      u_overflow = u_overflow + [update,]
-    u_overflow = u_overflow + copy(u) 
-    u = []
-  
   def cycle_pDefuncting() -> tuple[str, Player]:
-    global defunctchain, pDefuncting, pendingTileHandler
+    # global defunctchain, pDefuncting, pendingTileHandler
     if len(pDefunctingLoop):
       defunctchain = defunctchain
       pDefuncting = pDefunctingLoop.pop(0)
@@ -54,8 +39,10 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   
   if newGame and "host" in clientMode:
     players = setPlayerOrder(tilebag, board, players)
-    # print("set player order!")
-    send_gameStateUpdate()
+    send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+  else:
+    # confirm to host that this client is in the gameloop and ready for play
+    propagate(players, None, Command("set game start", True))
   
   u_overflow = []
   p = None
@@ -71,7 +58,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   
   while cyclingPlayers:
     # region Save Game and Player Cycle
-    # print("players cycled!")
     if "host" in clientMode:
       if skipStatIncrem:
         skipStatIncrem = False
@@ -85,9 +71,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         write_save(saveData, [p._truename for p in players], bank.stats.turnCounter[-1], quicksave=True)
       
       p = players.pop(0)
-      # print(f"new player set! {p}")
       players.append(p)
-      send_gameStateUpdate()
+      send_gameStateUpdate(tilebag, board, players, bank, clientMode)
       propagate(players, None, Command("set player turn", p.uuid))
     # endregion
     
@@ -138,7 +123,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           elif comm.dump() == "set server gameState":
             gameStateUpdate: bytes = comm.val
             tilebag, board, players, bank = unpack_gameState(gameStateUpdate, players)
-            overflow_update()
+            overflow_update(u, u_overflow)
+            send_gameStateUpdate(tilebag, board, players, bank, clientMode, uuid)
+            continue
           
           elif comm.dump() == "set player turn" and not comm.val:
             # print("recieved player turn propagate command")
@@ -160,7 +147,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             if pDefuncting.uuid == my_uuid:
               setupDefunctVars = True
             
-            send_gameStateUpdate()
+            send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             propagate(players, None, Command("set player defunct", pDefuncting.uuid))
           
           # expecting u_overflow
@@ -169,7 +156,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             if pDefuncting is not None:
               if pDefuncting.uuid == my_uuid:
                 setupDefunctVars = True
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
               propagate(players, None, Command("set player defunct", (bigchain, defunctchain, pDefuncting.uuid)))
             else:
               if p.uuid == my_uuid:
@@ -178,10 +165,14 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   placePhase = True
                 else:
                   checkGameEndable = True
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
               propagate(players, None, Command("set player resume", (pendingTileHandler, p.uuid)))
           
-          send_gameStateUpdate()
+          else: # unexpected / unknown command
+            print("UNEXPECTED COMMAND:", comm)
+            continue
+          
+          send_gameStateUpdate(tilebag, board, players, bank, clientMode)
         
         else:
           # command recieved from server
@@ -197,7 +188,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           
           elif comm.dump() == "set player turn" and comm.val:
             p_uuid: UUID = comm.val
-            # print("recieved player turn propagate command")
             if my_uuid == p_uuid:
               p = P
               placePhase = True
@@ -234,6 +224,10 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               pendingTileHandler = None
               p = None
               checkGameEndable = False
+          
+          else: # unexpected / unknown command
+            print("UNEXPECTED COMMAND:", comm)
+            continue
         
         if my_uuid in [p.uuid for p in players]:
           P = find_player(my_uuid, players)
@@ -349,23 +343,23 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             mode, chains = board.tileplaymode(turntile)
             if mode == "place":
               checkGameEndable = True; skipRender = True
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             elif mode == "create":
               choosingNewChain = True; forceRender = True
               unopenedchains = [chain for chain in tilebag.chainnames if chain not in board.fetchactivechains()]
               p.stats.chainsFounded[-1] += 1
               focus_content.clear("newchain")
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             elif mode == "expand":
               checkGameEndable = True; skipRender = True
               board.chaindict[turntile] = chains
               chaingrowth = board.tileprop(turntile, chains)
               p.stats.mostExpandedChain[chains][-1] += chaingrowth
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             else: #prep for merge
               prepForMerge = True
               mergeCartInit = board.mergeCart_init(chains) # mergeCart is sorted in order of size
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
               if isinstance(mergeCartInit, list): # Feeds Directly to prepForMerge
                 mergeCart = mergeCartInit
               else: # Merge needs player tiebreaking first
@@ -390,7 +384,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               p.stats.stockChainsOwned[-1].add(newchain)
               bank.stocks[newchain] = bank.stocks[newchain] - 1
               focus_content.clear()
-              send_gameStateUpdate()
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
               break
         
         # Waiting to Choose Merger Prioritization if necessary
@@ -404,14 +398,14 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   mergeCart[i//2][mergeCart[i//2].index('')] = chainoptions[i//2][i%2]
                 elif '' in mergeCart and chainoptions[i] not in mergeCart:
                   mergeCart[mergeCart.index('')] = chainoptions[i]
-                send_gameStateUpdate()
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             for i, mergecart_rect in enumerate(mergecart_rects):
               if mergecart_rect is not None and mergecart_rect.collidepoint(pos):
                 if isinstance(mergeCart, tuple) and mergeCart[i//2] != '':
                   mergeCart[i//2][i%2] = ''
                 elif mergeCart[i] != '': 
                   mergeCart[i] = ''
-                send_gameStateUpdate()
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             if stopmerger_button_rect is not None and stopmerger_button_rect.collidepoint(pos) and not popup_open:
               tiebreakMerge = False
         
@@ -448,11 +442,11 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             defunctPayout = True
             setupDefunctVars = True
           elif clientMode == "hostServer":
-            send_gameStateUpdate()
-            overflow_update((my_uuid, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
+            send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+            overflow_update(u, u_overflow, (my_uuid, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
                                                                statementsList, iofnStatement))))
           else:
-            send_gameStateUpdate()
+            send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             propagate(players, None, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
                                                                 statementsList, iofnStatement)))
         
@@ -524,7 +518,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 pDefuncting.stats.stocksSold[-1] += defunctStockInv['sell']
                 pDefuncting.stats.stocksTradedAway[-1] += defunctStockInv['trade']
                 pDefuncting.stats.stocksAcquired[-1] += int(defunctStockInv['trade']/2)
-                send_gameStateUpdate()
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                 
                 #cycle pDefuncting
                 if clientMode == "hostLocal":
@@ -541,11 +535,11 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                       pendingTileHandler = None
                 elif clientMode == "hostServer":
                   defunctMode = False
-                  send_gameStateUpdate()
-                  overflow_update((my_uuid, Command("set player defunct", False)))
+                  send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+                  overflow_update(u, u_overflow, (my_uuid, Command("set player defunct", False)))
                 else:
                   defunctMode = False
-                  send_gameStateUpdate()
+                  send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                   propagate((my_uuid, Command("set player defunct", False)))
         
         #Post Draw Endgame and Buyability Check - SHOULD BE HIT EVERY TURN W/O FAIL
@@ -597,12 +591,13 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         
         #Waiting to Buy and Handle Events in Buy Mode
         elif buyPhase:
+          print(p)
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = pygame.mouse.get_pos()
             for i, stock_plusmin_rect in enumerate(stock_plusmin_rects):
               # print(newchain_rect, pos, newchain_rect.collidepoint(pos))
-              if stock_plusmin_rect is not None and stock_plusmin_rect.collidepoint(pos) and not popup_open:
+              if stock_plusmin_rect is not None and stock_plusmin_rect.collidepoint(pos) and buyablechains and not popup_open:
                 buykey = buyablechains[i//2]
                 if i%2 == 0: #minus
                   if buykey in stockcart: 
@@ -611,7 +606,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                     bank.stocks[buykey] += 1
                     p.bal += bank.stockcost(buykey, board.fetchchainsize(buykey) )
                     boughtthisturn -= 1
-                    send_gameStateUpdate()
+                    send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                 else: #plus
                   if boughtthisturn < 3:
                     if bank.stockcost(buykey, board.fetchchainsize(buykey)) > p.bal:
@@ -622,7 +617,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                       bank.stocks[buykey] -= 1
                       p.bal -= bank.stockcost(buykey, board.fetchchainsize(buykey) )
                       boughtthisturn += 1
-                      send_gameStateUpdate()
+                      send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                   else: 
                     print('no cheating :(')
             # Check if stockbuy close was clicked
@@ -639,7 +634,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           if cyclingPlayers and not gameCompleted:
             p.drawtile()
             p.deadduckremoval()
-          send_gameStateUpdate()
+          send_gameStateUpdate(tilebag, board, players, bank, clientMode)
           if "host" in clientMode:
             ongoingTurn = False
           propagate(players, None, Command("set player turn", False))
@@ -658,6 +653,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         bank.sellallstock(players)
       
       assignStatVals(players)
-      send_gameStateUpdate()
+      send_gameStateUpdate(tilebag, board, players, bank, clientMode)
   
   return gameCompleted, saveData
