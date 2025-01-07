@@ -12,10 +12,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   tilebag, board, players, bank = gameState
   from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen
   
-  def cycle_pDefuncting() -> tuple[str, Player]:
-    # global defunctchain, pDefuncting, pendingTileHandler
+  def cycle_pDefuncting(pDefunctingLoop: list[Player], defunctchains: list[str],
+                        turntile: str, bigchain: str, defunctchain: str, pendingTileHandler: str | tuple[str] | None) -> tuple[str, Player]:
     if len(pDefunctingLoop):
-      defunctchain = defunctchain
       pDefuncting = pDefunctingLoop.pop(0)
     elif len(defunctchains):
       chaingrowth = board.tileprop(turntile, bigchain, defunctchain, pendingTileHandler)
@@ -35,7 +34,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           pendingTileHandler = None
       defunctchain = None
       pDefuncting = None
-    return defunctchain, pDefuncting
+    return pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler
   
   if newGame and "host" in clientMode:
     players = setPlayerOrder(tilebag, board, players)
@@ -152,7 +151,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             propagate(players, None, Command("set player defunct", pDefuncting.uuid))
           
           elif comm.dump() == "set player defunct" and not comm.val: # expecting u_overflow
-            defunctchain, pDefuncting = cycle_pDefuncting()
+            pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
+                                                                                                              bigchain, defunctchain, pendingTileHandler)
             if pDefuncting is not None:
               if pDefuncting.uuid == my_uuid:
                 setupDefunctVars = True
@@ -523,7 +523,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 
                 #cycle pDefuncting
                 if clientMode == "hostLocal":
-                  defunctchain, pDefuncting = cycle_pDefuncting()
+                  pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
+                                                                                                                    bigchain, defunctchain, pendingTileHandler)
                   if pDefuncting is not None:
                     defunctingStocks = pDefuncting.stocks[defunctchain]
                     knob1_x = 0

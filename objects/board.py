@@ -1,5 +1,4 @@
 from objects.tilebag import TileBag
-from copy import deepcopy
 
 class Board:
   def __init__(self, tilebag:TileBag, maxChainSize: int):
@@ -68,7 +67,7 @@ class Board:
     else:
       return "merge", connectedChains
   
-  def tileprop(self, tile: str, chainToSpread: str, targetChain: str | None = None, ignoreTile: str | tuple[str] = None):
+  def tileprop(self, tile: str, chainToSpread: str, targetChain: str | None = None, ignoreTile: str | tuple[str] | None = None):
     #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
     ignoreTile = ignoreTile[0] if isinstance(ignoreTile, tuple) else ignoreTile
     oldchainsize = self.fetchchainsize(chainToSpread)
