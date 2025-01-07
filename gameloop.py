@@ -645,7 +645,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       # endregion
       
-      clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
+      # clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
+      clock.tick(MAX_FRAMERATE)
     
     # Endgame or Host Iter
     if "host" in clientMode:

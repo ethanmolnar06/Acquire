@@ -1,7 +1,6 @@
 import pygame
 from pygame import Surface, Rect
 from pygame.font import Font
-import numpy as np
 
 from objects import TileBag, Board, Player, Bank
 from common import Colors, Fonts, iter_flatten

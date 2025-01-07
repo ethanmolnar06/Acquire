@@ -98,7 +98,6 @@ class Bank:
     for chain in self._board.fetchactivechains():
       if self.stocks[chain] > 0:
         pass
-    
   
   def chainpayout(self, players: list[Player], defunctchains: list[str]) -> tuple[str | None, list[str]]:
     # adds payout directly to players' balance internally

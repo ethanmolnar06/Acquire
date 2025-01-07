@@ -43,7 +43,7 @@ elif clientMode == "join":
   while not clientReady:
     ip: str = gameState
     try:
-      print("[CONNECTING]")
+      print(f"[CONNECTING] to {ip}")
       conn_dict = start_client(ip, conn_dict)
       print(f"[CONNECTION SUCCESS] Client Connected to {conn_dict["server"]}")
       gameState = None

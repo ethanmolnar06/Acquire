@@ -1,6 +1,6 @@
 import pygame
 import os
-from copy import copy, deepcopy
+from copy import deepcopy
 
 from objects import *
 from objects.networking import DISCONN
