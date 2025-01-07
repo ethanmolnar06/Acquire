@@ -8,7 +8,6 @@ from objects.networking import DISCONN, fetch_updates, propagate
 from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
-
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
   screen, clock = gameUtils
   
@@ -408,7 +407,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       awaitResponse = False
   
   while inLobby:
-    # region check for updates over network
+    # region Network Update Commands
     u = fetch_updates(conn_dict) if not u_overflow else u_overflow
     while len(u):
       uuid, comm = u.pop(0)

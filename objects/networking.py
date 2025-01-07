@@ -79,7 +79,7 @@ def propagate(dests: dict[uuid.UUID, Connection] | list[Player] | list[Connectio
     # print(conn)
     conn.send(command)
 
-def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Connection]) -> list[tuple[uuid.UUID, Command]] | list:
+def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Connection]) -> list[tuple[uuid.UUID, Command]]:
   # command order is preserved within each player but NOT between players
   conns = extrctConns(sources)
   updates: list[tuple[uuid.UUID, Command]] = []

@@ -43,7 +43,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     # confirm to host that this client is in the gameloop and ready for play
     propagate(players, None, Command("set game start", True))
   
-  u_overflow = []
+  u_overflow = [] # used to forceRender in the middle of updating
   saveData = None
   P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
   focus_content = GUI_area()
@@ -109,8 +109,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       # print(p, placePhase, checkGameEndable, turnWrapup)
       # endregion
       
-      # region check for updates over network
+      # region Network Update Commands
       u = fetch_updates(players) if not u_overflow else u_overflow
+      toPropagate = []
       while len(u):
         uuid, comm = u.pop(0)
         if clientMode == "hostServer":
@@ -125,11 +126,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             gameStateUpdate: bytes = comm.val
             tilebag, board, players, bank = unpack_gameState(gameStateUpdate, players)
             overflow_update(u, u_overflow)
-            send_gameStateUpdate(tilebag, board, players, bank, clientMode, uuid)
-            continue
           
           elif comm.dump() == "set player turn" and not comm.val:
-            # print("recieved player turn propagate command")
             ongoingTurn = False
           
           elif comm.dump() == "set game completed" and comm.val:
@@ -139,16 +137,14 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             datatup: tuple[str, str, list[str], str | tuple[str], list[str], list[int, int]] = comm.val
             turntile, bigchain, defunctchains, pendingTileHandler, statementsList, iofnStatement = datatup
             defunctPayout = True
-            propagate(players, None, Command("set bank merge", (statementsList, iofnStatement)))
+            toPropagate.append(Command("set bank merge", (statementsList, iofnStatement)))
             
             defunctchain = defunctchains.pop(0)
             pDefunctingLoop = [p for p in players if p.stocks[defunctchain] > 0 ]
             pDefuncting = pDefunctingLoop.pop(0)
             if pDefuncting.uuid == my_uuid:
               setupDefunctVars = True
-            
-            send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-            propagate(players, None, Command("set player defunct", pDefuncting.uuid))
+            toPropagate.append(Command("set player defunct", pDefuncting.uuid))
           
           elif comm.dump() == "set player defunct" and not comm.val: # expecting u_overflow
             pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
@@ -156,8 +152,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             if pDefuncting is not None:
               if pDefuncting.uuid == my_uuid:
                 setupDefunctVars = True
-              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-              propagate(players, None, Command("set player defunct", (bigchain, defunctchain, pDefuncting.uuid)))
+              toPropagate.append(Command("set player defunct", (bigchain, defunctchain, pDefuncting.uuid)))
             else:
               if p.uuid == my_uuid:
                 if pendingTileHandler is not None:
@@ -165,14 +160,15 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   placePhase = True
                 else:
                   checkGameEndable = True
-              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-              propagate(players, None, Command("set player resume", (pendingTileHandler, p.uuid)))
+              toPropagate.append(Command("set player resume", (pendingTileHandler, p.uuid)))
           
           else: # unexpected / unknown command
             print("UNEXPECTED COMMAND:", comm)
             continue
           
-          send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+          send_gameStateUpdate(tilebag, board, players, bank, clientMode, uuid)
+          for prop in toPropagate:
+            propagate(players, None, prop)
         
         else:
           # command recieved from server
@@ -637,20 +633,19 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         # Turn Over
         elif turnWrapup:
           if cyclingPlayers and not gameCompleted:
+            print(p)
             p.drawtile()
             p.deadduckremoval()
           send_gameStateUpdate(tilebag, board, players, bank, clientMode)
           ongoingTurn = False
           propagate(players, None, Command("set player turn", False))
-          p = None
-          pDefuncting = None
       
       # endregion
       
       # clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
       clock.tick(MAX_FRAMERATE)
     
-    # Endgame or Host Iter
+    # Host Iter Stats & Sync & Endgame
     if "host" in clientMode:
       if gameCompleted:
         # adds payouts directly to players' balance internally

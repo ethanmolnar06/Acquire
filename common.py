@@ -9,7 +9,7 @@ from objects import *
 from objects.networking import extrctConns, propagate
 
 # TODO move these permisions to config.json & add argparse for cmd line launching
-# GLOBAL GAME PERMISSIONS
+# GLOBAL GAME PERMISSIONS & CONFIG
 DIR_PATH = os.path.realpath(os.curdir)
 HIDE_PERSONAL_INFO = False
 ALLOW_SAVES = True
