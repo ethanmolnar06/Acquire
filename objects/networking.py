@@ -18,14 +18,25 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   from common import pack_gameState
   def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
     server.listen()
-    hostname = socket.gethostname()
-    publicip = get('https://api.ipify.org').text
-    try:
-      ip = [ip for ip in socket.gethostbyname_ex(hostname)[2] if "192.168.1." in ip][0]
-    except:
-      ip = socket.gethostbyname(hostname)
     
-    print(f"[LISTENING] Listening at {ip} (local) & {publicip} (public)")
+    # region Get IPs
+    publicip = get('https://api.ipify.org').text
+    ip = None
+    possibleips = [ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")]
+    ipFilterPrio = {"192.168.1.", "172.16.1.", "10.0.1.",
+                    "192.168.",   "172.16.",   "10.0.",
+                    "192.",       "172.",      "10."}
+    for filter in ipFilterPrio:
+      try:
+        ip = [ip for ip in possibleips if ip.startswith(filter)][0]
+        break
+      except IndexError:
+        continue
+    if ip is None:
+      ip = socket.gethostbyname(socket.gethostname())
+    # endregion
+    
+    print(f"[LISTENING] Listening at {ip} (local) & {publicip}:{PORT} (public)")
     while not kill_event.isSet():
       try:
         client, addr = server.accept()
