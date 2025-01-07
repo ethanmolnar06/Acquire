@@ -51,7 +51,6 @@ elif clientMode == "join":
       pygame.display.set_caption('Game Lobby [Client]')
     except:
       print("[CONNECTION FAILURE] Client Failed to Connect")
-
 # endregion
 
 from pregame import lobby
@@ -61,8 +60,8 @@ if not successfulStart:
   clean_quit(conn_dict)
 
 # stop looking for new client connections
-# if clientMode == "hostServer":
-#   serverThread.kill()
+if clientMode == "hostServer":
+  serverThread.kill()
 
 pygame.display.set_caption('Acquire')
 from gameloop import gameloop

@@ -591,7 +591,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         
         #Waiting to Buy and Handle Events in Buy Mode
         elif buyPhase:
-          print(p)
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = pygame.mouse.get_pos()
@@ -610,7 +609,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 else: #plus
                   if boughtthisturn < 3:
                     if bank.stockcost(buykey, board.fetchchainsize(buykey)) > p.bal:
-                      print('Transaction Failed! You are too poor! :(')
+                      # print('Transaction Failed! You are too poor! :(')
                     else:
                       stockcart.append(buykey); stockcart = [entry for entry in stockcart if entry != '']
                       p.stocks[buykey] += 1
@@ -619,7 +618,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                       boughtthisturn += 1
                       send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                   else: 
-                    print('no cheating :(')
+                    # print('no cheating :(')
             # Check if stockbuy close was clicked
             if stockbuy_confirm_rect.collidepoint(pos) and not popup_open:
               p.stats.moneySpent[-1] += preBuyBal - p.bal

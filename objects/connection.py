@@ -8,7 +8,7 @@ from datetime import datetime
 HEADERSIZE = 8
 FORMAT = "utf-8"
 DISCONN = "!DISCONNECT!"
-PRINT_NETWORKING_DEBUG = True
+PRINT_NETWORKING_DEBUG = False
 
 class Command:
   def __init__(self, action_obj_key:str, val) -> None:
