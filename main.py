@@ -14,33 +14,34 @@ gameUtils = (screen, clock)
 
 # region Pregame Config
 from pregame import config
-successfullBoot, clientMode, newGame, gameState = config(gameUtils)
+from objects.networking import start_client, start_server
 
-from objects.networking import *
-conn_dict = dict()
-def clean_quit(conn_dict):
-  for conn in conn_dict.values():
-    conn.kill()
-  del conn_dict
-  if clientMode == "hostServer":
-    serverThread.kill()
-  # Shut down Pygame
-  pygame.quit()
-  quit(0)
-
-if not successfullBoot:
-  clean_quit(conn_dict)
-
-if clientMode == "hostLocal":
-  pygame.display.set_caption('Acquire')
-
-elif clientMode == "hostServer":
-  serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
-  pygame.display.set_caption('Game Lobby [Host]')
-
-elif clientMode == "join":
-  clientReady = False
-  while not clientReady:
+clientReady = False
+while not clientReady:
+  successfullBoot, clientMode, newGame, gameState = config(gameUtils)
+  
+  conn_dict = dict()
+  def clean_quit(conn_dict):
+    for conn in conn_dict.values():
+      conn.kill()
+    del conn_dict
+    if clientMode == "hostServer":
+      serverThread.kill()
+    # Shut down Pygame
+    pygame.quit()
+    quit(0)
+  
+  if not successfullBoot:
+    clean_quit(conn_dict)
+  
+  if clientMode == "hostLocal":
+    pygame.display.set_caption('Acquire')
+  
+  elif clientMode == "hostServer":
+    serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
+    pygame.display.set_caption('Game Lobby [Host]')
+  
+  elif clientMode == "join":
     ip: str = gameState
     try:
       print(f"[CONNECTING] to {ip}")
@@ -51,6 +52,8 @@ elif clientMode == "join":
       pygame.display.set_caption('Game Lobby [Client]')
     except:
       print("[CONNECTION FAILURE] Client Failed to Connect")
+      continue
+  clientReady = True
 # endregion
 
 from pregame import lobby
@@ -59,8 +62,9 @@ successfulStart, gameState, my_uuid = lobby(gameUtils, conn_dict, clientMode, ne
 if not successfulStart:
   clean_quit(conn_dict)
 
-# stop looking for new client connections
-if clientMode == "hostServer":
+# Stop Looking for New Client Connections
+from common import ALLOW_REJOIN
+if clientMode == "hostServer" and not ALLOW_REJOIN:
   serverThread.kill()
 
 pygame.display.set_caption('Acquire')

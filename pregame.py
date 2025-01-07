@@ -1,10 +1,11 @@
 import pygame
 import os
+from uuid import UUID
 from copy import deepcopy
 
 from objects import *
-from objects.networking import DISCONN
-from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState
+from objects.networking import DISCONN, fetch_updates, propagate
+from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
   screen, clock = gameUtils
@@ -345,9 +346,6 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, s
     
     clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
 
-from uuid import UUID
-from common import send_gameStateUpdate, find_player, overflow_update
-from objects.networking import fetch_updates, propagate
 
 def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool,
           gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None,  UUID | None]:  
@@ -381,6 +379,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   connected_players: list[Player] = [p for p in players if p.connClaimed] # == players if newGame
   unclaimed_players: list[Player] = [p for p in players if not p.connClaimed] # == [] if newGame
   
+  # region StateMap Declarations
   forceRender: bool = True
   inLobby: bool = True
   successfulStart: bool = False
@@ -390,6 +389,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   waitingForJoin: bool = False
   confirmClientInGameloop: bool = False
   gameStartable: bool = False
+  # endregion
   
   if clientMode == "hostServer":
     P = HOST; my_uuid = host_uuid
@@ -526,7 +526,10 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     if event.type == pygame.QUIT:
       target = "client" if clientMode == "hostServer" else "server"
       propagate(conn_dict, None, Command(f"set {target} connection", DISCONN))
-      P.DISCONN()
+      myself = conn_dict.pop(my_uuid)
+      for conn_DISCONN in conn_dict.values():
+        conn_DISCONN.kill()
+      myself.kill()
       inLobby = False
       successfulStart = False
     elif event.type == pygame.VIDEORESIZE:
@@ -648,6 +651,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       inLobby = False
       gameState = (tilebag, board, players, bank)
     
-    clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
+    # clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
+    clock.tick(MAX_FRAMERATE)
   
   return successfulStart, gameState, my_uuid

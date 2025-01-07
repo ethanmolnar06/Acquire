@@ -116,9 +116,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         if clientMode == "hostServer":
           # command revieved from clients
           if comm.dump() == "set server connection" and comm.val == DISCONN:
-            p = find_player(uuid, players)
+            p_DISCONN = find_player(uuid, players)
             print(f"[PLAYER DROPPED] Disconnect Message Recieved from {p.conn}")
-            p.DISCONN()
+            p_DISCONN.DISCONN()
             # TODO create choose (wait for rejoin) / (quit here) dialog
           
           elif comm.dump() == "set server gameState":
@@ -297,10 +297,12 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         if not clientMode == "hostLocal":
           target = "client" if clientMode == "hostServer" else "server"
           propagate(players, None, Command(f"set {target} connection", DISCONN))
+          players.remove(P)
+          for p_DISCONN in players:
+            p_DISCONN.DISCONN()
           P.DISCONN()
         cyclingPlayers = False
         ongoingTurn = False
-        gameEndable = False
         break
       elif event.type == pygame.VIDEORESIZE:
         # Update the window size
