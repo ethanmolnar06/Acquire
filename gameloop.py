@@ -610,6 +610,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   if boughtthisturn < 3:
                     if bank.stockcost(buykey, board.fetchchainsize(buykey)) > p.bal:
                       # print('Transaction Failed! You are too poor! :(')
+                      pass
                     else:
                       stockcart.append(buykey); stockcart = [entry for entry in stockcart if entry != '']
                       p.stocks[buykey] += 1
@@ -619,6 +620,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                       send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                   else: 
                     # print('no cheating :(')
+                    pass
             # Check if stockbuy close was clicked
             if stockbuy_confirm_rect.collidepoint(pos) and not popup_open:
               p.stats.moneySpent[-1] += preBuyBal - p.bal
