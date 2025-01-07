@@ -1,4 +1,5 @@
 pygame
 plotly
+requests
 kaleido==0.0.3
 numpy

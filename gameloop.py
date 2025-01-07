@@ -633,7 +633,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         # Turn Over
         elif turnWrapup:
           if cyclingPlayers and not gameCompleted:
-            print(p)
             p.drawtile()
             p.deadduckremoval()
           send_gameStateUpdate(tilebag, board, players, bank, clientMode)

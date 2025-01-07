@@ -1,6 +1,7 @@
 import socket
 import threading
 import uuid
+from requests import get
 
 from objects.connection import Command, KillableThread, Connection, DISCONN
 from objects.player import Player
@@ -9,20 +10,22 @@ from objects.player import Player
 PORT = 30545
 
 def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState: tuple) -> tuple[KillableThread, dict[uuid.UUID, Connection]]:
-  # TCP style
-  ip = socket.gethostbyname(socket.gethostname())
-  # what ip to use for non-LAN connections?
-  # any way to avoid requiring port forwarding?
-  # ip = ""
-  server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TCP style
   server.settimeout(3.0) # time to wait in sec
-  server.bind((ip, PORT))
+  server.bind(("", PORT))
   print(f"[SERVER INITALIZED]")
   
   from common import pack_gameState
   def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
     server.listen()
-    print(f"[LISTENING] Listening at {ip}")
+    hostname = socket.gethostname()
+    publicip = get('https://api.ipify.org').text
+    try:
+      ip = [ip for ip in socket.gethostbyname_ex(hostname)[2] if "192.168.1." in ip][0]
+    except:
+      ip = socket.gethostbyname(hostname)
+    
+    print(f"[LISTENING] Listening at {ip} (local) & {publicip} (public)")
     while not kill_event.isSet():
       try:
         client, addr = server.accept()
