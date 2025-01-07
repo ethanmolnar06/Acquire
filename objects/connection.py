@@ -8,7 +8,6 @@ from datetime import datetime
 HEADERSIZE = 8
 FORMAT = "utf-8"
 DISCONN = "!DISCONNECT!"
-PRINT_NETWORKING_DEBUG = False
 
 class Command:
   def __init__(self, action_obj_key:str, val) -> None:
@@ -96,6 +95,11 @@ class Connection:
     print(f"[CONNECTION ERROR] {err}")
     self.kill()
   
+  def _network_print(self, *var):
+    from common import PRINT_NETWORKING_DEBUG
+    if PRINT_NETWORKING_DEBUG:
+      print(*var)
+  
   def listen(self, kill_event:threading.Event, sock:socket.socket):
     while not kill_event.isSet():
       try:
@@ -116,9 +120,7 @@ class Connection:
       if data_len:
         data: bytes = sock.recv(int(data_len))
         comm: Command = pickle.loads(data)
-        
-        if PRINT_NETWORKING_DEBUG:
-          print(data_len, comm)
+        self._network_print(data_len, comm)
         
         if self.comm is None:
           self.comm = [comm,]

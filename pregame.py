@@ -6,13 +6,13 @@ from copy import deepcopy
 from objects import *
 from objects.networking import DISCONN, fetch_updates, propagate
 from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
+from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
+
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
   screen, clock = gameUtils
-  from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, \
-                             draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave
   
-  # region define statemap & defaults
+  # region Define Statemap & Defaults
   stockGameSettings = {
     "board": {
       "Board Length": "12",
@@ -367,7 +367,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
-  from gui_fullscreen import draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
   
   # host will always send own conn as Connection("host", None, host_uuid) and any clients as None
   HOST: Player = [p for p in players if p.conn is not None][0]
