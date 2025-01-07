@@ -2,7 +2,7 @@ import pygame
 from plotly import graph_objects as ptgo
 
 from objects import *
-from common import ALLOW_SAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, write_save
+from common import ALLOW_SAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, write_save
 from gui_fullscreen import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted: bool, saveData: bytes):
@@ -22,7 +22,6 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
   popup_open = False
   
   while postGaming:
-    
     event = pygame.event.poll()
     # region Render Process
     if forceRender or event.type not in NO_RENDER_EVENTS:
@@ -134,4 +133,4 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
               else:
                 graphfig = graphrends[stat]
     
-    clock.tick(MAX_FRAMERATE)
+    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)

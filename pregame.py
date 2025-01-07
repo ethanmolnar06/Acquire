@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from objects import *
 from objects.networking import DISCONN, fetch_updates, propagate
-from common import DIR_PATH, MAX_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
+from common import DIR_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock]) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
@@ -649,7 +649,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       inLobby = False
       gameState = (tilebag, board, players, bank)
     
-    # clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
-    clock.tick(MAX_FRAMERATE)
+    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+
   
   return successfulStart, gameState, my_uuid

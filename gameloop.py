@@ -4,7 +4,7 @@ from uuid import UUID
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update
+from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update
 from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
@@ -641,8 +641,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       # endregion
       
-      # clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
-      clock.tick(MAX_FRAMERATE)
+      clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
     
     # Host Iter Stats & Sync & Endgame
     if "host" in clientMode:
