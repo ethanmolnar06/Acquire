@@ -67,7 +67,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     bankdrawntile: bool = None
     pendingTileHandler: bool = None
     
-    placePhase: bool = True if clientMode == "hostLocal" or (clientMode == "hostServer" and p.uuid == my_uuid) else False
+    placePhase: bool = True if clientMode == "hostLocal" else False
     choosingNewChain: bool = False
     tiebreakMerge: bool = False
     prepForMerge: bool = False
@@ -100,6 +100,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       p = players.pop(0)
       players.append(p)
       send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+      if clientMode == "hostServer" and p.uuid == my_uuid:
+        placePhase = True
       propagate(players, None, Command("set player turn", p.uuid))
     # endregion
     
