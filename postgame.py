@@ -34,7 +34,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
       elif askShowStats:
         yesandno_rects = draw_fullscreenSelect(screen,'endGameStats')
       elif selectStatsGraph:
-        statswap_rects, viewByField_rect = draw_endGameStats(players, statlist, hover_stat_int, clicked_stat_int, viewByField, graphfig)
+        statswap_rects, viewByField_rect = draw_endGameStats(screen, players, statlist, hover_stat_int, clicked_stat_int, viewByField, graphfig)
       # Update the display
       pygame.display.flip()
       # endregion

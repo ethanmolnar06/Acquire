@@ -1,5 +1,5 @@
 pygame
 plotly
 requests
-kaleido==0.0.3
+kaleido==0.1.0post1
 numpy

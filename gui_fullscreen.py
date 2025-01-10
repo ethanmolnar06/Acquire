@@ -1,8 +1,9 @@
 import pygame
 from pygame import Surface, Rect
 from pygame.font import Font
-import plotly
-# plotly.io.kaleido.scope.mathjax = None
+from plotly.graph_objects import Figure
+from kaleido.scopes.plotly import PlotlyScope
+scope = PlotlyScope()
 import numpy as np
 from io import BytesIO
 from typing import Callable
@@ -716,7 +717,7 @@ def draw_customSettings(surface: Surface, drawnSettings: dict, clicked_textbox_k
 
 # region postgame gui
 
-def draw_endGameStats(surface: Surface, players: list[Player], statlist, hover_stat_int: int, clicked_stat_int: int, viewByField: bool, graphfig) -> tuple[list[Rect], Rect]:
+def draw_endGameStats(surface: Surface, players: list[Player], statlist, hover_stat_int: int, clicked_stat_int: int, viewByField: bool, graphfig: Figure) -> tuple[list[Rect], Rect]:
   
   title_rect = top_rect_title(surface, "End Game Stats")
   
@@ -742,7 +743,7 @@ def draw_endGameStats(surface: Surface, players: list[Player], statlist, hover_s
   if clicked_stat_int is not None and graphfig is not None:
     window_width, window_height = surface.get_size()
     scale = min(1.35 * window_width/1600, 1.3 * window_height/900)
-    figBytes = BytesIO(plotly.io.to_image(graphfig, format='png', scale=scale))
+    figBytes = BytesIO(scope.transform(graphfig, format='png', scale=scale))
     graph_surface = pygame.image.load(figBytes)
     surface.blit(graph_surface, graph_surface.get_rect(right=window_width, centery=window_height//2))
   

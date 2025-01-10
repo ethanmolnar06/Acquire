@@ -61,6 +61,8 @@ def crunch_playername(event: pygame.event.Event, playernameTxtbx: str) -> str:
   return playernameTxtbx
 
 def crunch_ip(event: pygame.event.Event, ipTxtbx: str) -> str:
+  # max ip length 255.255.255.255 == 15
+  maxlen = 15
   _, key, mods = unpack_event(event)
   # handle specific key interactions
   if key == pygame.K_BACKSPACE:
@@ -70,16 +72,13 @@ def crunch_ip(event: pygame.event.Event, ipTxtbx: str) -> str:
   # handle copy/cut/paste
   elif is_letter(key):
     if mods & pygame.KMOD_CTRL:
-      return ctrl_handler(key, ipTxtbx, string.digits + ".")[:16]
+      return ctrl_handler(key, ipTxtbx, string.digits + ".")[:maxlen]
   # general char add
   elif is_digit(key) or (key == pygame.K_PERIOD and ipTxtbx.count(".") < 3):
-    # max ip length 255.255.255.255 == 15
-    if len(ipTxtbx) < 15:
+    if len(ipTxtbx) < maxlen:
       # .strip("[]") enables numbpad digits
       return ipTxtbx + pygame.key.name(key).strip("[]")
-    else:
-      return ipTxtbx[:15]
-  return ipTxtbx[:15]
+  return ipTxtbx[:maxlen]
 
 def crunch_customSettings_nav(event: pygame.event.Event, settings: dict[str], clicked_textbox_key: str, drawnSettingsKeys: list[str]) -> tuple[dict[str], str]:
   i = drawnSettingsKeys.index(clicked_textbox_key)
