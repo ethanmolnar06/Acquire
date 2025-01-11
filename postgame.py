@@ -51,7 +51,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
     if ALLOW_SAVES and askMakeSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
-        pos = pygame.mouse.get_pos()
+        pos = event.dict["pos"]
         if not popup_open:
           # Check if makeSave was clicked
           for i, yesorno_rect in enumerate(yesandno_rects):
@@ -65,7 +65,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
     elif askShowStats:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
-        pos = pygame.mouse.get_pos()
+        pos = event.dict["pos"]
         if not popup_open:
           # Check if askToBuy was clicked
           for i, yesorno_rect in enumerate(yesandno_rects):

@@ -2,20 +2,21 @@ import pygame
 from pygame import Surface, Rect
 from pygame.font import Font
 
-from objects import TileBag, Board, Player, Bank
+from objects import Board, Player, Bank
 from common import Colors, Fonts, iter_flatten
 from gui_fullscreen import create_square_dims, dynamic_font, blit_font_to_rect, gridifier, dropdown, single_button, draw_player_info, top_rect_title
 
 # region gui components
 
 class GUI_area:
-  def __init__(self):
+  def __init__(self, levelEditor: bool = False):
     self.game_board = True
     self.other_player_stats = False
     self.newchain = None
     self.mergeChainPriority = None
     self.defuncter = None
     self.stockbuy = None
+    self.random_tiles = None if not levelEditor else False
   
   # Don't want the dropdown overwritten when iterating through self.__dict__
   def dropdown_text(self):
@@ -26,6 +27,7 @@ class GUI_area:
       "mergeChainPriority": "Select Merge Order",
       "defuncter": "Handle Defunct Stock",
       "stockbuy": "Purchase Stock",
+      "random_tiles": "Give Random Tiles",
     }
   
   def dropdown(self) -> list[str]:
@@ -73,7 +75,7 @@ def get_focus_area(surface: Surface) -> Rect:
 
 # endregion
 
-def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTiles: list[bool], defunctMode: bool, highlight_player_name: bool, focus_content: GUI_area) -> tuple[list[Rect] | None, list[Rect] | None, list[Rect],]:
+def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTiles: list[bool] | None, defunctMode: bool, highlight_player_name: bool, focus_content: GUI_area) -> tuple[list[Rect] | None, list[Rect] | None, list[Rect],]:
   window_width, window_height = surface.get_size()
   
   # region Draw Tiles or Tile Hider
@@ -107,11 +109,13 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
   # endregion
   
   popup_select_labels = focus_content.dropdown()
-  popup_select_rects = draw_player_info(surface, p, extra_text=popup_select_labels, highlight_player_name=highlight_player_name)[-len(popup_select_labels):]
+  header_rect, choice_rects = draw_player_info(surface, p, extra_text=popup_select_labels, highlight_player_name=highlight_player_name)
+  player_stat_rects = [header_rect,] + choice_rects[:-len(popup_select_labels)]
+  popup_select_rects = choice_rects[-len(popup_select_labels):]
   
-  return tilehider_rect, tile_rects, popup_select_rects
+  return tilehider_rect, tile_rects, player_stat_rects, popup_select_rects
 
-def draw_game_board(surface: Surface, board: Board) -> None:
+def draw_game_board(surface: Surface, board: Board) -> list[Rect]:
   focus_area = get_focus_area(surface)
   
   labels = board._tilebag.alltiles
@@ -130,7 +134,7 @@ def draw_game_board(surface: Surface, board: Board) -> None:
                         lambda x: Colors.OUTLINE, outline_width=4, underfill=True, underfill_color=Colors.OUTLINE, 
                         font_name=Fonts.tile, share_font_size=True, default_font_size=45)
   
-  return None
+  return board_rects
 
 def draw_other_player_stats(surface: Surface, bank: Bank, otherplayers: list[Player]) -> None:
   focus_area = get_focus_area(surface)
@@ -141,10 +145,10 @@ def draw_other_player_stats(surface: Surface, bank: Bank, otherplayers: list[Pla
   focus_area.w = div
   focus_area.left += (div//len(otherplayers)//4)
   
-  player_rects = []
+  # player_rects = []
   for i, p in enumerate(otherplayers):
-    player_rect = draw_player_info(surface, p, subrect=focus_area, label_justification="left", choice_justification="left")
-    player_rects.append(player_rect)
+    header_rect, player_rect = draw_player_info(surface, p, subrect=focus_area, label_justification="left", choice_justification="left")
+    # player_rects.append(player_rect)
     focus_area.left += div
   
   return None

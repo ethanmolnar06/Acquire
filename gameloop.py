@@ -245,7 +245,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         display_player = (pDefuncting if defunctMode else p) if clientMode == "hostLocal" else P
         indicate_player_turn = iAmPlayer and not clientMode == "hostLocal"
         prohibitedTiles = board.contraceptcheck(display_player.tiles, checkChainAvail=True)
-        tilehider_rect, tile_rects, popup_select_rects = draw_main_screen(screen, display_player, showTiles, prohibitedTiles, 
+        tilehider_rect, tile_rects, _, popup_select_rects = draw_main_screen(screen, display_player, showTiles, prohibitedTiles, 
                                                                           defunctMode, indicate_player_turn, focus_content)
         
         # Focus Area
@@ -305,7 +305,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
       elif event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
-        pos = pygame.mouse.get_pos()
+        pos = event.dict["pos"]
         # if popup_open and close_button_rect.collidepoint(pos): # Check if popup_close was clicked
         #   popupToClose = True
         for i, popup_select_rect in enumerate(popup_select_rects): # Check if any of the popup_selects were clicked
@@ -321,7 +321,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         if not showTiles:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             if tilehider_rect.collidepoint(pos): 
               showTiles = True
         
@@ -329,7 +329,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif placePhase:
           if turntile is None and tile_rects is not None and event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             # Check if any of the tile_rects were clicked
             for i, tile_rect in enumerate(tile_rects):
               if (tile_rect.collidepoint(pos) and not prohibitedTiles[i]):
@@ -390,7 +390,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif tiebreakMerge:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             for i, mergeChain_rect in enumerate(mergeChain_rects):
               if mergeChain_rect is not None and mergeChain_rect.collidepoint(pos):
                 if isinstance(mergeCart, tuple) and '' in mergeCart[i//2] and chainoptions[i//2][i%2] not in mergeCart[i//2]:
@@ -453,7 +453,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif defunctPayout:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             if stopdefunctpayout_button_rect.collidepoint(pos) and not popup_open:
               iofnStatement[0] += 1
               if len(statementsList) > 1:
@@ -475,7 +475,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif defunctMode:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             if not popup_open:
               if knob1_rect.collidepoint(event.pos):
                 dragging_knob1 = True
@@ -501,7 +501,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                             'trade': defunctingStocks - knob2_x}
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             if not popup_open:
               if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): # Player finished
                 #sell
@@ -558,7 +558,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif gameEndable:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             if not popup_open:
               # Check ask to end the game
               for i, yesorno_rect in enumerate(yesandno_rects):
@@ -574,7 +574,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif askToBuy:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             if not popup_open:
               # Check if askToBuy was clicked
               for i, yesorno_rect in enumerate(yesandno_rects):
@@ -593,7 +593,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif buyPhase:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
-            pos = pygame.mouse.get_pos()
+            pos = event.dict["pos"]
             for i, stock_plusmin_rect in enumerate(stock_plusmin_rects):
               # print(newchain_rect, pos, newchain_rect.collidepoint(pos))
               if stock_plusmin_rect is not None and stock_plusmin_rect.collidepoint(pos) and buyablechains and not popup_open:

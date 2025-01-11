@@ -422,7 +422,8 @@ def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Co
   return button_rect
 
 def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = None, extra_text: list[str] | None = None,
-                     label_justification: str = "right", choice_justification: str = "right", highlight_player_name: bool = False) -> list[Rect]:
+                     label_justification: str = "right", choice_justification: str = "right",
+                     highlight_player_name: bool = False) -> tuple[Rect, list[Rect]]:
   surface_width, surface_height = surface.get_size()
   
   if subrect is None:
@@ -450,7 +451,7 @@ def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = 
                                        header_label_color, choice_rect_color_func, lambda x: Colors.BLACK, share_font_size=True, 
                                        label_justification=label_justification, choice_justification=choice_justification, extras_index=extras_index)
   
-  return choice_rects
+  return header_rect, choice_rects
 
 # TODO remake this?
 def top_right_corner_x_button(surface: Surface) -> Rect:

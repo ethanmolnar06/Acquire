@@ -154,10 +154,8 @@ class Bank:
     return bankdrawntile, statementsList
   
   def playtile(self, tile: str): #tile must be playable!
-    self._board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = self._tilebag.tilesToIDs(self._board.debug_tilesinplayorder)
-    sortactiveIDs.sort()
-    self._board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
+    self._board._tilesinplayorder.append(tile)
+    self._board._play_tile(tile)
     return None
   
   def sellallstock(self, players: list[Player]):

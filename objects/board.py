@@ -4,8 +4,7 @@ class Board:
   def __init__(self, tilebag:TileBag, maxChainSize: int):
     self.setGameObj(tilebag)
     self.maxChainSize = int(maxChainSize)
-    self.debug_tilesinplayorder = []
-    self.debug_count = 0
+    self._tilesinplayorder = []
     self.tilesinplay = []
     self.deadducks = set()
     self.chaindict = {}
@@ -13,23 +12,30 @@ class Board:
   def setGameObj(self, tilebag: TileBag):
     self._tilebag = tilebag
   
-  def fetchchainsize(self, chain: str):
+  def _play_tile(self, tile: str, remove: bool = False):
+    if remove:
+      self._tilesinplayorder.remove(tile)
+    else:
+      self._tilesinplayorder.append(tile)
+    sortactiveIDs = self._tilebag.tilesToIDs(self._tilesinplayorder)
+    sortactiveIDs.sort()
+    self.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
+  
+  def fetchchainsize(self, chain: str) -> int:
     return sum(chainvalue == chain for chainvalue in self.chaindict.values())
   
-  def fetchactivechains(self): #returns an ordered list
-    activechains = {chainvalue for chainvalue in self.chaindict.values()}
-    activechains = [chain for chain in self._tilebag.chainnames if chain in activechains]
+  def fetchactivechains(self, inv: bool = False) -> list[str]: #returns an ordered list
+    activechainset = {chainvalue for chainvalue in self.chaindict.values()}
+    if not inv:
+      activechains = [chain for chain in self._tilebag.chainnames if chain in activechainset]
+    else:
+      activechains = [chain for chain in self._tilebag.chainnames if chain not in activechainset]
     return activechains
   
-  def fetchsmallestchain(self):
+  def fetchsmallestchain(self, inv: bool = False) -> list[str, int]:
     chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in self.fetchactivechains()]
     chainsizepairs.sort(key=lambda x: x[1])
-    return chainsizepairs[0]
-  
-  def fetchlargestchain(self):
-    chainsizepairs = [ [chain, self.fetchchainsize(chain)] for chain in self.fetchactivechains()]
-    chainsizepairs.sort(key=lambda x: x[1])
-    return chainsizepairs[-1]
+    return chainsizepairs[0 if not inv else -1]
   
   def fetchadjacent(self, tile: str): #tiles in play order may
     tileID = self._tilebag.tilesToIDs([tile])[0]
@@ -67,19 +73,19 @@ class Board:
     else:
       return "merge", connectedChains
   
-  def tileprop(self, tile: str, chainToSpread: str, targetChain: str | None = None, ignoreTile: str | tuple[str] | None = None):
+  def tileprop(self, tile: str, chainToSpread: str, victimChain: str | None = None, ignoreTile: str | tuple[str] | None = None):
     #assumes tile has already been set to correct chain, need not be for mid-multimerge propagation
     ignoreTile = ignoreTile[0] if isinstance(ignoreTile, tuple) else ignoreTile
     oldchainsize = self.fetchchainsize(chainToSpread)
     checked = {tile} if ignoreTile is None else {tile, ignoreTile}
     for pairs in self.chaindict.items():
       if pairs[1] == chainToSpread: checked.add(pairs[0])
-    unchecked = set( self.fetchadjacent(tile) if targetChain is None else [t for t in self.fetchadjacent(tile) if t in self.chaindict.keys() and self.chaindict[t] == targetChain] )
+    unchecked = set( self.fetchadjacent(tile) if victimChain is None else [t for t in self.fetchadjacent(tile) if t in self.chaindict.keys() and self.chaindict[t] == victimChain] )
     while len(unchecked) != 0:
       iterToCheck = []
       for adj in unchecked:
         self.chaindict[adj] = chainToSpread
-        iterToCheck.extend( self.fetchadjacent(adj) if targetChain is None else [t for t in self.fetchadjacent(adj) if t in self.chaindict.keys() and self.chaindict[t] == targetChain] )
+        iterToCheck.extend( self.fetchadjacent(adj) if victimChain is None else [t for t in self.fetchadjacent(adj) if t in self.chaindict.keys() and self.chaindict[t] == victimChain] )
         checked.add(adj)
       unchecked.update(iterToCheck)
       unchecked.difference_update(checked)

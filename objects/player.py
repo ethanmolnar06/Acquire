@@ -7,7 +7,7 @@ from objects.stats import Stats
 from objects.connection import Connection
 
 class Player:
-  def __init__(self, tilebag: TileBag, board:Board, name: str, creation_n: int,
+  def __init__(self, tilebag: TileBag, board: Board, name: str, creation_n: int,
                startingStockNumber: int = 0, startCash: int = 6000, tileQuant: int = 6, maxPlayers = 6):
     self.setGameObj(tilebag, board)
     self.maxPlayers = maxPlayers
@@ -58,29 +58,34 @@ class Player:
     if self.conn is not None:
       self.conn.kill()
   
-  def setGameObj(self, tilebag, board):
+  def setGameObj(self, tilebag: TileBag, board: Board):
     self._tilebag = tilebag
     self._board = board
+  
+  def _updateTileList(self, newtileID: int):
+    oldtileIDs = self._tilebag.tilesToIDs(self.tiles)
+    oldtileIDs.append(newtileID)
+    oldtileIDs.sort()
+    self.tiles = self._tilebag.tileIDinterp(oldtileIDs) #stored as human name string, **NOT ID as int**
   
   def drawtile(self, n: int = 1):
     for i in range(n):
       newtileID = self._tilebag.drawtile()
       if newtileID is not None: 
-        oldtileIDs = self._tilebag.tilesToIDs(self.tiles)
-        oldtileIDs.append(newtileID)
-        oldtileIDs.sort(key=int)
-        self.tiles = self._tilebag.tileIDinterp(oldtileIDs) #stored as human name string, **NOT ID as int**
-      # else:
-      #   print('Tilebag Empty!')
-    return None
+        self._updateTileList(newtileID)
   
   def playtile(self, tile: str): #tile must be playable!
     self.tiles.remove(tile)
-    self._board.debug_tilesinplayorder.append(tile)
-    sortactiveIDs = self._tilebag.tilesToIDs(self._board.debug_tilesinplayorder)
-    sortactiveIDs.sort()
-    self._board.tilesinplay = self._tilebag.tileIDinterp(sortactiveIDs)
+    self._board._play_tile(tile)
     return None
+  
+  def returntile(self, tile: str):
+    self.tiles.remove(tile)
+    self._tilebag.returntile(tile)
+  
+  def swapnexttile(self, tile: str, prev: bool = False):
+    newtileID = self._tilebag.nexttile(tile, prev)
+    self._updateTileList(newtileID)
   
   def deadduckremoval(self):
     checked = set()
@@ -109,7 +114,7 @@ def setPlayerOrder(tilebag: TileBag, board: Board, players: list[Player]):
   for p in players:
     gamestarttileID = tilebag.drawtile()
     gamestarttile = tilebag.tileIDinterp([gamestarttileID])
-    board.debug_tilesinplayorder.append(gamestarttile[0])
+    board._tilesinplayorder.append(gamestarttile[0])
     # print(f'{name} drew {gamestarttile[0]}!')
     order.append((p, gamestarttile))
   
@@ -117,7 +122,7 @@ def setPlayerOrder(tilebag: TileBag, board: Board, players: list[Player]):
   
   for p in players:
     p.drawtile(p.tileQuant)
-  sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
+  sortactiveIDs = tilebag.tilesToIDs(board._tilesinplayorder)
   sortactiveIDs.sort()
   board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
  

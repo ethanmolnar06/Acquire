@@ -37,14 +37,29 @@ class TileBag:
     self.chainnames = list(itertools.chain(*self.chainTierGrouped.values()))
     # self.chainnames = [name[0] for name in self.chainnames]
   
-  def drawtile(self):
+  def drawtile(self) -> int | None:
     if len(self.tilesleft) <= 0:
       return None
     drawntileID = self.tilesleft[random.randrange(0, len(self.tilesleft))]
     self.tilesleft.remove(drawntileID)
     return drawntileID
   
-  def resetbag(self):
+  def returntile(self, tile: str):
+    returntileID = self.tilesToIDs([tile,])[0]
+    self.tilesleft.append(returntileID)
+    self.tilesleft.sort()
+  
+  def nexttile(self, tile: str, prev: bool = False) -> int: # input tile must already be returned to the tilebag!!
+    currentindex = self.tilesleft.index(self.tilesToIDs([tile,])[0])
+    if not prev:
+      i = (currentindex + 1) % len(self.tilesleft)
+    else:
+      i = (currentindex - 1) % len(self.tilesleft)
+    nexttileID = self.tilesleft[i]
+    self.tilesleft.remove(nexttileID)
+    return nexttileID
+  
+  def resetbag(self) -> None:
     self.tilesleft = list(range(len(self.alltiles)))
   
   def tileIDinterp(self, tileIDs: list[int]) -> list[str]:

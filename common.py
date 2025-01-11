@@ -159,7 +159,7 @@ def unpack_gameState(gameState: bytes, currentConns: dict[UUID, Connection] | li
   
   return (tilebag, board, players, bank)
 
-def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int = None, quicksave: bool = False):
+def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int = None, quicksave: bool = False, levelEditor: bool = False):
   today = date.isoformat(date.today())
   if quicksave:
     save_file_new = "quicksave"
@@ -167,6 +167,8 @@ def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int =
     save_file_new = today
     if playernames is not None:
       save_file_new += f'_{len(playernames)}players_{"".join(playernames)}'
+    if levelEditor:
+      save_file_new += f'_customboard'
     if turnnumber is not None:
       save_file_new += f'_turn{turnnumber}'
   
