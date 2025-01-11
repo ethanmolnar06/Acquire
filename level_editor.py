@@ -144,7 +144,7 @@ while levelEditing:
     if focus_content.random_tiles:
       focus_content.game_board = True
       focus_content.random_tiles = False
-      for tile in players[display_player_index].tiles:
+      for tile in players[display_player_index].tiles.copy():
         players[display_player_index].returntile(tile)
       players[display_player_index].drawtile(players[display_player_index].tileQuant)
     
