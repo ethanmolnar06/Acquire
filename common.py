@@ -1,13 +1,13 @@
 import os
 import pickle
 import pygame
+import pkgutil
 from datetime import date
 from uuid import UUID
 from copy import copy
 
 from objects import *
 from objects.networking import extrctConns, propagate
-from fonts import *
 
 # TODO move these permisions to config.json & add argparse for cmd line launching
 # GLOBAL GAME PERMISSIONS & CONFIG
@@ -82,9 +82,10 @@ class Colors:
     return chaincolor
 
 class Fonts:
-  main = r'fonts/timesnewroman.ttf'
-  tile = r'fonts/arial.ttf'
-  oblivious = r'fonts/oblivious-font.regular.ttf'
+  fontspath = os.path.relpath(pkgutil.resolve_name("fonts").__path__[0])
+  main = fontspath + r'/timesnewroman.ttf'
+  tile = fontspath + r'/arial.ttf'
+  oblivious = fontspath + r'/oblivious.ttf'
 
 def iter_flatten(iterable: list) -> list:
   flattened = []

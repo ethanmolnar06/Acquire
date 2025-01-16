@@ -1,4 +1,5 @@
 # region Initialize Pygame
+import sys
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "silent"
 import pygame
@@ -18,7 +19,7 @@ successfullBoot, _, _, gameState = config(gameUtils, allowNonLocal=False)
 if not successfullBoot:
   # Shut down Pygame
   pygame.quit()
-  quit(0)
+  sys.exit()
 
 from objects import *
 from common import NO_RENDER_EVENTS, VARIABLE_FRAMERATE, MAX_FRAMERATE, pack_gameState, write_save

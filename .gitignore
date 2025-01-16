@@ -6,4 +6,3 @@ oldVers/
 # PyInstaller
 dist/
 build/
-main.spec

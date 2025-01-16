@@ -1,4 +1,5 @@
 # region Initialize Pygame
+import sys
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "silent"
 import pygame
@@ -29,7 +30,7 @@ while not clientReady:
       serverThread.kill()
     # Shut down Pygame
     pygame.quit()
-    quit(0)
+    sys.exit()
   
   if not successfullBoot:
     clean_quit(conn_dict)
