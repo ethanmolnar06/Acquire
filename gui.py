@@ -94,7 +94,7 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
     
     def extra_render_func(surface, i: int, rect: Rect, font_size: int):
       if prohibitedTiles[i]:
-        font = pygame.font.SysFont(Fonts.oblivious, int(font_size*4.5))
+        font = pygame.font.Font(Fonts.oblivious, int(font_size*4.5))
         label_surface = font.render("x", 1, Colors.RED)
         label_rect = label_surface.get_rect()
         label_rect.center = rect.center
@@ -315,7 +315,7 @@ def draw_popup(surface: Surface, subdraw_tag: str, drawinfo):
   focus_area = get_focus_area(surface)
   popup_rect = focus_area.scale_by(7/8, 4/5)
   font_size = min(popup_rect.w, popup_rect.h) // 20
-  font = pygame.font.SysFont(Fonts.main, font_size)
+  font = pygame.font.Font(Fonts.main, font_size)
   
   # Create a surface for the popup
   popup = pygame.Surface((popup_rect.w, popup_rect.h))

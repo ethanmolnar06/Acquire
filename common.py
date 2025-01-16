@@ -7,6 +7,7 @@ from copy import copy
 
 from objects import *
 from objects.networking import extrctConns, propagate
+from fonts import *
 
 # TODO move these permisions to config.json & add argparse for cmd line launching
 # GLOBAL GAME PERMISSIONS & CONFIG
@@ -81,8 +82,8 @@ class Colors:
     return chaincolor
 
 class Fonts:
-  main = 'timesnewroman'
-  tile = "arial"
+  main = r'fonts/timesnewroman.ttf'
+  tile = r'fonts/arial.ttf'
   oblivious = r'fonts/oblivious-font.regular.ttf'
 
 def iter_flatten(iterable: list) -> list:

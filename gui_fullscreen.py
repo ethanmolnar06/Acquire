@@ -27,7 +27,7 @@ def horizontal_refontsizer(rect_width: int, default_font_size: int, labels: list
   font_size = default_font_size
   if longestheader * default_font_size * len(labels) + spacer_allocated > rect_width:
     font_size = int(1.7 * (rect_width - spacer_allocated) / (longestheader * len(labels)))
-  header_font = pygame.font.SysFont(font_name, font_size)
+  header_font = pygame.font.Font(font_name, font_size)
   return header_font, font_size
 
 def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, labels: list[str], font_name: str = Fonts.main) -> tuple[Font, int]:
@@ -35,7 +35,7 @@ def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, l
   font_size = default_font_size
   if col_stand_height >= rect_height:
     font_size = int(default_font_size * (1 - (col_stand_height - rect_height)/rect_height) )
-  info_font = pygame.font.SysFont(font_name, font_size)
+  info_font = pygame.font.Font(font_name, font_size)
   return info_font, font_size
 
 # resize font to fit in a rect
@@ -44,7 +44,7 @@ def dynamic_font(rect: Rect, label: str, font_name: str, font_scale_max: int | f
     return None, 0
   if not default_font_size:
     default_font_size = max(min(rect.w, rect.h) // 2, 50)
-  font = pygame.font.SysFont(font_name, default_font_size)
+  font = pygame.font.Font(font_name, default_font_size)
   label_surface = font.render(label, 1, Colors.BLACK)
   font_size = default_font_size
   
@@ -54,7 +54,7 @@ def dynamic_font(rect: Rect, label: str, font_name: str, font_scale_max: int | f
   while label_surface.get_width() / rect.w > font_scale_max or label_surface.get_height() / rect.h > font_scale_max:
     # print(label, font_size, round(label_surface.get_width() / rect.w, 2), round(label_surface.get_height() / rect.h, 2))
     font_size = int(font_size * font_scale_max)
-    font = pygame.font.SysFont(font_name, font_size)
+    font = pygame.font.Font(font_name, font_size)
     label_surface = font.render(label, 1, Colors.BLACK)
   
   # print(label, font_size, round(label_surface.get_width() / rect.w, 2), round(label_surface.get_height() / rect.h, 2))
@@ -326,7 +326,7 @@ def draw_slider(surface: Surface, slider_vec):
   
   # Display the current value of the slider
   font_size = min(surface_width, surface_height) // 20
-  font = pygame.font.SysFont(Fonts.main, font_size)
+  font = pygame.font.Font(Fonts.main, font_size)
   text = font.render(str(slider_value), True, (0, 0, 0))
   surface.blit(text, (x - text.get_width() // 2, y - text.get_height() // 2))
   
@@ -677,7 +677,7 @@ def draw_customSettings(surface: Surface, drawnSettings: dict, clicked_textbox_k
   # Calculate text field sizing
   window_width, window_height = surface.get_size()
   font_size = min(window_width, window_height) // 30
-  font = pygame.font.SysFont(Fonts.main, font_size)
+  font = pygame.font.Font(Fonts.main, font_size)
   key_text_width = int( (window_width - window_width//20) / (numbcols + 2) + longestKey)
   val_text_width = int(window_width//6)
   text_field_height = int(font_size + window_height//200)
