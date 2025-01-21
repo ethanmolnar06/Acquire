@@ -27,7 +27,7 @@ exe = EXE( # type: ignore
     [],
     # exclude_binaries=True,
     name='Acquire',
-    icon=None,
+    icon="assets/acquire_boxart_glitching.ico",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
