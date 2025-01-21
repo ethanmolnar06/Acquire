@@ -84,7 +84,7 @@ class Colors:
 class Fonts:
   fontspath: str = os.path.relpath(pkgutil.resolve_name("fonts").__path__[0])
   main = os.path.join(fontspath, 'timesnewroman.ttf')
-  tile = os.path.join(fontspath, 'arial.ttf')
+  tile = os.path.join(fontspath, 'arial_narrow.ttf')
   oblivious = os.path.join(fontspath, 'oblivious.ttf')
 
 def iter_flatten(iterable: list) -> list:
