@@ -4,7 +4,7 @@ added_files = [
          ('fonts', 'fonts'),
          ]
 
-a = Analysis(
+a = Analysis( # type: ignore
     ['main.py'],
     pathex=[],
     binaries=[],
@@ -17,14 +17,17 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
-pyz = PYZ(a.pure)
+pyz = PYZ(a.pure) # type: ignore
 
-exe = EXE(
+exe = EXE( # type: ignore
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
-    name='main',
+    # exclude_binaries=True,
+    name='Acquire',
+    icon=None,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,13 +38,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='main',
 )
