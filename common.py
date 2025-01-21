@@ -82,10 +82,10 @@ class Colors:
     return chaincolor
 
 class Fonts:
-  fontspath = os.path.relpath(pkgutil.resolve_name("fonts").__path__[0])
-  main = fontspath + r'/timesnewroman.ttf'
-  tile = fontspath + r'/arial.ttf'
-  oblivious = fontspath + r'/oblivious.ttf'
+  fontspath: str = os.path.relpath(pkgutil.resolve_name("fonts").__path__[0])
+  main = os.path.join(fontspath, 'timesnewroman.ttf')
+  tile = os.path.join(fontspath, 'arial.ttf')
+  oblivious = os.path.join(fontspath, 'oblivious.ttf')
 
 def iter_flatten(iterable: list) -> list:
   flattened = []
@@ -174,10 +174,15 @@ def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int =
     if turnnumber is not None:
       save_file_new += f'_turn{turnnumber}'
   
-  if not os.path.exists(rf'{DIR_PATH}\saves\{save_file_new}'):
-    with open(rf'{DIR_PATH}\saves\{save_file_new}', 'x') as file:
+  save_folder = os.path.join(DIR_PATH, "saves")
+  if not os.path.exists(save_folder):
+    os.makedirs(save_folder)
+  
+  save_path = os.path.join(save_folder, save_file_new)
+  if not os.path.exists(save_path):
+    with open(save_path, 'x') as file:
       pass
-  with open(rf'{DIR_PATH}\saves\{save_file_new}', 'wb') as file:
+  with open(save_path, 'wb') as file:
     file.write(saveData)
   return
 
