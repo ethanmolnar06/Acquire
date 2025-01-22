@@ -2,3 +2,7 @@ saves/*
 test.ipynb
 __pycache__/
 oldVers/
+
+# PyInstaller
+dist/
+build/

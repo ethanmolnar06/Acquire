@@ -1,138 +1,199 @@
 import pygame
 import os
-import pickle
-import text
-import operator
+from uuid import UUID
 from copy import deepcopy
-from __main__ import HIDE_PERSONAL_INFO
-from gui_fullscreen import draw_fullscreenSelect, draw_newGameInit, draw_selectSaveFile, draw_customSettings
 
-stockGameSettings = {
-  "board": {
-    "Board Length": "12",
-    "Board Height": "9",
-    "Economy Chains": "2",
-    "Standard Chains": "3",
-    "Luxury Chains": "2",
-  },
-  "player": {
-    "Player Starting Stock": "0",
-    "Player Starting Cash": "6000",
-    "Player Tiles Held": "6",
-  },
-  "bank": {
-    "Total Stock Per Chain": "25",
-    "Global Cost Offset": "0",
-    "Global Cost Multiplier": "1",
-    "Stock Pricing Function": "Classic",
-    "Linear Cost Slope": "100",
-    "Prestige Fee": "100",
-    "Chain Size Cost Cap": "41",
-  },
-  "bankClassic": {
-    "Chain Size Boundary": "5",
-  },
-  "bankLinear": {
-    "Linear Cost Offset": "600",
-  },
-  "bankLogarithmic": {
-    "Pre-Logarithm Stretch": "1.5",
-    "Logarithmic Base": "2.6",
-  },
-  "bankExponential": {
-    "Pre-Exponential Divisor": "240",
-    "Exponential Power": "2",
-    "Exponential Offset Reducer": "3",
-  },
-}
+from objects import *
+from objects.networking import DISCONN, fetch_updates, propagate
+from common import DIR_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
+from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
-def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, framerate: int):
-  global tilebag, board, globalStats, bank
-  acquireSetup = True
-  successfullBoot = False
+def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: bool = True) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
+  screen, clock = gameUtils
   
-  askHostJoin = True
-  askLoadSave = False
-  selectSaveFile = False
-  newGameInit = False
-  customSettings = False
+  # region Define Statemap & Defaults
+  stockGameSettings = {
+    "board": {
+      "Board Length": "12",
+      "Board Height": "9",
+      "Economy Chains": "2",
+      "Standard Chains": "3",
+      "Luxury Chains": "2",
+    },
+    "player": {
+      "Player Starting Stock": "0",
+      "Player Starting Cash": "6000",
+      "Player Tiles Held": "6",
+      "Max Players": "6",
+    },
+    "bank": {
+      "Total Stock Per Chain": "25",
+      "Global Cost Offset": "0",
+      "Global Cost Multiplier": "1",
+      "Stock Pricing Function": "Classic",
+      "Linear Cost Slope": "100",
+      "Prestige Fee": "100",
+      "Chain Size Cost Cap": "41",
+    },
+    "bankClassic": {
+      "Chain Size Boundary": "5",
+    },
+    "bankLinear": {
+      "Linear Cost Offset": "600",
+    },
+    "bankLogarithmic": {
+      "Pre-Logarithm Stretch": "1.5",
+      "Logarithmic Base": "2.6",
+    },
+    "bankExponential": {
+      "Pre-Exponential Divisor": "240",
+      "Exponential Power": "2",
+      "Exponential Offset Reducer": "3",
+    },
+    "playernames": ["",] * 6
+  }
+  longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values() if type(d) == dict])
   
-  popup_open = False
+  forceRender: bool = True
+  watchMousePos: bool = False
+  acquireSetup: bool = True
+  successfullBoot: bool = False
+  newGame: bool | None = None
+  clientMode = "hostLocal"
+  
+  askHostJoin: bool = True if allowNonLocal else False
+  askJoinCode: bool = False
+  askHostLocal: bool = False
+  askLoadSave: bool = False if allowNonLocal else True
+  selectSaveFile: bool = False
+  selectPlayerFromSave: bool = False
+  setPlayerNamesLocal: bool = False
+  setPlayerNameHost: bool = False
+  customSettings: bool = False
+  # endregion
+  
   while acquireSetup:
+    event = pygame.event.poll()
     # region Render Process
-    # Clear the screen
-    screen.fill((255, 255, 255))
-    #Draw ask to load savestate
-    if askHostJoin:
-      yesandno_rects = draw_fullscreenSelect('hostJoin')
-    elif askLoadSave:
-      yesandno_rects = draw_fullscreenSelect('loadSave')
-    elif selectSaveFile:
-      drawinfo = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
-      saveinfo = (saves_path, savefiles)
-      save_rects_vec = draw_selectSaveFile(drawinfo, saveinfo)
-      directory_rect, savefile_rects, load_rect, noload_button_rect = save_rects_vec
-    elif newGameInit:
-      text_field_rects, yesandno_rects = draw_newGameInit(playerNameTxtbxs, clicked_textbox_int)
-    elif customSettings:
-      drawnSettings = {**settings["board"], **settings["player"], **settings["bank"]}
-      if settings["bank"]["Stock Pricing Function"] in {"Logarithmic", "Exponential"}:
-        drawnSettings.update(**settings["bankLinear"])
-      drawnSettings.update(**settings["bank" + settings["bank"]["Stock Pricing Function"]])
-      text_field_rects, yesandno_rects = draw_customSettings(drawnSettings, clicked_textbox_key, longestKey)
-    # Update the display
-    pygame.display.flip()
+    if forceRender or (watchMousePos and event.type) or event.type not in NO_RENDER_EVENTS:
+      forceRender = False
+      # Clear the screen
+      screen.fill((255, 255, 255))
+      #Draw depending on current state
+      if askHostJoin:
+        yesandno_rects = draw_fullscreenSelect(screen, 'hostJoin')
+      elif askJoinCode:
+        title = "Enter Host IP"; confirm_label = 'Connect'
+        yesandno_rects = draw_singleTextBox(screen, ipTxtbx, title, confirm_label)
+      elif setPlayerNameHost:
+        title = "Enter Your Username"; confirm_label = 'Start Server'
+        yesandno_rects = draw_singleTextBox(screen, playernameTxtbx, title, confirm_label)
+      elif askHostLocal:
+        yesandno_rects = draw_fullscreenSelect(screen, 'hostLocal')
+      elif askLoadSave:
+        yesandno_rects = draw_fullscreenSelect(screen, 'loadSave')
+      elif selectSaveFile:
+        drawinfo: tuple[bool, int, bool, int] = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
+        saveinfo: tuple[str, list[str]] = (saves_path, savefiles)
+        save_rects_vec = draw_selectSaveFile(screen, drawinfo, saveinfo)
+        directory_rect, savefile_rects, load_rect, back_button_rect = save_rects_vec
+      elif selectPlayerFromSave:
+        drawinfo = (hover_player_int, clicked_player_int)
+        player_rects, load_rect, back_button_rect = draw_selectPlayerFromSave(screen, drawinfo, players)
+      elif setPlayerNamesLocal:
+        text_field_rects, yesandno_rects, back_button_rect = draw_setPlayerNamesLocal(screen, settings["playernames"], clicked_textbox_int)
+      elif customSettings:
+        drawnSettings = {**settings["board"], **settings["player"], **settings["bank"]}
+        if settings["bank"]["Stock Pricing Function"] in {"Logarithmic", "Exponential"}:
+          drawnSettings.update(**settings["bankLinear"])
+        drawnSettings.update(**settings["bank" + settings["bank"]["Stock Pricing Function"]])
+        text_field_rects, yesandno_rects, back_button_rect = draw_customSettings(screen, drawnSettings, clicked_textbox_key, longestKey)
+      # Update the display
+      pygame.display.flip()
     # endregion
     
     # region Handle common events
-    event = pygame.event.poll()
     if event.type == pygame.QUIT:
       acquireSetup = False
-      return successfullBoot, None, None, None, None, None, None
+      return successfullBoot, None, None, None
     elif event.type == pygame.VIDEORESIZE:
-      # Update the window size
+      # Apparently this is legacy code but idc
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
     # endregion
     
     if askHostJoin:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
-        pos = pygame.mouse.get_pos()
-        if not popup_open:
-          # Check if askToBuy was clicked
-          for i, yesorno_rect in enumerate(yesandno_rects):
-            if yesorno_rect.collidepoint(pos):
-              askHostJoin = False
-              if i == 1:
-                # TODO join host logic
-                askLoadSave = True
-              else:
-                # Host Logic
-                askLoadSave = True
-   
+        pos = event.dict["pos"]
+        # Check if askHostJoin was clicked
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            askHostJoin = False; forceRender = True
+            if i == 1:
+              askJoinCode = True
+              ipTxtbx: str = ""
+              newGame = None
+            else:
+              askHostLocal = True
+    
+    # possibly rework to make ip "." static on display
+    # format ip as 4 sets of up to 3 digit numbers
+    # or use join codes -> url -> ip tunnel
+    elif askJoinCode: # only reachable for join
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              askJoinCode = False; forceRender = True
+              askHostJoin = True
+            else:
+              # TODO valid ip checker
+              if len(ipTxtbx) >= 7: # minimum 0.0.0.0 ip length
+                askJoinCode = False; forceRender = True
+                clientMode = "join"
+                gameState: str = ipTxtbx
+      elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
+        ipTxtbx: str = text.crunch_ip(event, ipTxtbx)
+    
+    elif askHostLocal:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        # Check if askHostJoin was clicked
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            askHostLocal = False; forceRender = True
+            askLoadSave = True
+            if i == 1:
+              clientMode = "hostServer"
+            else:
+              clientMode = "hostLocal"
+    
     elif askLoadSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
-        pos = pygame.mouse.get_pos()
-        if not popup_open:
-          # Check if load save was clicked
-          for i, yesorno_rect in enumerate(yesandno_rects):
-            if yesorno_rect.collidepoint(pos):
-              askLoadSave = False
-              playerNameTxtbxs = [''] * 6 #this int sets the max number of players
-              if i == 1:
-                selectSaveFile = True
-                saves_path = dir_path + r'\saves'
-                savefiles = os.listdir(dir_path + r'\saves')
-                hover_directory, clicked_directory = [False]*2
-                hover_save_int, clicked_save_int = [None]*2
-              else:
-                newGameInit = True
-                pygame.key.set_repeat(500, 50) #time in ms
-                clicked_textbox_int = None
+        pos = event.dict["pos"]
+        # Check if load save was clicked
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            askLoadSave = False; forceRender = True
+            if i == 1:
+              selectSaveFile = True; watchMousePos = True
+              newGame = False
+              saves_path = DIR_PATH + r'\saves'
+              savefiles = os.listdir(saves_path); savefiles.sort(reverse=True)
+              hover_directory, clicked_directory = [False]*2
+              hover_save_int, clicked_save_int = [None]*2
+            else:
+              customSettings = True
+              newGame = True
+              clicked_textbox_key = None
+              settings = deepcopy(stockGameSettings)
     
     elif selectSaveFile:
-      # Get the mouse position
+      # Get the mouse position -> watchMousePos = True
       pos = pygame.mouse.get_pos()
       if directory_rect.collidepoint(pos):
         hover_directory = True
@@ -147,115 +208,449 @@ def pregame(dir_path: str, screen: pygame.Surface, clock: pygame.time.Clock, fra
         else:
           hover_save_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
-        if noload_button_rect.collidepoint(pos):
-          selectSaveFile = False
-          newGameInit = True
+        if back_button_rect.collidepoint(pos):
+          selectSaveFile = False; watchMousePos = False
+          askHostJoin = True
           clicked_textbox_int = None
         if hover_directory:
           clicked_directory = not clicked_directory
         elif clicked_directory and hover_save_int is not None:
           clicked_save_int = (hover_save_int if clicked_save_int != hover_save_int else None)
         elif clicked_save_int is not None and load_rect.collidepoint(pos):
-          selectSaveFile = False
+          selectSaveFile = False; watchMousePos = False
+          if clientMode == "hostServer":
+            selectPlayerFromSave = True; watchMousePos = True
+            hover_player_int, clicked_player_int = [None]*2
+          
           savefile = savefiles[clicked_save_int]
           with open(rf'{saves_path}\{savefile}', 'rb') as file:
-            data = pickle.load(file)
-            datarem, tilebag = pickle.loads(data)
-            datarem, board = pickle.loads(datarem)
-            datarem, globalStats = pickle.loads(datarem)
-            datarem, players = pickle.loads(datarem)
-            _, bank = pickle.loads(datarem)
-          if HIDE_PERSONAL_INFO:
-            personal_info_names = [p.name for p in players]
-            for i, p in enumerate(players):
-              p.name = f"Player {i+1}"
-          else: 
-            personal_info_names = None
-          pygame.display.set_caption('Acquire Board')
-          acquireSetup = False
-          successfullBoot = True
-          return successfullBoot, tilebag, board, bank, players, personal_info_names, globalStats
+            saveData = file.read()
+          tilebag, board, players, bank = unpack_gameState(saveData)
+          for p in players:
+            p.conn = None
     
-    elif newGameInit:
+    elif selectPlayerFromSave: # only reachable for hostServer
+      # Get the mouse position -> watchMousePos = True
+      pos = pygame.mouse.get_pos()
+      for i, player_rect in enumerate(player_rects):
+        if player_rect.collidepoint(pos):
+          hover_player_int = i
+          break
+        else:
+          hover_player_int = None
       if event.type == pygame.MOUSEBUTTONDOWN:
-        # Get the mouse position
-        pos = pygame.mouse.get_pos()
-        for i, text_field_rect in enumerate(text_field_rects):
-          clicked_textbox_int = None
-          if text_field_rect.collidepoint(pos):
-            clicked_textbox_int = i
-            break
-        if not popup_open and sum(['' != box for box in playerNameTxtbxs]) >= 2:
-          # minimum names filled, check for click to go to settings
-          for i, yesorno_rect in enumerate(yesandno_rects):
-            if yesorno_rect.collidepoint(pos):
-              newGameInit = False
-              playernames = [pname for pname in playerNameTxtbxs if pname != '']
-              settings = deepcopy(stockGameSettings)
-              if i == 0:
-                customSettings = True
-                pygame.key.set_repeat(500, 50) #time in ms
-                clicked_textbox_key = None
-                longestKey = max([ max([len(k) for k in d.keys()]) for d in stockGameSettings.values()])
-              break
-      elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
-        playerNameTxtbxs, clicked_textbox_int = text.interface("playerName", (playerNameTxtbxs, clicked_textbox_int))
+        if back_button_rect.collidepoint(pos):
+          selectPlayerFromSave = False
+          selectSaveFile = True; watchMousePos = True
+          saves_path = DIR_PATH + r'\saves'
+          savefiles = os.listdir(DIR_PATH + r'\saves'); savefiles.sort()
+          hover_directory, clicked_directory = [False]*2
+          hover_save_int, clicked_save_int = [None]*2
+        if hover_player_int is not None:
+          clicked_player_int = (hover_player_int if clicked_player_int != hover_player_int else None)
+        elif clicked_player_int is not None and load_rect.collidepoint(pos):
+          selectPlayerFromSave = False; watchMousePos = False
+          players[clicked_player_int].conn = Connection("host", None)
     
     elif customSettings:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
-        pos = pygame.mouse.get_pos()
+        pos = event.dict["pos"]
+        if back_button_rect.collidepoint(pos):
+          customSettings = False; forceRender = True
+          askHostJoin = True
         for i, text_field_rect in enumerate(text_field_rects):
           clicked_textbox_key = None
           if text_field_rect.collidepoint(pos):
             clicked_textbox_key = list(drawnSettings.keys())[i]
             break
-        if not popup_open:
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              settings = deepcopy(stockGameSettings)
+            else:
+              customSettings = False; forceRender = True
+              if clientMode == "hostServer":
+                setPlayerNameHost = True
+                playernameTxtbx = ""
+                clicked_textbox_int = None
+              else:
+                setPlayerNamesLocal = True
+                clicked_textbox_int = None
+                settings["playernames"] = ["",] * int(settings["player"]["Max Players"])
+      elif event.type == pygame.KEYDOWN and clicked_textbox_key is not None and pygame.key.get_focused():
+        settings, clicked_textbox_key = text.crunch_customSettings_nav(event, settings, clicked_textbox_key, list(drawnSettings.keys()))
+    
+    elif setPlayerNamesLocal: # only reachable for hostLocal
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        if back_button_rect.collidepoint(pos):
+          setPlayerNamesLocal = False; forceRender = True
+          askHostJoin = True
+        for i, text_field_rect in enumerate(text_field_rects):
+          clicked_textbox_int = None
+          if text_field_rect.collidepoint(pos):
+            clicked_textbox_int = i
+            break
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              setPlayerNamesLocal = False; forceRender = True
+              customSettings = True
+              clicked_textbox_key = None
+            else:
+              # minimum names filled
+              if sum(['' != box for box in settings["playernames"]]) >= 2:
+                setPlayerNamesLocal = False; forceRender = True
+          
+      elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
+        clicked_textbox_int = text.nav_handler(event, settings["playernames"], clicked_textbox_int, 2)
+        settings["playernames"][clicked_textbox_int] = text.crunch_playername(event, settings["playernames"][clicked_textbox_int])
+    
+    elif setPlayerNameHost: # only reachable for hostServer
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              setPlayerNameHost = False; forceRender = True
+              askHostJoin = True
+            else:
+              if len(playernameTxtbx) >= 1:
+                setPlayerNameHost = False; forceRender = True
+                settings["playernames"][0] = playernameTxtbx
+                gameState = None
+      elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
+        playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
+    
+    else: #prep for lobby
+      if newGame:
+        tilebag = TileBag(*settings["board"].values())
+        board = Board(tilebag, settings["bank"]["Chain Size Cost Cap"])
+        players: list[Player] = []
+        for i, name in enumerate([p for p in settings["playernames"] if p != ""], start=1):
+          players.append(Player(tilebag, board, name, i,
+                                *settings["player"].values()))
+        bank = Bank(tilebag, board,
+                    *settings["bank"].values(),
+                    *settings["bankClassic"].values(),
+                    *settings["bankLogarithmic"].values(),
+                    *settings["bankExponential"].values())
+      if not allowNonLocal or "host" in clientMode:
+        gameState: tuple[TileBag, Board, list[Player], Bank] = (tilebag, board, players, bank)
+      acquireSetup = False
+      successfullBoot = True
+      return successfullBoot, clientMode, newGame, gameState
+    
+    clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
+
+
+def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool,
+          gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None,  UUID | None]:  
+  
+  if clientMode == "hostLocal":
+    successfulStart = True
+    return successfulStart, gameState, None
+  elif clientMode == "join":
+    waitingForHandshake = True
+    while waitingForHandshake:
+      u = fetch_updates(conn_dict)
+      for uuid, d in u:
+        if d is not None and d.dump() == "set client connection":
+          waitingForHandshake = False
+          handshake: tuple[UUID, bool, bytes] = d.val
+          my_uuid, newGame, gameStateUpdate = handshake
+          gameState = unpack_gameState(gameStateUpdate, conn_dict)
+          break
+  
+  screen, clock = gameUtils
+  tilebag, board, players, bank = gameState
+  
+  # host will always send own conn as Connection("host", None, host_uuid) and any clients as None
+  HOST: Player = [p for p in players if p.conn is not None][0]
+  host_uuid = HOST.uuid; P = None
+  
+  u_overflow = []
+  playernameTxtbx = ""
+  hover_save_int, clicked_player_int = [None]*2
+  connected_players: list[Player] = [p for p in players if p.connClaimed] # == players if newGame
+  unclaimed_players: list[Player] = [p for p in players if not p.connClaimed] # == [] if newGame
+  
+  # region StateMap Declarations
+  forceRender: bool = True
+  inLobby: bool = True
+  successfulStart: bool = False
+  
+  selectPlayerFromSave: bool = False
+  setPlayerNameJoin: bool = False
+  waitingForJoin: bool = False
+  confirmClientInGameloop: bool = False
+  gameStartable: bool = False
+  # endregion
+  
+  if clientMode == "hostServer":
+    P = HOST; my_uuid = host_uuid
+    conn_dict[my_uuid] = P.conn
+    waitingForJoin = True
+  else:
+    # sync client's version of host uuid to host's version of host uuid
+    conn_dict["server"].uuid = host_uuid
+    conn_dict[host_uuid] = conn_dict["server"]
+    del conn_dict["server"]
+    HOST.conn = conn_dict[host_uuid]
+    print(f"[HANDSHAKE COMPLETE] Client Connected to {conn_dict[host_uuid]}")
+    if newGame:
+      setPlayerNameJoin = True
+    else:
+      selectPlayerFromSave = True
+      awaitResponse = False
+  
+  while inLobby:
+    # region Network Update Commands
+    u = fetch_updates(conn_dict) if not u_overflow else u_overflow
+    while len(u):
+      uuid, comm = u.pop(0)
+      if clientMode == "hostServer":
+        # command revieved from clients
+        if comm.dump() == "set server connection" and comm.val == DISCONN:
+          try:
+            p = find_player(uuid, players)
+            print(f"[PLAYER DROPPED] Disconnect Message Recieved from {conn_dict[uuid]}")
+            p.DISCONN()
+            if newGame:
+              players.remove(p) # this should deref p
+            else:
+              p.conn = None
+          except:
+            # Connection not yet assigned to player
+            pass
+          
+          del conn_dict[uuid] # this should deref p.conn
+        
+        elif comm.dump() == "set player name": # create new player
+          newplayer: Player = comm.val
+          newplayer.setGameObj(tilebag, board)
+          newplayer.conn = conn_dict[uuid]
+          players.append(newplayer)
+          overflow_update(u, u_overflow)
+        
+        elif comm.dump() == "set player uuid": # claim player from save
+          sel_p_uuid: UUID = comm.val
+          newplayer = find_player(sel_p_uuid, players)
+          if newplayer.connClaimed: # prevent race condition
+            print(f"[PLAYER CLAIM ERROR] Invalid Claim of {newplayer.name} from {p.conn}")
+            conn_dict[uuid].send(Command("set client selectionConfirmed", False))
+            continue
+          # overwrite old sel_p_uuid with client conn's real uuid
+          newplayer.conn = conn_dict[uuid]
+          print(f"[PLAYER CLAIMED] {newplayer.name} Claimed by {p.conn}")
+          newplayer.conn.send(Command("set client selectionConfirmed", True))
+          overflow_update(u, u_overflow)
+        
+        elif comm.dump() == "set player ready":
+          readiness: bool = comm.val
+          find_player(uuid, players).ready = readiness
+        
+        elif comm.dump() == "set game start" and comm.val:
+          clientsInGameloop += 1
+        
+        else: # unexpected / unknown command
+          print("UNEXPECTED COMMAND:", comm)
+          continue
+        
+        send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+      
+      else:
+        # command recieved from server
+        if comm.dump() == "set client connection" and comm.val == DISCONN:
+          # will break if P not yet set for client, but this *shouldn't* be possible
+          P.DISCONN()
+          inLobby = False
+          successfulStart = False
+        
+        elif comm.dump() == "set client gameState":
+          gameStateUpdate: bytes = comm.val
+          tilebag, board, players, bank = unpack_gameState(gameStateUpdate, conn_dict)
+        
+        elif comm.dump() == "set client selectionConfirmed":
+          awaitResponse = False
+          if d.val:
+            selectPlayerFromSave = False
+            try:
+              P = find_player(sel_p_uuid, players)
+              sel_p_uuid = None
+            except:
+              # catch for if "set client gameState" Command somehow beats "set client selectionConfirmed"
+              P = find_player(my_uuid, players)
+            P.conn = Connection("client", None, my_uuid)
+            conn_dict[my_uuid] = P.conn
+        
+        elif comm.dump() == "set game start" and comm.val:
+          waitingForJoin = False
+        
+        else: # unexpected / unknown command
+          print("UNEXPECTED COMMAND:", comm)
+          continue
+      
+      connected_players: list[Player] = [p for p in players if p.connClaimed]
+      unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
+      gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
+      HOST = find_player(host_uuid, players)
+      if my_uuid in [p.uuid for p in players]:
+        P = find_player(my_uuid, players)
+      forceRender = True
+    # endregion
+    
+    event = pygame.event.poll()
+    # region Render Process
+    if forceRender or event.type:
+      forceRender = False
+      # Clear the screen
+      screen.fill((255, 255, 255))
+      #Draw depending on current state
+      if selectPlayerFromSave:
+        drawinfo = (hover_player_int, clicked_player_int)
+        player_rects, load_rect = draw_selectPlayerFromSave(screen, drawinfo, unclaimed_players)
+      elif setPlayerNameJoin:
+        confirm_rect = draw_setPlayerNameJoin(screen, playernameTxtbx)
+      else:
+        player_rects, yesandno_rects = draw_waitingForJoin(screen, clientMode, connected_players, clicked_player_int, gameStartable)
+      # Update the display
+      pygame.display.flip()
+    # endregion
+    
+    # region Handle common events
+    if event.type == pygame.QUIT:
+      target = "client" if clientMode == "hostServer" else "server"
+      propagate(conn_dict, None, Command(f"set {target} connection", DISCONN))
+      myself = conn_dict.pop(my_uuid)
+      for conn_DISCONN in conn_dict.values():
+        conn_DISCONN.kill()
+      myself.kill()
+      inLobby = False
+      successfulStart = False
+    elif event.type == pygame.VIDEORESIZE:
+      # Apparently this is legacy code but idc
+      screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+    # endregion
+    
+    if selectPlayerFromSave:
+      # Get the mouse position
+      pos = pygame.mouse.get_pos()
+      for i, player_rect in enumerate(player_rects):
+        if player_rect.collidepoint(pos):
+          hover_player_int = i
+          break
+        else:
+          hover_player_int = None
+      if event.type == pygame.MOUSEBUTTONDOWN and not awaitResponse:
+        if hover_save_int is not None:
+          clicked_player_int = (hover_save_int if clicked_player_int != hover_save_int else None)
+        elif clicked_player_int is not None and load_rect.collidepoint(pos):
+          sel_p_uuid = unclaimed_players[clicked_player_int].uuid
+          HOST.conn.send(Command("set player uuid", sel_p_uuid))
+          clicked_player_int: int | None = None
+          awaitResponse = True
+    
+    elif setPlayerNameJoin:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        if confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 2:
+          setPlayerNameJoin = False
+          waitingForJoin = True
+          HOST.conn = None
+          P = deepcopy(HOST)
+          HOST.conn = conn_dict[host_uuid]
+          P.setGameObj(tilebag, board)
+          P.conn = Connection("client", None, my_uuid)
+          conn_dict[my_uuid] = P.conn
+          P.name = (playernameTxtbx, len(players)+1)
+          players.append(P)
+          HOST.conn.send(Command("set player name", P))
+          connected_players: list[Player] = [p for p in players if p.connClaimed]
+          unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
+          forceRender = True
+          clicked_player_int: int | None = None
+      elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
+        playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
+    
+    elif waitingForJoin:
+      if clientMode == "hostServer":
+        if event.type == pygame.MOUSEBUTTONDOWN:
+          # Get the mouse position
+          pos = event.dict["pos"]
+          for i, yesorno_rect in enumerate(yesandno_rects):
+            if yesorno_rect.collidepoint(pos):
+              if i == 0 and clicked_player_int is not None:
+                p = connected_players[clicked_player_int]
+                if p == HOST:
+                  break
+                p.conn.send(Command("set client connection", DISCONN))
+                p.DISCONN()
+                if newGame:
+                  players.remove(p) # this should deref p -> kill
+                else:
+                  p.conn = None
+                del conn_dict[p.uuid] # this should deref p.conn
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+                connected_players: list[Player] = [p for p in players if p.connClaimed]
+                unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
+                gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
+                forceRender = True
+                break
+              elif i == 1:
+                P.ready = not P.ready
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+                #                                              (requires all savedPlayers are connected)
+                gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
+                forceRender = True
+                break
+              elif i == 2:
+                gameStartable = len(connected_players) >= 2 and len(connected_players) == len(players) and all([p.ready for p in connected_players])
+                if gameStartable:
+                  waitingForJoin = False
+                  confirmClientInGameloop = True
+                  clientsInGameloop = 0
+                  propagate(conn_dict, None, Command("set game start", True))
+          for i, player_rect in enumerate(player_rects):
+            clicked_player_int = None
+            if player_rect.collidepoint(pos):
+              clicked_player_int = i
+              break
+        elif event.type == pygame.KEYDOWN and clicked_player_int is not None and pygame.key.get_focused():
+          clicked_player_int = text.nav_handler(event, connected_players, clicked_player_int, 2)
+      
+      else:
+        if event.type == pygame.MOUSEBUTTONDOWN:
+          # Get the mouse position
+          pos = event.dict["pos"]
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
               if i == 0:
-                settings = deepcopy(stockGameSettings)
+                HOST.conn.send(Command("set server connection", DISCONN))
+                P.DISCONN()
+                inLobby = False
+                successfulStart = False
               else:
-                customSettings = False
-      elif event.type == pygame.KEYDOWN and clicked_textbox_key is not None and pygame.key.get_focused():
-        settings, clicked_textbox_key = text.interface("customSettings", (settings, clicked_textbox_key, list(drawnSettings.keys())))
+                P.ready = not P.ready
+                HOST.conn.send(Command("set player ready", P.ready))
+        elif event.type == pygame.KEYDOWN and clicked_player_int is not None and pygame.key.get_focused():
+          clicked_player_int = text.nav_handler(event, connected_players, clicked_player_int, 2)
+    
+    elif confirmClientInGameloop: # only reachable for hostServer
+      # make sure all clients in gameloop before doing host-only gameloop setup
+      if clientsInGameloop == len(players) - 1:
+        confirmClientInGameloop = False
     
     else: #prep for game startup
-      from tilebag import TileBag
-      tilebag = TileBag(*settings["board"].values())
-      from stats import Stats
-      globalStats = Stats(globalStats=True)
-      from board import Board
-      board = Board(settings["bank"]["Chain Size Cost Cap"])
-      from bank import Bank
-      bank = Bank(*settings["bank"].values(),
-                  *settings["bankClassic"].values(),
-                  *settings["bankLogarithmic"].values(),
-                  *settings["bankExponential"].values())
-      
-      from player import Player
-      order = []
-      for name in playernames:
-        gamestarttileID = tilebag.drawtile()
-        gamestarttile = tilebag.tileIDinterp([gamestarttileID])
-        board.debug_tilesinplayorder.append(gamestarttile[0])
-        # print(f'{name} drew {gamestarttile[0]}!')
-        order.append( (Player(name, *settings["player"].values()), gamestarttile) )
-      players: list[Player] = [tup[0] for tup in sorted(order, key=operator.itemgetter(1))]
-      
-      personal_info_names = [p.name for p in players]
-      if HIDE_PERSONAL_INFO:
-        for i, p in enumerate(players): p.name=f"Player {i+1}" 
-      # print('Player order is:', *sortedplayers)
-      for p in players:
-        p.drawtile(p.tileQuant)
-      sortactiveIDs = tilebag.tilesToIDs(board.debug_tilesinplayorder)
-      sortactiveIDs.sort()
-      board.tilesinplay = tilebag.tileIDinterp(sortactiveIDs)
-      
-      pygame.display.set_caption('Acquire Board')
-      acquireSetup = False
-      successfullBoot = True
+      successfulStart = True
+      inLobby = False
+      gameState = (tilebag, board, players, bank)
     
-    clock.tick(framerate)
-  return successfullBoot, tilebag, board, bank, players, personal_info_names, globalStats
+    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+
+  
+  return successfulStart, gameState, my_uuid
