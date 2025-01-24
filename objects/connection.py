@@ -46,8 +46,8 @@ class Command:
 class KillableThread(threading.Thread):
   def __init__(self, group: None = None, target = None, name: str | None = None, args: tuple | list = (), kwargs: tuple[str | None] | None = None, *, daemon: bool | None = None) -> None:
     self.kill_event = threading.Event()
-    if args is None:
-      args = (self.kill_event)
+    if not args:
+      args = (self.kill_event,)
     else:
       args = (self.kill_event, *args)
     super().__init__(group, target, name, args, kwargs, daemon=daemon)
@@ -102,18 +102,18 @@ class Connection:
       print(*var)
   
   def listen(self, kill_event:threading.Event, sock:socket.socket):
-    while not kill_event.isSet():
+    while not kill_event.is_set():
       try:
         data_len = sock.recv(HEADERSIZE).decode(FORMAT)
       except ConnectionResetError as err:
         # catch when connection drops you
-        if not kill_event.isSet():
+        if not kill_event.is_set():
           # catch when connection quits unexpectedly!
           self._error_log(err)
         break
       except ConnectionAbortedError as err:
         # catch when you quit
-        if not kill_event.isSet():
+        if not kill_event.is_set():
           # catch when you quit unexpectedly!
           self._error_log(err)
         break

@@ -15,14 +15,14 @@ gameUtils = (screen, clock)
 
 # region Pregame Config
 from pregame import config
-from objects.networking import start_client, start_server
+from objects.networking import start_client, start_server, Connection
 
 clientReady = False
 while not clientReady:
   successfullBoot, clientMode, newGame, gameState = config(gameUtils)
   
   conn_dict = dict()
-  def clean_quit(conn_dict):
+  def clean_quit(conn_dict: dict[str, Connection]):
     for conn in conn_dict.values():
       conn.kill()
     del conn_dict
