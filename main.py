@@ -28,6 +28,8 @@ while not clientReady:
     del conn_dict
     if clientMode == "hostServer":
       serverThread.kill()
+      if reverseProxy is not None:
+        reverseProxy.kill()
     # Shut down Pygame
     pygame.quit()
     sys.exit()
@@ -39,7 +41,7 @@ while not clientReady:
     pygame.display.set_caption('Acquire')
   
   elif clientMode == "hostServer":
-    serverThread, conn_dict = start_server(conn_dict, newGame, gameState)
+    serverThread, reverseProxy, conn_dict = start_server(conn_dict, newGame, gameState)
     pygame.display.set_caption('Game Lobby [Host]')
   
   elif clientMode == "join":

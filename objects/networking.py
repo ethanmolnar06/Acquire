@@ -1,42 +1,100 @@
 import socket
 import threading
 import uuid
+import subprocess
+import shutil
 from requests import get
 
-from objects.connection import Command, KillableThread, Connection, DISCONN
+from objects.connection import Command, KillableThread, Connection, PORT, DISCONN
 from objects.player import Player
 
-# NET Protocol
-PORT = 30545
+class Proxy():
+  def __init__(self):
+    self.tunnelBuilt = False
+    self.proxy_url = None
+    self.processKilled = False
+    self.thread = KillableThread(target=self.reverse_proxy)
+    self.thread.start()
+  
+  def kill(self):
+    self.thread.kill()
+  
+  def reverse_proxy(self, kill_event:threading.Event):
+    lhrun = f"ssh -o ServerAliveInterval=60 -R 80:127.0.0.1:{PORT} nokey@localhost.run".split()
+    output_filter = {b"\x1b", b"authenticated", b"https://localhost.run/docs/forever-free/", b"mobile"}
+    
+    process = subprocess.Popen(lhrun, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    print("[PROXY] Opening Reverse Proxy for Public Clients")
+    
+    while not kill_event.isSet():
+      if process.poll() is not None:
+        kill_event.set()
+      
+      if process.stdout:
+        response = process.stdout.readline().strip().decode()
+        if response and not any([fil in response.encode() for fil in output_filter]):
+          # expecting https://XXXXXXXXXXXXXX.lhr.life
+          self.proxy_url = "https://" + response.split("https://")[-1]
+          if not self.tunnelBuilt:
+            print("[PROXY SUCCESS] Reverse Proxy Open for Public Clients")
+            self.tunnelBuilt = True
+          else:
+            print("[PROXY REFRESHED] New Reverse Proxy Link")
+          
+    
+    if self.proxy_url is None:
+      print("[PROXY FAILURE] Reverse Proxy Failed to Connect")
+    else:
+      print("[PROXY CLOSED] Reverse Proxy Disconnected")
+    
+    process.kill()
+    self.processKilled = True
 
-def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState: tuple) -> tuple[KillableThread, dict[uuid.UUID, Connection]]:
+def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState: tuple) -> tuple[KillableThread, Proxy | None, dict[uuid.UUID, Connection]]:
   server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TCP style
   server.settimeout(3.0) # time to wait in sec
   server.bind(("", PORT))
   print(f"[SERVER INITALIZED]")
   
-  from common import pack_gameState
-  def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
-    # region Get IPs
-    publicip = get('https://api.ipify.org').text
-    ip = None
-    possibleips = [ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")]
-    ipFilterPrio = ["192.168.0.", "172.16.0.", "10.0.0.",
-                    "192.168.1.", "172.16.1.", "10.0.1.",
-                    "192.168.",   "172.16.",   "10.0.",
-                    "192.",       "172.",      "10."]
-    for filter in ipFilterPrio:
-      try:
-        ip = [ip for ip in possibleips if ip.startswith(filter)][0]
-        break
-      except IndexError:
-        continue
-    if ip is None:
-      ip = socket.gethostbyname(socket.gethostname())
+  # region Get IPs
+  from common import ALLOW_PUBLIC_IP, ALLOW_REVERSE_PROXY
+  ip = None
+  possibleips = [ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")]
+  ipFilterPrio = ["192.168.0.", "172.16.0.", "10.0.0.",
+                  "192.168.1.", "172.16.1.", "10.0.1.",
+                  "192.168.",   "172.16.",   "10.0.",
+                  "192.",       "172.",      "10."]
+  for filter in ipFilterPrio:
+    try:
+      ip = [ip for ip in possibleips if ip.startswith(filter)][0]
+      break
+    except IndexError:
+      continue
+  if ip is None:
+    ip = socket.gethostbyname(socket.gethostname())
+  listening_str = f"[LISTENING] Listening at {ip} (local)"
+  
+  reverseProxy = None
+  if ALLOW_PUBLIC_IP:
+    # region localhost.run reverse proxy
+    if ALLOW_REVERSE_PROXY and shutil.which("ssh"):
+      reverseProxy = Proxy()
+      while reverseProxy.tunnelBuilt is None:
+        if reverseProxy.tunnelBuilt and reverseProxy.proxy_url is not None:
+          listening_str += f" & {reverseProxy.proxy_url} (public)"
+          break
     # endregion
     
-    server.listen()
-    print(f"[LISTENING] Listening at {ip} (local) & {publicip} (public)")
+    if not ALLOW_REVERSE_PROXY or reverseProxy is None:
+      publicip = get('https://api.ipify.org').text
+      listening_str += f" & {publicip} (public)"
+  # endregion
+  
+  server.listen()
+  print(listening_str)
+  
+  from common import pack_gameState
+  def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
     while not kill_event.isSet():
       try:
         client, addr = server.accept()
@@ -59,7 +117,7 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   serverThread = KillableThread(target=accept_conn, args=(newGame, gameState))
   serverThread.start()
   
-  return serverThread, conn_dict
+  return serverThread, reverseProxy, conn_dict
 
 def start_client(ip, conn_dict) -> dict[str, Connection]:
   client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

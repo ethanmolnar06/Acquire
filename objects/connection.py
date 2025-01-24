@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 # COMM Protocol
+PORT = 30545
 HEADERSIZE = 8
 FORMAT = "utf-8"
 DISCONN = "!DISCONNECT!"
