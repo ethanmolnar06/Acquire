@@ -3,6 +3,7 @@ import threading
 import uuid
 import subprocess
 import shutil
+from typing import Callable
 from requests import get
 
 from objects.connection import Command, KillableThread, Connection, PORT, DISCONN
@@ -12,37 +13,58 @@ class Proxy():
   def __init__(self):
     self.tunnelBuilt = False
     self.proxy_url = None
-    lhrun = f"ssh -o ServerAliveInterval=60 -R 80:127.0.0.1:{PORT} nokey@localhost.run".split()
-    self.process = subprocess.Popen(lhrun, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    self.thread = KillableThread(target=self.reverse_proxy, args=(self.process,))
+    
+    self.proxies = {
+      "serveo.net": {b"Forwarding HTTP traffic from",}, # https://groups.google.com/g/serveo & https://github.com/u1i/tools/blob/master/serveo.md
+      "localhost.run": {b"tunneled with tls termination",}, # https://localhost.run/docs/
+    }
+    
+    for prox in self.proxies.keys():
+      ssh_cmd = f"ssh -o ServerAliveInterval=60 -R 80:127.0.0.1:{PORT} nokey@{prox}".split()
+      
+      def clean_response(stdout: bytes) -> str | None:
+        if stdout and any([fil in stdout.strip() for fil in self.proxies[prox]]):
+          # expecting https://XXXXXXXXXXXXXX.{proxy}.XXXX
+          return "https://" + stdout.strip().decode().split("https://")[-1]
+      
+      try:
+        test_stdout = subprocess.run(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=1.5).stdout
+      except subprocess.TimeoutExpired as e:
+        test_stdout = e.stdout
+      
+      if clean_response(test_stdout) is not None:
+        print("[PROXY] Opening Reverse Proxy for Public Clients")
+        break
+    
+    self.process = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    self.thread = KillableThread(target=self.reverse_proxy, args=(clean_response,))
     self.thread.start()
   
   def kill(self):
     self.process.kill()
     self.thread.kill()
   
-  def reverse_proxy(self, kill_event: threading.Event , process: subprocess.Popen[bytes]):
-    print("[PROXY] Opening Reverse Proxy for Public Clients")
-    output_filter = {b"\x1b", b"authenticated", b"https://localhost.run/docs/forever-free/", b"mobile"}
-    
-    while not kill_event.isSet() and process.poll() is None:
-      if process.stdout:
-        response = process.stdout.readline().strip().decode()
-        if response and not any([fil in response.encode() for fil in output_filter]):
-          # expecting https://XXXXXXXXXXXXXX.lhr.life
-          self.proxy_url = "https://" + response.split("https://")[-1]
-          if not self.tunnelBuilt:
-            print("[PROXY SUCCESS] Reverse Proxy Open for Public Clients")
-            self.tunnelBuilt = True
-          else:
-            print("[PROXY REFRESHED] New Reverse Proxy Link")
+  def reverse_proxy(self, kill_event: threading.Event, clean_response: Callable[[bytes], str | None]):
+    while not kill_event.isSet() and self.process.poll() is None:
+      response = self.process.stdout.readline().strip()
+      if not response:
+        continue
+      url = clean_response(response)
+      if url is None:
+        continue
+      self.proxy_url = url
+      if not self.tunnelBuilt:
+        print("[PROXY SUCCESS] Reverse Proxy Open for Public Clients")
+        self.tunnelBuilt = True
+      else:
+        print("[PROXY REFRESHED] New Reverse Proxy Link")
     
     if self.proxy_url is None:
       print("[PROXY FAILURE] Reverse Proxy Failed to Connect")
     else:
       print("[PROXY CLOSED] Reverse Proxy Disconnected")
     
-    process.kill()
+    self.process.kill()
 
 def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState: tuple) -> tuple[KillableThread, Proxy | None, dict[uuid.UUID, Connection]]:
   server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TCP style
