@@ -7,8 +7,8 @@ parser.add_argument("--debug", action="store_true")
 options = parser.parse_args()
 
 added_files = [
-         ('fonts', 'fonts'),
-         ]
+        ('assets/fonts', 'fonts'),
+        ]
 
 a = Analysis( # type: ignore
     ['main.py'],

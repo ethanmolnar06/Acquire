@@ -85,7 +85,10 @@ class Colors:
     return chaincolor
 
 class Fonts:
-  fontspath: str = os.path.relpath(pkgutil.resolve_name("fonts").__path__[0])
+  try:
+    fontspath: str = pkgutil.resolve_name("fonts").__path__[0]
+  except Exception as e:
+    fontspath: str = r".\assets\fonts"
   main = os.path.join(fontspath, 'timesnewroman.ttf')
   tile = os.path.join(fontspath, 'arial_narrow.ttf')
   oblivious = os.path.join(fontspath, 'oblivious.ttf')
