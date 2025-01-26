@@ -4,6 +4,7 @@ import uuid
 import subprocess
 import shutil
 import re
+from random import randint
 from io import BytesIO
 from typing import Callable
 from requests import get
@@ -15,7 +16,7 @@ class Proxy():
   prox: dict[str, dict[str, str | re.Pattern]] = {
       "serveo.net": { # https://groups.google.com/g/serveo & https://github.com/u1i/tools/blob/master/serveo.md
         "subdom": "",
-        "port": f"{PORT}",
+        "port": str(randint(13948, 58472)),
         "success": re.compile(r"Forwarding (?P<p>\w+) \w+ from (?:\w+?:\/\/)?(?P<u>\w+?.serveo.net|[\w.]+?:\d+)"),
       }, 
       # "localhost.run": { # https://localhost.run/docs/ 
@@ -143,8 +144,8 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
     if ALLOW_REVERSE_PROXY and shutil.which("ssh"):
       reverseProxy = Proxy()
       while reverseProxy.thread.is_alive():
-        if reverseProxy.tunnelBuilt and reverseProxy.hostname is not None:
-          listening_str += f" & {reverseProxy.hostname} (public)"
+        if reverseProxy.tunnelBuilt and reverseProxy.addr is not None:
+          listening_str += f" & {reverseProxy.addr}:{reverseProxy.port} (public)"
           break
     # endregion
     
@@ -183,9 +184,13 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   
   return serverThread, reverseProxy, conn_dict
 
-def start_client(ip, conn_dict: dict[str, Connection]) -> dict[str, Connection]:
+def start_client(ip: str, conn_dict: dict[str, Connection]) -> dict[str, Connection]:
   client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  client.connect((ip, PORT))
+  if ":" in ip:
+    ip, port = ip.split(":")
+    client.connect((ip, int(port)))
+  else:
+    client.connect((ip, PORT))
   
   hostConn = Connection("server", client, "AWAITING HANDSHAKE")
   conn_dict["server"] = hostConn

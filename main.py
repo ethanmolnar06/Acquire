@@ -53,8 +53,9 @@ while not clientReady:
       gameState = None
       clientReady = True
       pygame.display.set_caption('Game Lobby [Client]')
-    except:
+    except Exception as e:
       print("[CONNECTION FAILURE] Client Failed to Connect")
+      print(e)
       continue
   clientReady = True
 # endregion

@@ -62,7 +62,9 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
   clientMode = "hostLocal"
   
   askHostJoin: bool = True if allowNonLocal else False
-  askJoinCode: bool = False
+  askProxyNAT: bool = False
+  askNATIP: bool = False
+  askProxyURL: bool = False
   askHostLocal: bool = False
   askLoadSave: bool = False if allowNonLocal else True
   selectSaveFile: bool = False
@@ -82,9 +84,14 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
       #Draw depending on current state
       if askHostJoin:
         yesandno_rects = draw_fullscreenSelect(screen, 'hostJoin')
-      elif askJoinCode:
-        title = "Enter Host IP"; confirm_label = 'Connect'
+      if askProxyNAT:
+        yesandno_rects = draw_fullscreenSelect(screen, 'proxyNAT')
+      elif askNATIP:
+        title = "Enter Host NAT IP"; confirm_label = 'Connect'
         yesandno_rects = draw_singleTextBox(screen, ipTxtbx, title, confirm_label)
+      elif askProxyURL:
+        title = "Enter Host Proxy IP/URL"; confirm_label = 'Connect'
+        yesandno_rects = draw_singleTextBox(screen, url_textbox, title, confirm_label)
       elif setPlayerNameHost:
         title = "Enter Your Username"; confirm_label = 'Start Server'
         yesandno_rects = draw_singleTextBox(screen, playernameTxtbx, title, confirm_label)
@@ -130,32 +137,63 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
           if yesorno_rect.collidepoint(pos):
             askHostJoin = False; forceRender = True
             if i == 1:
-              askJoinCode = True
-              ipTxtbx: str = ""
+              askProxyNAT = True
               newGame = None
             else:
               askHostLocal = True
     
+    elif askProxyNAT:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        # Check if askProxyNAT was clicked
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            askProxyNAT = False; forceRender = True
+            if i == 1:
+              askNATIP = True
+              ipTxtbx: str = ""
+            else:
+              askProxyURL = True
+              url_textbox: str = ""
+    
     # possibly rework to make ip "." static on display
     # format ip as 4 sets of up to 3 digit numbers
     # or use join codes -> url -> ip tunnel
-    elif askJoinCode: # only reachable for join
+    elif askNATIP: # only reachable for join
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = event.dict["pos"]
         for i, yesorno_rect in enumerate(yesandno_rects):
           if yesorno_rect.collidepoint(pos):
             if i == 0:
-              askJoinCode = False; forceRender = True
+              askNATIP = False; forceRender = True
               askHostJoin = True
             else:
               # TODO valid ip checker
               if len(ipTxtbx) >= 7: # minimum 0.0.0.0 ip length
-                askJoinCode = False; forceRender = True
+                askNATIP = False; forceRender = True
                 clientMode = "join"
                 gameState: str = ipTxtbx
       elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
         ipTxtbx: str = text.crunch_ip(event, ipTxtbx)
+    
+    elif askProxyURL:
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        # Get the mouse position
+        pos = event.dict["pos"]
+        for i, yesorno_rect in enumerate(yesandno_rects):
+          if yesorno_rect.collidepoint(pos):
+            if i == 0:
+              askProxyURL = False; forceRender = True
+              askHostJoin = True
+            else:
+              if len(url_textbox) >= 10: # arbitrary limit
+                askProxyURL = False; forceRender = True
+                clientMode = "join"
+                gameState: str = url_textbox
+      elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
+        url_textbox: str = text.crunch_url(event, url_textbox)
     
     elif askHostLocal:
       if event.type == pygame.MOUSEBUTTONDOWN:

@@ -115,3 +115,23 @@ def crunch_customSettings_nav(event: pygame.event.Event, settings: dict[str], cl
     if not (key == pygame.K_PERIOD and "." in settings[outerkey][clicked_textbox_key]):
       settings[outerkey][clicked_textbox_key] += pygame.key.name(key).strip("[]")
   return settings, clicked_textbox_key
+
+def crunch_url(event: pygame.event.Event, url_textbox: str):
+  txt, key, mods = unpack_event(event)
+  # region handle specific key interactions
+  if key == pygame.K_BACKSPACE:
+    return url_textbox[:-1]
+  elif key == pygame.K_DELETE:
+    return ''
+  # endregion
+  
+  # general char add
+  elif is_letter(key) or is_digit(key) or key in {pygame.K_PERIOD, pygame.K_COLON}:
+    # handle copy/cut/paste
+    if mods & pygame.KMOD_CTRL:
+      allowed_chars = string.ascii_letters + string.digits + ".:"
+      return ctrl_handler(key, url_textbox, allowed_chars)
+    else:
+      # txt handles shift
+      return url_textbox + txt
+  return url_textbox

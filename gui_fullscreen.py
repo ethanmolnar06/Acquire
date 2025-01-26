@@ -488,6 +488,9 @@ def draw_fullscreenSelect(surface: Surface, drawinfo: str) -> list[Rect]:
   if drawinfo == 'hostJoin': 
     title = 'Will you Host or Join a Game?'
     bianary_choices = ['Host', 'Join']
+  elif drawinfo == 'proxyNAT': 
+    title = 'Will you Join via a Proxy or on local NAT?'
+    bianary_choices = ['Proxy', 'NAT']
   elif drawinfo == 'hostLocal': 
     title = 'Will you Host Locally or on a Server?'
     bianary_choices = ['Local', 'Server']
