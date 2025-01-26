@@ -227,10 +227,10 @@ def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Con
   updates: list[tuple[uuid.UUID, Command]] = []
   # print([str(conn) for conn in conns])
   for conn in conns:
-    if conn.comm is None:
+    if not conn.outbox:
       continue
-    while conn.comm is not None:
-      # print([str(comm) for comm in conn.comm])
+    while conn.inbox:
+      # print([str(comm) for comm in conn.inbox])
       u = (conn.uuid, conn.fetch())
       updates.append(u)
   return updates

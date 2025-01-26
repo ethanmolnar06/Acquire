@@ -563,7 +563,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     if event.type == pygame.QUIT:
       target = "client" if clientMode == "hostServer" else "server"
       propagate(conn_dict, None, Command(f"set {target} connection", DISCONN))
-      myself = conn_dict.pop(my_uuid)
+      myself = conn_dict.pop(my_uuid) # errors if joining player's name not set
       for conn_DISCONN in conn_dict.values():
         conn_DISCONN.kill()
       myself.kill()

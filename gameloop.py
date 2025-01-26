@@ -550,7 +550,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           buyPhase = len(board.fetchactivechains()) > 0 and any([bank.stocks[chain] for chain in board.fetchactivechains()]) and p.bal >= bank.fetchcheapeststock()[1]
           # print(gameEndable, buyPhase)
           if buyPhase:
-            askToBuy = True
+            askToBuy = True; forceRender = True
           if not gameEndable and not askToBuy:
             skipRender = True
         

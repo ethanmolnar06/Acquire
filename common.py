@@ -11,17 +11,21 @@ from objects.networking import extrctConns, propagate
 
 # TODO move these permisions to config.json & add argparse for cmd line launching
 # GLOBAL GAME PERMISSIONS & CONFIG
-DIR_PATH = os.path.realpath(os.curdir)
 HIDE_PERSONAL_INFO = False
 ALLOW_SAVES = True
 ALLOW_QUICKSAVES = True
+VARIABLE_FRAMERATE = True
+MAX_FRAMERATE = 120
+
+# MULTIPLAYER CONFIG
 ALLOW_REJOIN = True
 ALLOW_PUBLIC_IP = True
 ALLOW_REVERSE_PROXY = True
-VARIABLE_FRAMERATE = True
-MAX_FRAMERATE = 120
 PRINT_NETWORKING_DEBUG = False
 PRINT_PROXY_DEBUG = False
+
+
+DIR_PATH = os.path.realpath(os.curdir)
 NO_RENDER_EVENTS = {0, 770, 1024, 1027,
                     32768, 32783, 32784, 32785, 32786, 32770}
 
