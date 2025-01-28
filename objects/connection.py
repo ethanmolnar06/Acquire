@@ -5,12 +5,14 @@ import uuid
 import traceback as tb
 from time import sleep
 from datetime import datetime
+from typing import Literal
 
 # COMM Protocol
-PORT = 30545
-HEADERSIZE = 8
-FORMAT = "utf-8"
-DISCONN = "!DISCONNECT!"
+PORT: int = 30545
+HEADERSIZE: int = 8
+FORMAT: str = "utf-8"
+DISCONN: str = "!DISCONNECT!"
+KILL: str = "!KILL!"
 
 class Command:
   def __init__(self, action_obj_key:str, val) -> None:
@@ -62,8 +64,9 @@ class Connection:
   def __init__(self, addr: str, sock:socket.socket | None, my_uuid: uuid.UUID | None = None) -> None:
     self.uuid = uuid.uuid4() if my_uuid is None else my_uuid
     self.addr = addr
-    self.inbox: list[Command] = []
-    self.outbox: list[Command] = []
+    self.inbox: list[Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]] = []
+    self.outbox: list[Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]] = []
+    self._sock: socket.socket | None = None
     self.sock: socket.socket | None = sock
   
   def __str__(self) -> str:
@@ -73,23 +76,31 @@ class Connection:
   def sock(self) -> socket.socket | None:
     return self._sock
   
+  def _kill_thread(self, thread: KillableThread) -> None:
+    if thread is not None:
+      thread.kill()
+      while thread.is_alive():
+        pass
+      thread = None
+  
   @sock.setter
   def sock(self, sock: socket.socket | None) -> None:
-    # print("setting sockets!")
-    self._sock = sock
     if sock is not None:
+      self._sock = sock
       self._listen_thread = KillableThread(target=self._listen)
       self._listen_thread.start()
       self._send_thread = KillableThread(target=self._send)
       self._send_thread.start()
     else:
-      self._listen_thread = None
-      self._send_thread = None
+      if self._sock is not None:
+        self._sock.close()
+        self._kill_thread(self._send_thread)
+        self._kill_thread(self._listen_thread)
+      self._sock = sock
   
   def _error_log(self, err) -> None:
     print(f"[CONNECTION ERROR] Error with {self}")
     print(f"[CONNECTION ERROR] {err}")
-    self.kill()
   
   def _network_print(self, *var):
     from common import PRINT_NETWORKING_DEBUG
@@ -102,105 +113,130 @@ class Connection:
         try:
           data_len = self.sock.recv(HEADERSIZE).decode(FORMAT)
         except ConnectionResetError as err:
-          # catch when connection drops you
-          if not kill_event.is_set():
-            # catch when connection quits unexpectedly!
-            self._error_log(err)
-          break
+          # catch when connection drops you unexpectedly
+          raise err
         except ConnectionAbortedError as err:
-          # catch when you quit
-          if not kill_event.is_set():
-            # catch when you quit unexpectedly!
-            self._error_log(err)
-          break
+          # catch when you quit unexpectedly
+          raise err
         
         if not data_len:
           continue
         
         data: bytes = self.sock.recv(int(data_len))
         try:
-          comm: Command = pickle.loads(data)
-          self._network_print("RECV", data_len, comm)
-          if comm.val == DISCONN:
-            return
-          if comm.dump() == "comms recv error":
+          comm: Command | Literal[b"!DISCONNECT!"] | Literal[b"!KILL!"] = pickle.loads(data)
+          if not isinstance(comm, Command):
+            comm = comm.decode(FORMAT)
+          self._network_print("RECV", data_len, comm, str(self).split(" @" )[0])
+          
+          if isinstance(comm, Command) and comm.dump() == "comms recv error":
             self._recieved = not comm.val
           else:
-            self.send(Command("comms recv error", False))
+            if not comm == KILL:
+              self.send(Command("comms recv error", False))
             self.inbox.append(comm)
           
         except pickle.UnpicklingError as err:
           self._error_log("Corrupted Command Recieved, Asking for Relay")
           self.send(Command("comms recv error", True))
+        
+        if comm in {DISCONN, KILL}:
+          return
       
     except Exception as err:
       self._error_log(err)
       tb.print_tb(err.__traceback__)
-      self.kill_send_thread()
   
   def _send(self, kill_event: threading.Event):
     try:
       while not kill_event.is_set():
         if self.sock is None:
-          self._error_log("Attempting to Send to Empty Socket")
+          raise ConnectionError("Attempting to Send to Empty Socket")
         if not self.outbox:
           sleep(.1)
           continue
         
+        self._recieved = None
         comm = self.outbox.pop(0)
-        data = comm.pack()
+        data = comm.pack() if isinstance(comm, Command) else pickle.dumps(comm.encode(FORMAT), 5)
         data_len = f"{len(data)}".encode(FORMAT)
         data_len_padded = data_len + b' ' * (HEADERSIZE - len(data_len))
         
         # retry sending until command confirmed recieved
         while self._listen_thread and not kill_event.is_set():
           tries = 1.
-          self._network_print(self)
-          self._network_print("SEND", data_len_padded.decode(FORMAT), comm)
-          self._recieved = None
+          self._network_print("SEND", data_len_padded.decode(FORMAT), comm, str(self).split(" @" )[0])
           self.sock.sendall(data_len_padded)
           self.sock.sendall(data)
           
           # region await confirm command
-          if comm.val == DISCONN or comm.dump() == "comms recv error":
+          if comm == KILL or (isinstance(comm, Command) and comm.dump() == "comms recv error"):
             break
           while self._recieved is None and self._listen_thread and not kill_event.is_set():
             sleep(tries/10.)
             tries += 1.
+            if tries > 30:
+              # error on the other side likely
+              raise ConnectionError("Confirm Command not Recieved After Excessive Waiting")
           if self._recieved:
             break
           # endregion
         
-        if comm.val == DISCONN:
+        if comm in {DISCONN, KILL}:
           return
       
     except Exception as err:
       self._error_log(err)
       tb.print_tb(err.__traceback__)
-      self.kill_listen_thread()
   
-  def kill_listen_thread(self) -> None:
-    if self._listen_thread is not None:
-      self._listen_thread.kill()
-      self._listen_thread = None
+  def syncSendDISCONN(self, inResponse: bool = False) -> None:
+    print(f"[PLAYER DROPPED] Disconnect Message Recieved from {self}")
+    
+    if self.sock is None:
+      return
+    
+    waitTime: float = .1
+    def err_timer(waitTime):
+      sleep(waitTime)
+      waitTime += .1
+      if waitTime > 1.:
+        raise ConnectionAbortedError("Assuming Error, Hard Closing")
+      return waitTime
+    
+    try:
+      # homemade socket.shutdown() protocol to guarentee proper threaded shutdown
+      # wait for OUR inbox == THEIR outbox to clear
+      self._network_print("[SOCKET SHUTDOWN STEP 1] Clearing Socket Inbox")
+      while self.inbox:
+        _ = self.fetch() # temp code until the fetch_updates codeloop becomes it's own thread
+      self._network_print("[SOCKET SHUTDOWN STEP 2] Sending DISCONN")
+      # add DISCONN to the end of OUR outbox
+      self.send(DISCONN if not inResponse else KILL)
+      # wait for OUR outbox == THEIR inbox to clear
+      # until it is sent and confirmed recieved
+      self._network_print("[SOCKET SHUTDOWN STEP 3] Awaiting DISCONN Confirm Reciept")
+      while self.outbox or not (self._recieved or inResponse):
+        # print(self.outbox, self._recieved, inResponse)
+        waitTime = err_timer(waitTime)
+      # returns down OUR _send and THEIR _recieve
+      # wait for reciprocal KILL in OUR inbox
+      self._network_print("[SOCKET SHUTDOWN STEP 4] Awaiting KILL")
+      while not (self.inbox or inResponse):
+        # print(self.inbox, inResponse)
+        waitTime = err_timer(waitTime)
+      # recieved reciprocal KILL or came late to the party
+      self._network_print("[SOCKET SHUTDOWN STEP 5] KILL Recieved, Socket Terminated")
+    except ConnectionAbortedError as err:
+      self._error_log(err)
+    
+    self.sock.shutdown(socket.SHUT_RDWR)
+    self.sock = None
+    print(f"[CONNECTION CLOSED] Disconnected from {self}")
   
-  def kill_send_thread(self) -> None:
-    if self._send_thread is not None:
-      self._send_thread.kill()
-      self._send_thread = None
-  
-  def kill(self) -> None:
-    if self.sock is not None:
-      self.kill_listen_thread()
-      self.kill_send_thread()
-      self._sock.close()
-      self.sock = None
-      print(f"[CONNECTION CLOSED] Disconnected from {self}")
-  
-  def send(self, command: Command) -> None:
+  def send(self, command: Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]) -> None:
     self.outbox.append(command)
   
-  def fetch(self) -> Command | None:
+  def fetch(self) -> Command | Literal["!DISCONNECT!"] | Literal["!KILL!"] | None:
     if not self.inbox:
       return
     return self.inbox.pop(0)

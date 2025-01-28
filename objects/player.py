@@ -1,5 +1,7 @@
 import operator
 import uuid
+from typing import Self
+from copy import deepcopy
 
 from objects.tilebag import TileBag
 from objects.board import Board
@@ -54,9 +56,17 @@ class Player:
       self.connClaimed = False
       self.uuid = uuid.uuid4()
   
-  def DISCONN(self):
+  def copy(self) -> Self:
+    CONN = self._conn
+    self._conn = None
+    newplayer = deepcopy(self)
+    self._conn = CONN
+    newplayer.setGameObj(self._tilebag, self._board)
+    return newplayer
+  
+  def syncSendDISCONN(self, inResponse: bool = False):
     if self.conn is not None:
-      self.conn.kill()
+      self.conn.syncSendDISCONN(inResponse)
   
   def setGameObj(self, tilebag: TileBag, board: Board):
     self._tilebag = tilebag

@@ -4,7 +4,7 @@ from uuid import UUID
 from copy import deepcopy
 
 from objects import *
-from objects.networking import DISCONN, fetch_updates, propagate
+from objects.networking import fetch_updates, propagate, DISCONN
 from common import DIR_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
@@ -401,6 +401,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           handshake: tuple[UUID, bool, bytes] = d.val
           my_uuid, newGame, gameStateUpdate = handshake
           gameState = unpack_gameState(gameStateUpdate, conn_dict)
+          conn_dict[my_uuid] = Connection("client", None, my_uuid)
           break
   
   screen, clock = gameUtils
@@ -432,6 +433,19 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     P = HOST; my_uuid = host_uuid
     conn_dict[my_uuid] = P.conn
     waitingForJoin = True
+    
+    def deref_player(uuid: UUID):
+      del conn_dict[uuid]
+      try:
+        p = find_player(uuid, players)
+        if newGame:
+          players.remove(p) # this should deref p
+        else:
+          p.conn = None # last pointer, this should deref the actual conn
+      except:
+        # Connection not yet assigned to player
+        pass
+    
   else:
     # sync client's version of host uuid to host's version of host uuid
     conn_dict["server"].uuid = host_uuid
@@ -452,20 +466,9 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       uuid, comm = u.pop(0)
       if clientMode == "hostServer":
         # command revieved from clients
-        if comm.dump() == "set server connection" and comm.val == DISCONN:
-          try:
-            p = find_player(uuid, players)
-            print(f"[PLAYER DROPPED] Disconnect Message Recieved from {conn_dict[uuid]}")
-            p.DISCONN()
-            if newGame:
-              players.remove(p) # this should deref p
-            else:
-              p.conn = None
-          except:
-            # Connection not yet assigned to player
-            pass
-          
-          del conn_dict[uuid] # this should deref p.conn
+        if comm == DISCONN:
+          conn_dict[uuid].syncSendDISCONN(inResponse=True)
+          deref_player(uuid)
         
         elif comm.dump() == "set player name": # create new player
           newplayer: Player = comm.val
@@ -502,9 +505,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       
       else:
         # command recieved from server
-        if comm.dump() == "set client connection" and comm.val == DISCONN:
-          # will break if P not yet set for client, but this *shouldn't* be possible
-          P.DISCONN()
+        if comm == DISCONN:
+          HOST.syncSendDISCONN(inResponse=True)
           inLobby = False
           successfulStart = False
         
@@ -561,12 +563,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     
     # region Handle common events
     if event.type == pygame.QUIT:
-      target = "client" if clientMode == "hostServer" else "server"
-      propagate(conn_dict, None, Command(f"set {target} connection", DISCONN))
-      myself = conn_dict.pop(my_uuid) # errors if joining player's name not set
       for conn_DISCONN in conn_dict.values():
-        conn_DISCONN.kill()
-      myself.kill()
+        conn_DISCONN.syncSendDISCONN()
       inLobby = False
       successfulStart = False
     elif event.type == pygame.VIDEORESIZE:
@@ -599,12 +597,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         if confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 2:
           setPlayerNameJoin = False
           waitingForJoin = True
-          HOST.conn = None
-          P = deepcopy(HOST)
-          HOST.conn = conn_dict[host_uuid]
-          P.setGameObj(tilebag, board)
-          P.conn = Connection("client", None, my_uuid)
-          conn_dict[my_uuid] = P.conn
+          P = HOST.copy()
+          P.conn = conn_dict[my_uuid]
           P.name = (playernameTxtbx, len(players)+1)
           players.append(P)
           HOST.conn.send(Command("set player name", P))
@@ -626,13 +620,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
                 p = connected_players[clicked_player_int]
                 if p == HOST:
                   break
-                p.conn.send(Command("set client connection", DISCONN))
-                p.DISCONN()
-                if newGame:
-                  players.remove(p) # this should deref p -> kill
-                else:
-                  p.conn = None
-                del conn_dict[p.uuid] # this should deref p.conn
+                p.syncSendDISCONN()
+                deref_player(p.uuid)
                 send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                 connected_players: list[Player] = [p for p in players if p.connClaimed]
                 unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
@@ -668,8 +657,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           for i, yesorno_rect in enumerate(yesandno_rects):
             if yesorno_rect.collidepoint(pos):
               if i == 0:
-                HOST.conn.send(Command("set server connection", DISCONN))
-                P.DISCONN()
+                HOST.syncSendDISCONN()
                 inLobby = False
                 successfulStart = False
               else:
@@ -689,6 +677,5 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       gameState = (tilebag, board, players, bank)
     
     clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
-
   
-  return successfulStart, gameState, my_uuid
+  return successfulStart, gameState, my_uuid, host_uuid

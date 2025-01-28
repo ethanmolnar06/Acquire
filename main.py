@@ -24,7 +24,7 @@ while not clientReady:
   conn_dict = dict()
   def clean_quit(conn_dict: dict[str, Connection]):
     for conn in conn_dict.values():
-      conn.kill()
+      conn.sock = None
     del conn_dict
     if clientMode == "hostServer":
       serverThread.kill()
@@ -53,15 +53,15 @@ while not clientReady:
       gameState = None
       clientReady = True
       pygame.display.set_caption('Game Lobby [Client]')
-    except Exception as e:
+    except Exception as err:
       print("[CONNECTION FAILURE] Client Failed to Connect")
-      print(e)
+      print(err)
       continue
   clientReady = True
 # endregion
 
 from pregame import lobby
-successfulStart, gameState, my_uuid = lobby(gameUtils, conn_dict, clientMode, newGame, gameState)
+successfulStart, gameState, my_uuid, host_uuid = lobby(gameUtils, conn_dict, clientMode, newGame, gameState)
 
 if not successfulStart:
   clean_quit(conn_dict)
@@ -73,7 +73,7 @@ if clientMode == "hostServer" and not ALLOW_REJOIN:
 
 pygame.display.set_caption('Acquire')
 from gameloop import gameloop
-gameCompleted, saveData = gameloop(gameUtils, newGame, gameState, clientMode, my_uuid)
+gameCompleted, saveData = gameloop(gameUtils, newGame, gameState, clientMode, my_uuid, host_uuid)
 
 pygame.display.set_caption('Post Game')
 from postgame import postgame

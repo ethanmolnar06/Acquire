@@ -6,7 +6,7 @@ import shutil
 import re
 from random import randint
 from io import BytesIO
-from typing import Callable
+from typing import Callable, Literal
 from requests import get
 
 from objects.connection import Command, KillableThread, Connection, PORT, DISCONN
@@ -136,7 +136,7 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
       continue
   if ip is None:
     ip = socket.gethostbyname(socket.gethostname())
-  listening_str = f"[LISTENING] Listening at {ip} (local)"
+  listening_str = f"Listening at {ip} (local)"
   
   reverseProxy = None
   if ALLOW_PUBLIC_IP:
@@ -155,7 +155,7 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   # endregion
   
   server.listen()
-  print(listening_str)
+  print("[LISTENING]" + listening_str)
   
   from common import pack_gameState
   def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
@@ -221,10 +221,10 @@ def propagate(dests: dict[uuid.UUID, Connection] | list[Player] | list[Connectio
     # print(conn)
     conn.send(command)
 
-def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Connection]) -> list[tuple[uuid.UUID, Command]]:
+def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Connection]) -> list[tuple[uuid.UUID, Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]]]:
   # command order is preserved within each player but NOT between players
   conns = extrctConns(sources)
-  updates: list[tuple[uuid.UUID, Command]] = []
+  updates: list[tuple[uuid.UUID, Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]]] = []
   # print([str(conn) for conn in conns])
   for conn in conns:
     if not conn.outbox:

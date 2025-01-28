@@ -8,7 +8,7 @@ from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDE
 from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
-             clientMode: str, my_uuid: UUID | None) -> tuple[bool, bytes]:
+             clientMode: str, my_uuid: UUID | None, host_uuid: UUID | None) -> tuple[bool, bytes]:
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
   
@@ -46,6 +46,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   u_overflow = [] # used to forceRender in the middle of updating
   saveData = None
   P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
+  HOST = find_player(host_uuid, players) if not clientMode == "join" else None
   focus_content = GUI_area()
   
   cyclingPlayers = True
@@ -116,10 +117,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         uuid, comm = u.pop(0)
         if clientMode == "hostServer":
           # command revieved from clients
-          if comm.dump() == "set server connection" and comm.val == DISCONN:
-            p_DISCONN = find_player(uuid, players)
-            print(f"[PLAYER DROPPED] Disconnect Message Recieved from {p.conn}")
-            p_DISCONN.DISCONN()
+          if comm == DISCONN:
+            find_player(uuid, players).syncSendDISCONN(inResponse=True)
             # TODO create choose (wait for rejoin) / (quit here) dialog
           
           elif comm.dump() == "set server gameState":
@@ -163,7 +162,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               toPropagate.append(Command("set player resume", (pendingTileHandler, p.uuid)))
           
           else: # unexpected / unknown command
-            print("UNEXPECTED COMMAND:", comm)
+            print("[UNEXPECTED COMMAND] : ", comm)
             continue
           
           send_gameStateUpdate(tilebag, board, players, bank, clientMode, uuid)
@@ -172,9 +171,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         
         else:
           # command recieved from server
-          if comm.dump() == "set client connection" and comm.val == DISCONN:
-            # will break if P not yet set for client, but this *shouldn't* be possible
-            P.DISCONN()
+          if comm == DISCONN:
+            HOST.syncSendDISCONN(inResponse=True)
             cyclingPlayers = False
             ongoingTurn = False
           
@@ -222,12 +220,12 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               checkGameEndable = False
           
           else: # unexpected / unknown command
-            print("UNEXPECTED COMMAND:", comm)
+            print("[UNEXPECTED COMMAND] : ", comm)
             continue
         
         # P is given a new memory address each time gameState is updated over network, this fixes that
-        if my_uuid in [p.uuid for p in players]:
-          P = find_player(my_uuid, players)
+        P = find_player(my_uuid, players)
+        HOST = find_player(host_uuid, players)
         forceRender = True
       # endregion
       
@@ -291,12 +289,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         popup_open = False
       if event.type == pygame.QUIT:
         if not clientMode == "hostLocal":
-          target = "client" if clientMode == "hostServer" else "server"
-          propagate(players, None, Command(f"set {target} connection", DISCONN))
-          players.remove(P)
           for p_DISCONN in players:
-            p_DISCONN.DISCONN()
-          P.DISCONN()
+            p_DISCONN.syncSendDISCONN()
         cyclingPlayers = False
         ongoingTurn = False
         break
