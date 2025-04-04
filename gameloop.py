@@ -224,8 +224,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             continue
         
         # P is given a new memory address each time gameState is updated over network, this fixes that
-        P = find_player(my_uuid, players)
-        HOST = find_player(host_uuid, players)
+        if cyclingPlayers:
+          P = find_player(my_uuid, players)
+          HOST = find_player(host_uuid, players)
         forceRender = True
       # endregion
       

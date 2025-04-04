@@ -13,9 +13,12 @@ HEADERSIZE: int = 8
 FORMAT: str = "utf-8"
 DISCONN: str = "!DISCONNECT!"
 KILL: str = "!KILL!"
+PING: str = "comms test ping"
+DIAGNOSTIC: set[str] = {"comms recv error", "comms hist from"}
 
 class Command:
-  def __init__(self, action_obj_key:str, val) -> None:
+  def __init__(self, action_obj_key: str, val, ordinal: int | None = None) -> None:
+    self.ordinal: None | int = ordinal
     self.timestamp = datetime.now().time()
     action, obj, key = action_obj_key.split()
     # offer support for more granular control later, if deemed necessary
@@ -25,7 +28,7 @@ class Command:
     else:
       raise TypeError(f"Invalid Command action {action}")
     
-    if obj in {"server", "client", "game", "test", "recv",
+    if obj in {"server", "client", "game", "test", "recv", "hist",
                "tilebag", "board", "player", "stats", "bank",}:
       self.obj = obj
     else:
@@ -66,6 +69,7 @@ class Connection:
     self.addr = addr
     self.inbox: list[Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]] = []
     self.outbox: list[Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]] = []
+    self.historian: list[Command] = [Command("set hist start", 0, 0)]
     self._sock: socket.socket | None = None
     self.sock: socket.socket | None = sock
   
@@ -122,6 +126,7 @@ class Connection:
         if not data_len:
           continue
         
+        expected_ordinal = self.historian[-1].ordinal + 1
         data: bytes = self.sock.recv(int(data_len))
         try:
           comm: Command | Literal[b"!DISCONNECT!"] | Literal[b"!KILL!"] = pickle.loads(data)
@@ -129,16 +134,34 @@ class Connection:
             comm = comm.decode(FORMAT)
           self._network_print("RECV", data_len, comm, str(self).split(" @" )[0])
           
-          if isinstance(comm, Command) and comm.dump() == "comms recv error":
-            self._recieved = not comm.val
-          else:
-            if not comm == KILL:
-              self.send(Command("comms recv error", False))
-            self.inbox.append(comm)
-          
         except pickle.UnpicklingError as err:
           self._error_log("Corrupted Command Recieved, Asking for Relay")
           self.send(Command("comms recv error", True))
+        
+        if isinstance(comm, Command):
+          if comm.dump() in DIAGNOSTIC:
+            if comm.dump() == "comms recv error":
+              self.send(self.historian[-1])
+            
+            elif comm.dump() == "comms hist from":
+              self.resend(comm.val)
+          
+          elif comm.ordinal == expected_ordinal:
+            self.historian.append(comm)
+            self.historian = self.historian[-10:]
+            if comm.dump() != PING:
+              self.inbox.append(comm)
+          elif comm.ordinal > expected_ordinal:
+            self._error_log(f"Command {comm.ordinal} Recieved Out of Order, expected {expected_ordinal}")
+            self.send(Command("comms hist from", expected_ordinal))
+          elif comm.ordinal < expected_ordinal:
+            self._error_log(f"Command {comm.ordinal} Recieved Again Unecessarily")
+        
+        else:
+          self._shutdownPrimed = True
+          self.inbox.append(comm)
+          # if not comm == KILL:
+          #   self.send(Command("comms recv error", False))
         
         if comm in {DISCONN, KILL}:
           return
@@ -148,39 +171,32 @@ class Connection:
       tb.print_tb(err.__traceback__)
   
   def _send(self, kill_event: threading.Event):
+    tries = 1.
     try:
       while not kill_event.is_set():
         if self.sock is None:
           raise ConnectionError("Attempting to Send to Empty Socket")
         if not self.outbox:
-          sleep(.1)
+          sleep(tries/10.)
+          tries += 1.
+          if tries > 30:
+            tries = 1.
+            self.outbox.append(Command(PING, False))
           continue
         
-        self._recieved = None
+        tries = 1.
         comm = self.outbox.pop(0)
+        if isinstance(comm, Command) and comm.ordinal is None and comm.dump() not in DIAGNOSTIC:
+          comm.ordinal = self.historian[-1].ordinal + 1
+          self.historian.append(comm)
+        
         data = comm.pack() if isinstance(comm, Command) else pickle.dumps(comm.encode(FORMAT), 5)
         data_len = f"{len(data)}".encode(FORMAT)
         data_len_padded = data_len + b' ' * (HEADERSIZE - len(data_len))
         
-        # retry sending until command confirmed recieved
-        while self._listen_thread and not kill_event.is_set():
-          tries = 1.
-          self._network_print("SEND", data_len_padded.decode(FORMAT), comm, str(self).split(" @" )[0])
-          self.sock.sendall(data_len_padded)
-          self.sock.sendall(data)
-          
-          # region await confirm command
-          if comm == KILL or (isinstance(comm, Command) and comm.dump() == "comms recv error"):
-            break
-          while self._recieved is None and self._listen_thread and not kill_event.is_set():
-            sleep(tries/10.)
-            tries += 1.
-            if tries > 30:
-              # error on the other side likely
-              raise ConnectionError("Confirm Command not Recieved After Excessive Waiting")
-          if self._recieved:
-            break
-          # endregion
+        self._network_print("SEND", data_len_padded.decode(FORMAT), comm, str(self).split(" @" )[0])
+        self.sock.sendall(data_len_padded)
+        self.sock.sendall(data)
         
         if comm in {DISCONN, KILL}:
           return
@@ -189,8 +205,16 @@ class Connection:
       self._error_log(err)
       tb.print_tb(err.__traceback__)
   
+  def resend(self, ordinal: int) -> list[Command]:
+    comms = [comm for comm in self.historian if comm.ordinal <= ordinal]
+    for comm in comms:
+      self.send(comm)
+  
   def syncSendDISCONN(self, inResponse: bool = False) -> None:
-    print(f"[PLAYER DROPPED] Disconnect Message Recieved from {self}")
+    if inResponse:
+      print(f"[PLAYER DROPPED] Disconnect Message Recieved from {self}")
+    else:
+      print(f"[PLAYER DROPPED] Disconnect Initiated with {self}")
     
     if self.sock is None:
       return
@@ -203,6 +227,7 @@ class Connection:
         raise ConnectionAbortedError("Assuming Error, Hard Closing")
       return waitTime
     
+    self._shutdownPrimed = False
     try:
       # homemade socket.shutdown() protocol to guarentee proper threaded shutdown
       # wait for OUR inbox == THEIR outbox to clear
@@ -215,7 +240,7 @@ class Connection:
       # wait for OUR outbox == THEIR inbox to clear
       # until it is sent and confirmed recieved
       self._network_print("[SOCKET SHUTDOWN STEP 3] Awaiting DISCONN Confirm Reciept")
-      while self.outbox or not (self._recieved or inResponse):
+      while self.outbox or not (self._shutdownPrimed or inResponse):
         # print(self.outbox, self._recieved, inResponse)
         waitTime = err_timer(waitTime)
       # returns down OUR _send and THEIR _recieve
