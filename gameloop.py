@@ -46,7 +46,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   u_overflow = [] # used to forceRender in the middle of updating
   saveData = None
   P = find_player(my_uuid, players) if not clientMode == "hostLocal" else None
-  HOST = find_player(host_uuid, players) if not clientMode == "join" else None
+  HOST = find_player(host_uuid, players) if clientMode == "hostServer" else None
   focus_content = GUI_area()
   
   cyclingPlayers = True
