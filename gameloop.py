@@ -18,7 +18,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       pDefuncting = pDefunctingLoop.pop(0)
     elif len(defunctchains):
       chaingrowth = board.tileprop(turntile, bigchain, defunctchain, pendingTileHandler)
-      p.stats.mostExpandedChain[chains[0]][-1] += chaingrowth
+      p.stats.mostExpandedChain[bigchain][-1] += chaingrowth
       defunctchain = defunctchains.pop(0)
       pDefunctingLoop = [p for p in players if p.stocks[defunctchain] > 0 ]
       pDefuncting = pDefunctingLoop.pop(0)
@@ -271,7 +271,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             stopdefunctpayout_button_rect, _ = draw_popup(screen, 'defunctPayout', (statementsList[0], iofnStatement))
           # Draw defunct stock allocation if defunctMode is True
           elif defunctMode:
-            stopdefunct_button_rect, knobs_slider_rects = draw_popup(screen, 'defuncter', (bank, knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctchains[0], bigchain))
+            stopdefunct_button_rect, knobs_slider_rects = draw_popup(screen, 'defuncter', (bank, knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctchain, bigchain))
             knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
             slider_x = slider_rect.x; slider_width = slider_rect.width
           #Draw ask to buy popup if askToBuy == True
@@ -480,12 +480,14 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             dragging_knob1 = False
             dragging_knob2 = False
           elif event.type == pygame.MOUSEMOTION:
+            if dragging_knob1 or dragging_knob2:
+              forceRender = True
             if dragging_knob1:
               knob1_x = round((event.pos[0] - slider_x) * (defunctingStocks / slider_width))
               knob1_x = max(knob1_x, 0)  #Ensure knob1_x doesn't go beyond the slider's left side
               knob1_x = min(knob1_x, knob2_x)  #Ensure knob1_x doesn't go beyond knob2_x
             elif dragging_knob2 and bank.stocks[bigchain] > 0:
-              knob2_x = (round((event.pos[0] - slider_x) * (defunctingStocks / slider_width))// 2)*2 + defunctingStocks%2 #Make knob2_x odd if defunctingStocks is odd
+              knob2_x = (round((event.pos[0] - slider_x) * (defunctingStocks / slider_width))// 2)*2 + defunctingStocks % 2 #Make knob2_x odd if defunctingStocks is odd
               knob2_x = max(knob2_x, ((knob1_x + (defunctingStocks+1)%2) // 2)*2 + defunctingStocks%2 )  #Ensure knob2_x is greater than knob1_x
               knob2_x = min(knob2_x, defunctingStocks)  #Ensure knob2_x doesn't exceed defunctingStocks
               tradeBanned = (defunctingStocks - knob2_x)/2 >= bank.stocks[bigchain]
@@ -499,6 +501,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             pos = event.dict["pos"]
             if not popup_open:
               if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): # Player finished
+                # region move stocks
                 #sell
                 pDefuncting.stocks[defunctchain] -= defunctStockInv['sell']
                 bank.stocks[defunctchain] += defunctStockInv['sell']
@@ -513,6 +516,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 pDefuncting.stats.stocksTradedAway[-1] += defunctStockInv['trade']
                 pDefuncting.stats.stocksAcquired[-1] += int(defunctStockInv['trade']/2)
                 send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+                # endregion
                 
                 #cycle pDefuncting
                 if clientMode == "hostLocal":

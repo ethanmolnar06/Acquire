@@ -451,7 +451,7 @@ def draw_mergeChainPriority(popupInfo: tuple[Surface, int, int, Font, int], merg
     mergePrio_width = checkX_width * 3 if i==0 else checkX_width
     mergePrio_yspacer = 0 if i==0 else int(checkX_width*3/2 - checkX_width/2)
     
-    mergecart_rect = pygame.Rect(pos_x, pos_y - label.get_height()//2 + mergePrio_yspacer, mergePrio_width, mergePrio_width)
+    mergecart_rect = pygame.Rect(pos_x, pos_y - title_rect.h//2 + mergePrio_yspacer, mergePrio_width, mergePrio_width)
     
     if mergeCart[i] == '': stockcart_color = Colors.WHITE
     else: stockcart_color = Colors.chain(mergeCart[i])
@@ -514,7 +514,7 @@ def draw_defuncter(popupInfo: tuple[Surface, int, int, Font, int], drawinfo: tup
   bank, knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctChain, bigchain = drawinfo
   keepnumb = int(knob1_x)
   tradenumb = int((defunctingStocks - knob2_x) / 2)
-  sellnumb = int(defunctingStocks - (keepnumb + tradenumb))
+  sellnumb = int(defunctingStocks - (keepnumb + tradenumb * 2))
   
   title_rect = top_rect_title(popup, f"{pDefuncting.name}'s {defunctChain} Stock Defunct Allocation", 30, 0)
   

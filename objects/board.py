@@ -56,10 +56,8 @@ class Board:
     chaingroup3 = [chain for chain in chain_subset if chain in self._tilebag.chainTierGrouped['high']]
     return [group for group in [chaingroup1, chaingroup2, chaingroup3] if len(group) > 0]
   
-  def chainsContained(self, tiles: list[str]):
-    tileandchains = [self.chaindict[tile] for i, tile in enumerate(tiles) if tile in self.chaindict]
-    tileflavors = list(set(tileandchains))
-    return tileflavors
+  def chainsContained(self, tiles: list[str]) -> list[str]:
+    return list({self.chaindict[tile] for tile in tiles if tile in self.chaindict})
   
   def tileplaymode(self, tile: str, bankdrawn: bool = False):
     adjinplay = self.fetchadjacent(tile)
