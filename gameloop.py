@@ -264,11 +264,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           #Draw ask to end game popup
           if gameEndable:
             _, yesandno_rects = draw_popup(screen, 'endGameConfirm', None)
-          # Draw merger prioritization if tiebreakMerge is True
-          # elif tiebreakMerge:
-          #   stopmerger_button_rect, subdraw_output = draw_popup(screen, 'mergeChainPriority', (mergeCart, chainoptions))
-          #   mergeChain_rects, mergecart_rects = subdraw_output
-          # Draw defunct payout if defunctMode is True
           elif defunctPayout:
             stopdefunctpayout_button_rect, _ = draw_popup(screen, 'defunctPayout', (statementsList[0], iofnStatement))
           # Draw defunct stock allocation if defunctMode is True

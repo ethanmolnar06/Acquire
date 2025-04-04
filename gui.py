@@ -183,7 +183,6 @@ def draw_mergeChainPriority_fullscreen(surface: Surface, board: Board, mergeCart
   
   # region Draw mergeCart
   if isinstance(mergeCart, tuple):
-    # TODO implement quad merge 2 & 2 pairs mode
     quadMerge_2_2 = True
     mergeCart = mergeCart[0] + mergeCart[1]
     chainoptions = chainoptions[0] + chainoptions[1]
@@ -195,23 +194,40 @@ def draw_mergeChainPriority_fullscreen(surface: Surface, board: Board, mergeCart
   focus_area.bottom = bottom_anchor
   
   mergecart_label = 'Merge Order: '
-  mergecart_title_subrect = title_rect.copy()
+  mergecart_title_subrect = title_rect.copy().scale_by(1, 2)
   mergecart_title_subrect.top = title_rect.bottom
   mergecart_title_subrect.right = focus_area.centerx
   font, font_size = dynamic_font(mergecart_title_subrect, mergecart_label, Fonts.main)
   mergecart_title_rect = blit_font_to_rect(surface, font, mergecart_title_subrect, mergecart_label, Colors.BLACK, justification="right",
-                                 vert_justification="top", font_offset_div=50)
+                                 vert_justification="center", font_offset_div=50)
   
-  subrect = focus_area.copy().scale_by(1/8, 1/12)
+  
+  subrect = focus_area.copy().scale_by(1/6, 1/11)
   subrect.centery = mergecart_title_rect.centery
-  subrect.left = focus_area.centerx
+  subrect.right = focus_area.centerx + focus_area.w // 4
   
   def rect_color_func(i):
-    if not mergeCart[i]:
+    if not mergeCart[i+1]:
       return Colors.WHITE
-    return Colors.chain(mergeCart[i])
+    return Colors.chain(mergeCart[i+1])
   
-  mergecart_rects = gridifier(surface, subrect, ["None",]*len(mergeCart), len(mergeCart), 1, rect_color_func, None)
+  mergecart_rects = gridifier(surface, subrect, ["None",]*len(mergeCart[:-1]), len(mergeCart[:-1]), 1, rect_color_func, None, forceSquare=True)
+  bigchain_cart_rect = mergecart_rects[0].copy().scale_by(2, 2)
+  bigchain_cart_rect.left = focus_area.centerx
+  pygame.draw.rect(surface, rect_color_func(-1), bigchain_cart_rect)
+  mergecart_rects.insert(0, bigchain_cart_rect)
+  
+  if quadMerge_2_2:
+    # paint over the three small rects to do two pairs of big & small
+    pygame.draw.rect(surface, Colors.GRAY, mergecart_rects[2])
+    pygame.draw.rect(surface, Colors.GRAY, mergecart_rects[3])
+    
+    mergecart_rects[2].scale_by_ip(2, 2)
+    mergecart_rects[2].left = mergecart_rects[1].right + (mergecart_rects[1].left - mergecart_rects[0].right) * 2
+    pygame.draw.rect(surface, rect_color_func(1), mergecart_rects[2])
+    
+    mergecart_rects[3].left = mergecart_rects[2].right + (mergecart_rects[1].left - mergecart_rects[0].right)
+    pygame.draw.rect(surface, rect_color_func(2), mergecart_rects[3])
   
   # endregion
   
@@ -225,8 +241,8 @@ def draw_mergeChainPriority_fullscreen(surface: Surface, board: Board, mergeCart
   chain_subrect = focus_area.copy()
   chain_subrect.height = (confirm_rect.top - mergecart_title_rect.bottom)//2
   chain_subrect.centery = focus_area.centery
-  pygame.draw.rect(surface, Colors.GREEN, chain_subrect)
-  chain_rects = gridifier(surface, chain_subrect, chainoptions, len(chainoptions), 1, rect_color_func, lambda x: Colors.BLACK, 
+  cols, rows = create_square_dims(chainoptions)
+  chain_rects = gridifier(surface, chain_subrect, chainoptions, cols, rows, rect_color_func, lambda x: Colors.BLACK, 
                           allignment="center", share_font_size=True)
   
   # endregions
@@ -328,13 +344,7 @@ def draw_popup(surface: Surface, subdraw_tag: str, drawinfo):
   closeable = True
   popupInfo = [popup, popup_rect.w, popup_rect.h, font, font_size]
   
-  if subdraw_tag == 'mergeChainPriority':
-    if type(drawinfo[0]) == tuple:
-      closeable = all(['' not in mergeCart for mergeCart in drawinfo[0]])
-    else: 
-      closeable = '' not in drawinfo[0]
-    subdraw_output = draw_mergeChainPriority(popupInfo, drawinfo)
-  elif subdraw_tag == 'defunctPayout':
+  if subdraw_tag == 'defunctPayout':
     subdraw_output = draw_defunctPayout(popupInfo, drawinfo)
   elif subdraw_tag == 'defuncter':
     subdraw_output = draw_defuncter(popupInfo, drawinfo)
@@ -417,78 +427,6 @@ def draw_yesorno(popupInfo: tuple[Surface, int, int, Font, int], drawinfo):
     label_rect.center = (pos_x + button_chunk_width // 2, pos_y + button_chunk_height // 2)
     popup.blit(label, label_rect)
   return button_rects
-
-def draw_mergeChainPriority(popupInfo: tuple[Surface, int, int, Font, int], mergeCart_vec):
-  popup, popup_width, popup_height, font, font_size = popupInfo
-  mergeCart, chainoptions = mergeCart_vec
-  
-  if type(mergeCart) == tuple:
-    quadMerge_2_2 = True
-    mergeCart = mergeCart[0]+mergeCart[1]
-    chainoptions = chainoptions[0]+chainoptions[1]
-  else:
-    quadMerge_2_2 = False
-  
-  title_rect = top_rect_title(popup, 'Set Merger Priorities')
-  
-  # Calculate the size of each popup_select
-  tile_chunk_width = int(popup_width // 5)
-  tile_chunk_height = int(popup_height // 10)
-  checkX_width = int(popup_width // (16*2))
-  checkX_height = int(popup_height // (9*2))
-  checkX_width, checkX_height = int(checkX_width), int(checkX_height)
-  
-  # Draw the mergePrio
-  mergecart_rects = []
-  mergePrio_width_acum = 0
-  for i in range(len(chainoptions)):
-    # Calculate the position of mergePrios
-    x_spacer = popup_width // 50
-    # pos_x = popup_width // 2 - x_spacer - checkX_width * 3
-    pos_x = (popup_width - (checkX_width*3 + checkX_width*(len(chainoptions)-1) + x_spacer*(len(chainoptions)-1)))/2 + mergePrio_width_acum + .5*checkX_width*i
-    pos_y = 2*(popup_height // 15)
-    pos_x, pos_y = int(pos_x), int(pos_y)
-    
-    # Create a rectangle for a mergePrio square
-    mergePrio_width = checkX_width * 3 if i==0 else checkX_width
-    mergePrio_yspacer = 0 if i==0 else int(checkX_width*3/2 - checkX_width/2)
-    
-    mergecart_rect = pygame.Rect(pos_x, pos_y - title_rect.h//2 + mergePrio_yspacer, mergePrio_width, mergePrio_width)
-    
-    if mergeCart[i] == '': stockcart_color = Colors.WHITE
-    else: stockcart_color = Colors.chain(mergeCart[i])
-    
-    # Draw a stockcart square to screen
-    pygame.draw.rect(popup, stockcart_color, mergecart_rect)
-    
-    mergecart_rects.append(mergecart_rect)
-    mergePrio_width_acum += mergePrio_width
-  
-  mergeChain_rects = []
-  # Draw the chain information
-  for i, chain in enumerate(chainoptions):
-    # pos_x = (popup_width // 15) * (4*i+2)
-    pos_x = (popup_width - (tile_chunk_width*len(chainoptions) + (popup_width//15)*(len(chainoptions)-1)))/2 + tile_chunk_width*i + (popup_width//15)*i
-    pos_y = (popup_height - tile_chunk_height) // 2
-    if quadMerge_2_2:
-      pos_x = (popup_width - (tile_chunk_width*2 + popup_width//15))/2 + tile_chunk_width*(i%2) + (popup_width//15)*(i%2)
-      pos_y = ((popup_height - tile_chunk_height) // 4) * (i//2 + 2)
-    pos_x, pos_y = int(pos_x), int(pos_y)
-    
-    # Create a rectangle for the popup_select and add to popup_select_rects
-    mergeChain_rect = pygame.Rect(pos_x, pos_y, tile_chunk_width, tile_chunk_height)
-    mergeChain_rects.append(mergeChain_rect)
-    
-    # Draw the popup_select
-    pygame.draw.rect(popup, Colors.chain(chain), mergeChain_rect)
-    
-    # Draw the stock name
-    label = font.render(chain, 1, Colors.BLACK)
-    label_rect = label.get_rect()
-    label_rect.center = (pos_x + tile_chunk_width // 2, pos_y + tile_chunk_height // 2)
-    popup.blit(label, label_rect)
-  
-  return (mergeChain_rects, mergecart_rects)
 
 def draw_defunctPayout(popupInfo: tuple[Surface, int, int, Font, int], statementsTup_vec):
   popup, popup_width, popup_height, font, font_size = popupInfo

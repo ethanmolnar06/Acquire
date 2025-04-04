@@ -100,7 +100,7 @@ def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str
               rect_width_factor: int | float = 1, rect_height_factor: int | float = 1, rect_width_spacing_factor: int | float = 1,
               rect_height_spacing_factor: int | float = 1, extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None,
               font_name: str = Fonts.main, font_scale_max: int | float = .95, share_font_size: bool = False, default_font_size: int = 0,
-               allignment: str = "left") -> list[Rect]:
+               allignment: str = "left", forceSquare: bool = False) -> list[Rect]:
   
   # compensate for non-symmetric grids
   if isinstance(labels[0], list):
@@ -111,6 +111,8 @@ def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str
   # Calculate rect sizing and arangement spacing
   rect_width  = int(subrect.w  // (cols + .5 * rect_width_spacing_factor) )
   rect_height = int(subrect.h // (rows + .5 * rect_height_spacing_factor))
+  if forceSquare:
+    rect_width = rect_height = min(rect_width, rect_height)
   w_gap       = int((subrect.w - rect_width * cols) // (cols+1))
   h_gap       = int((subrect.h - rect_height * rows) // (rows+1))
   
@@ -120,10 +122,9 @@ def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str
   offset_x, offset_y = int(offset_x), int(offset_y)
   
   if share_font_size:
-    textlengthpairs = [(text, len(text)) for text in label_text]
-    textlengthpairs.sort(key=lambda x: x[1], reverse=True)
-    font, font_size = dynamic_font(Rect(0, 0, rect_width, rect_height), textlengthpairs[0][0], font_name,
-                                   font_scale_max=font_scale_max, default_font_size=default_font_size)
+    fonts_and_sizes = [dynamic_font(Rect(0, 0, rect_width, rect_height), text, font_name, font_scale_max=font_scale_max, 
+                                  default_font_size=default_font_size) for text in label_text]
+    font, font_size = min(fonts_and_sizes, key=lambda x: x[1])
   
   if underfill and underfill_color is not None:
     max_x = offset_x + cols * rect_width * rect_width_factor + cols * w_gap
@@ -512,7 +513,7 @@ def draw_fullscreenSelect(surface: Surface, drawinfo: str) -> list[Rect]:
   title_rect = top_rect_title(surface, title)
   
   yesandno_rects = row_buttons(surface, bianary_choices, row_align="center", row_height_div=2,
-                               font_scale_max=0.75)
+                               font_scale_max=0.85, share_font_size=True)
   
   return yesandno_rects
 

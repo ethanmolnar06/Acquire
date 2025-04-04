@@ -14,7 +14,6 @@ FORMAT: str = "utf-8"
 DISCONN: str = "!DISCONNECT!"
 KILL: str = "!KILL!"
 PING: str = "comms test ping"
-DIAGNOSTIC: set[str] = {"comms recv error", "comms hist from"}
 
 class Command:
   def __init__(self, action_obj_key: str, val, ordinal: int | None = None) -> None:
@@ -136,16 +135,11 @@ class Connection:
           
         except pickle.UnpicklingError as err:
           self._error_log("Corrupted Command Recieved, Asking for Relay")
-          self.send(Command("comms recv error", True))
+          self.send(Command("comms hist from", expected_ordinal))
         
         if isinstance(comm, Command):
-          if comm.dump() in DIAGNOSTIC:
-            if comm.dump() == "comms recv error":
-              self.send(self.historian[-1])
-            
-            elif comm.dump() == "comms hist from":
-              self.resend(comm.val)
-          
+          if comm.dump() == "comms hist from":
+            self.resend(comm.val)
           elif comm.ordinal == expected_ordinal:
             self.historian.append(comm)
             self.historian = self.historian[-10:]
@@ -160,8 +154,6 @@ class Connection:
         else:
           self._shutdownPrimed = True
           self.inbox.append(comm)
-          # if not comm == KILL:
-          #   self.send(Command("comms recv error", False))
         
         if comm in {DISCONN, KILL}:
           return
@@ -186,7 +178,7 @@ class Connection:
         
         tries = 1.
         comm = self.outbox.pop(0)
-        if isinstance(comm, Command) and comm.ordinal is None and comm.dump() not in DIAGNOSTIC:
+        if isinstance(comm, Command) and comm.ordinal is None and not comm.dump() == "comms hist from":
           comm.ordinal = self.historian[-1].ordinal + 1
           self.historian.append(comm)
         
