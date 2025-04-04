@@ -227,8 +227,6 @@ def fetch_updates(sources: dict[uuid.UUID, Connection] | list[Player] | list[Con
   updates: list[tuple[uuid.UUID, Command | Literal["!DISCONNECT!"] | Literal["!KILL!"]]] = []
   # print([str(conn) for conn in conns])
   for conn in conns:
-    if not conn.outbox:
-      continue
     while conn.inbox:
       # print([str(comm) for comm in conn.inbox])
       u = (conn.uuid, conn.fetch())

@@ -67,6 +67,7 @@ class Player:
   def syncSendDISCONN(self, inResponse: bool = False):
     if self.conn is not None:
       self.conn.syncSendDISCONN(inResponse)
+      self.conn = None
   
   def setGameObj(self, tilebag: TileBag, board: Board):
     self._tilebag = tilebag

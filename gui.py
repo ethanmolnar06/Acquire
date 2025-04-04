@@ -75,7 +75,8 @@ def get_focus_area(surface: Surface) -> Rect:
 
 # endregion
 
-def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTiles: list[bool] | None, defunctMode: bool, highlight_player_name: bool, focus_content: GUI_area) -> tuple[list[Rect] | None, list[Rect] | None, list[Rect],]:
+def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTiles: list[bool] | None, 
+                     defunctMode: bool, highlight_player_name: bool, focus_content: GUI_area) -> tuple[list[Rect] | None, list[Rect] | None, list[Rect],]:
   window_width, window_height = surface.get_size()
   
   # region Draw Tiles or Tile Hider
@@ -303,7 +304,7 @@ def draw_stockbuy_fullscreen(surface: Surface, board: Board, bank: Bank, p: Play
       return Colors.BLACK if stock_plusmin_label[i] else None
     
     stock_plusmin_rect = gridifier(surface, plus_min_subrect, stock_plusmin_label, 2, 1, rect_color_func, lambda x: Colors.WHITE,
-                            allignment="center", share_font_size=True, rect_width_spacing_factor=10, rect_width_factor=.5)
+                            allignment="center", share_font_size=True, rect_width_spacing_factor=11, rect_width_factor=.5)
     stock_plusmin_rects.extend(stock_plusmin_rect)
   # endregion
   
