@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from objects import *
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import DIR_PATH, SAVES_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
+from common import DIR_PATH, SAVES_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, ALLOW_REVERSE_PROXY, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 from gui import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: bool = True) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
@@ -137,7 +137,11 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
           if yesorno_rect.collidepoint(pos):
             askHostJoin = False; forceRender = True
             if i == 1:
-              askProxyNAT = True
+              if ALLOW_REVERSE_PROXY:
+                askProxyNAT = True
+              else:
+                askNATIP = True
+                ipTxtbx: str = ""
               newGame = None
             else:
               askHostLocal = True
@@ -414,7 +418,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   
   u_overflow = []
   playernameTxtbx = ""
-  hover_save_int, clicked_player_int = [None]*2
+  hover_player_int, clicked_player_int = [None]*2
   connected_players: list[Player] = [p for p in players if p.connClaimed] # == players if newGame
   unclaimed_players: list[Player] = [p for p in players if not p.connClaimed] # == [] if newGame
   
@@ -434,6 +438,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
     P = HOST; my_uuid = host_uuid
     conn_dict[my_uuid] = P.conn
     waitingForJoin = True
+    clientsInGameloop = 0
     
     def deref_player(uuid: UUID):
       del conn_dict[uuid]
@@ -487,7 +492,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
             continue
           # overwrite old sel_p_uuid with client conn's real uuid
           newplayer.conn = conn_dict[uuid]
-          print(f"[PLAYER CLAIMED] {newplayer.name} Claimed by {p.conn}")
+          print(f"[PLAYER CLAIMED] {newplayer.name} Claimed by {newplayer.conn}")
           newplayer.conn.send(Command("set client selectionConfirmed", True))
           overflow_update(u, u_overflow)
         
@@ -519,6 +524,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           awaitResponse = False
           if d.val:
             selectPlayerFromSave = False
+            waitingForJoin = True
             try:
               P = find_player(sel_p_uuid, players)
               sel_p_uuid = None
@@ -553,7 +559,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       #Draw depending on current state
       if selectPlayerFromSave:
         drawinfo = (hover_player_int, clicked_player_int)
-        player_rects, load_rect = draw_selectPlayerFromSave(screen, drawinfo, unclaimed_players)
+        player_rects, load_rect, _ = draw_selectPlayerFromSave(screen, drawinfo, unclaimed_players)
       elif setPlayerNameJoin:
         confirm_rect = draw_setPlayerNameJoin(screen, playernameTxtbx)
       else:
@@ -583,8 +589,8 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
         else:
           hover_player_int = None
       if event.type == pygame.MOUSEBUTTONDOWN and not awaitResponse:
-        if hover_save_int is not None:
-          clicked_player_int = (hover_save_int if clicked_player_int != hover_save_int else None)
+        if hover_player_int is not None:
+          clicked_player_int = (hover_player_int if clicked_player_int != hover_player_int else None)
         elif clicked_player_int is not None and load_rect.collidepoint(pos):
           sel_p_uuid = unclaimed_players[clicked_player_int].uuid
           HOST.conn.send(Command("set player uuid", sel_p_uuid))

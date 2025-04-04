@@ -573,7 +573,7 @@ def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = 
   surface_width, surface_height = surface.get_size()
   
   if subrect is None:
-    subrect = default_player_info_rect()
+    subrect = default_player_info_rect(surface)
   
   balance = p.balance if 'balance' in p.__dict__.keys() else f'${p.bal}'
   choices = [balance,] + [f'{stock}: {p.stocks[stock]}' for stock in p.stocks.keys()]
@@ -777,7 +777,8 @@ def draw_selectSaveFile(surface: Surface, drawinfo: tuple[bool, int, bool, int],
   
   return header_rect, choice_rects, load_rect, back_button_rect
 
-def draw_selectPlayerFromSave(surface: Surface, drawinfo: tuple[int, int], unclaimed_players: list[Player]) -> tuple[list[Rect], Rect, Rect]:
+def draw_selectPlayerFromSave(surface: Surface, drawinfo: tuple[int, int], unclaimed_players: list[Player], 
+                              cancellable: bool = True) -> tuple[list[Rect], Rect, Rect]:
   hover_player_int, clicked_player_int = drawinfo
   
   title_rect = top_rect_title(surface, "Select Player From Save File")
@@ -806,7 +807,9 @@ def draw_selectPlayerFromSave(surface: Surface, drawinfo: tuple[int, int], uncla
     load_rect = single_button(surface, "SELECT", rect_offset_x=2.25)
   
   # Create an "x" button to back out of menu
-  back_button_rect = top_right_corner_x_button(surface)
+  back_button_rect = None
+  if cancellable:
+    back_button_rect = top_right_corner_x_button(surface)
   
   return player_rects, load_rect, back_button_rect
 
