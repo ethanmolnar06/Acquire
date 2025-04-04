@@ -175,14 +175,15 @@ def draw_newChain_fullscreen(surface: Surface, board: Board) -> list[Rect]:
   
   return newchain_rects
 
-def draw_mergeChainPriority_fullscreen(surface: Surface, board: Board, 
-                                       mergeCart: list[str] | tuple[list[str], list[str]], chainoptions: list[str] | tuple[list[str], list[str]]) -> Rect:
+def draw_mergeChainPriority_fullscreen(surface: Surface, board: Board, mergeCart: list[str] | tuple[list[str], list[str]], 
+                                       chainoptions: list[str] | tuple[list[str], list[str]]) -> tuple[list[Rect], list[Rect], Rect | None]:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
   title_rect = top_rect_title(surface, 'Set Merger Priorities', surface_subrect=focus_area)
   
   # region Draw mergeCart
   if isinstance(mergeCart, tuple):
+    # TODO implement quad merge 2 & 2 pairs mode
     quadMerge_2_2 = True
     mergeCart = mergeCart[0] + mergeCart[1]
     chainoptions = chainoptions[0] + chainoptions[1]
@@ -214,22 +215,23 @@ def draw_mergeChainPriority_fullscreen(surface: Surface, board: Board,
   
   # endregion
   
+  color = Colors.LIGHTGREEN if '' not in mergeCart else None
+  confirm_rect = single_button(surface, "CONFIRM", color=color, surface_subrect=focus_area, rect_height_div=10, rect_offest_x=8, rect_offest_y=6)
+  
   # region Draw Chain Labels
   def rect_color_func(i):
     return Colors.chain(chainoptions[i])
   
   chain_subrect = focus_area.copy()
-  chain_subrect.top = (title_rect.bottom + mergecart_title_rect.bottom)//2
-  chain_subrect.height = confirm_rect.top - mergecart_title_rect.bottom
-  # pygame.draw.rect(surface, Colors.GREEN, chain_subrect)
+  chain_subrect.height = (confirm_rect.top - mergecart_title_rect.bottom)//2
+  chain_subrect.centery = focus_area.centery
+  pygame.draw.rect(surface, Colors.GREEN, chain_subrect)
   chain_rects = gridifier(surface, chain_subrect, chainoptions, len(chainoptions), 1, rect_color_func, lambda x: Colors.BLACK, 
                           allignment="center", share_font_size=True)
   
   # endregions
   
-  confirm_rect = single_button(surface, "CONFIRM", surface_subrect=focus_area, rect_height_div=10, rect_offest_x=8, rect_offest_y=6)
-  
-  return chain_rects, mergecart_rects
+  return chain_rects, mergecart_rects, None if color is None else confirm_rect
 
 def draw_stockbuy_fullscreen(surface: Surface, board: Board, bank: Bank, p: Player, stockcart: list[str]) -> list[Rect]:
   focus_area = get_focus_area(surface)

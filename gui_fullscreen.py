@@ -398,7 +398,7 @@ def central_textbox(surface: Surface, text: str):
   
   return textbox_rect
 
-def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Colors.LIGHTGREEN,
+def single_button(surface: Surface, label: str, color: tuple[int, int, int] | None = Colors.LIGHTGREEN,
                         label_color: tuple[int, int, int] = Colors.BLACK, surface_subrect: Rect | None = None,
                         rect_width_div: int = 7, rect_height_div: int = 7,
                         rect_offest_x: int | float = 5, rect_offest_y: float = 5,) -> Rect:
@@ -414,10 +414,11 @@ def single_button(surface: Surface, label: str, color: tuple[int, int, int] = Co
   button_rect.right -= button_rect.w // rect_offest_x
   button_rect.bottom -= button_rect.h // rect_offest_y
   
-  pygame.draw.rect(surface, color, button_rect)
-  
-  font, font_size = dynamic_font(button_rect, label, Fonts.main)
-  blit_font_to_rect(surface, font, button_rect, label, label_color)
+  if color is not None:
+    pygame.draw.rect(surface, color, button_rect)
+    
+    font, font_size = dynamic_font(button_rect, label, Fonts.main)
+    blit_font_to_rect(surface, font, button_rect, label, label_color)
   
   return button_rect
 

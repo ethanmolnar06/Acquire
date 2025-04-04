@@ -5,7 +5,7 @@ from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
 from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update
-from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen
+from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen, draw_mergeChainPriority_fullscreen
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
              clientMode: str, my_uuid: UUID | None, host_uuid: UUID | None) -> tuple[bool, bytes]:
@@ -254,6 +254,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           draw_other_player_stats(screen, bank, [player for player in players if player is not (P if not clientMode == "hostLocal" else p)])
         elif choosingNewChain and focus_content.newchain:
           newchain_rects = draw_newChain_fullscreen(screen, board)
+        elif tiebreakMerge and focus_content.mergeChainPriority:
+          mergeChain_rects, mergecart_rects, stopmerger_button_rect = draw_mergeChainPriority_fullscreen(screen, board, mergeCart, chainoptions)
         elif buyPhase and focus_content.stockbuy:
           stockbuy_confirm_rect, stock_plusmin_rects = draw_stockbuy_fullscreen(screen, board, bank, display_player, stockcart)
         
@@ -263,9 +265,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           if gameEndable:
             _, yesandno_rects = draw_popup(screen, 'endGameConfirm', None)
           # Draw merger prioritization if tiebreakMerge is True
-          elif tiebreakMerge:
-            stopmerger_button_rect, subdraw_output = draw_popup(screen, 'mergeChainPriority', (mergeCart, chainoptions))
-            mergeChain_rects, mergecart_rects = subdraw_output
+          # elif tiebreakMerge:
+          #   stopmerger_button_rect, subdraw_output = draw_popup(screen, 'mergeChainPriority', (mergeCart, chainoptions))
+          #   mergeChain_rects, mergecart_rects = subdraw_output
           # Draw defunct payout if defunctMode is True
           elif defunctPayout:
             stopdefunctpayout_button_rect, _ = draw_popup(screen, 'defunctPayout', (statementsList[0], iofnStatement))
@@ -361,6 +363,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 mergeCart = mergeCartInit[0] 
                 chainoptions = mergeCartInit[1]
                 defunctchains = bigchain = None
+                focus_content.clear("mergeChainPriority")
         
         # Waiting to Choose New Chain
         elif choosingNewChain: 
