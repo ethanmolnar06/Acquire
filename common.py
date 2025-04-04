@@ -89,7 +89,7 @@ class Colors:
     return chaincolor
 
 class Fonts:
-  try:
+  try: # for pyinstaller version
     fontspath: str = pkgutil.resolve_name("fonts").__path__[0]
   except Exception as e:
     fontspath: str = r".\assets\fonts"

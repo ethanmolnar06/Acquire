@@ -221,6 +221,8 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
               selectSaveFile = True; watchMousePos = True
               newGame = False
               saves_path = DIR_PATH + r'\saves'
+              if not os.path.exists(saves_path):
+                os.makedirs(saves_path, exist_ok=True)
               savefiles = os.listdir(saves_path); savefiles.sort(reverse=True)
               hover_directory, clicked_directory = [False]*2
               hover_save_int, clicked_save_int = [None]*2

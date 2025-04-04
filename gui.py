@@ -163,6 +163,7 @@ def create_square_dims(list: list) -> tuple[int, int]:
   rows = len(list)//cols + (1 if len(list)%cols != 0 else 0)
   return cols, rows
 
+# guarentees that all items will fit within its subrect
 def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str]], cols: int | None, rows: int | None,
               rect_color_func: Callable[[int], tuple[int, int, int] | None] | None, 
               label_color_func: Callable[[int], tuple[int, int, int] | None] | None,
@@ -184,8 +185,8 @@ def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str
   rect_height = int(subrect.h // (rows + .5 * rect_height_spacing_factor))
   if forceSquare:
     rect_width = rect_height = min(rect_width, rect_height)
-  w_gap       = int((subrect.w - rect_width * cols) // (cols+1))
-  h_gap       = int((subrect.h - rect_height * rows) // (rows+1))
+  w_gap       = int((subrect.w - rect_width * cols) // (cols + 1 * rect_width_factor))
+  h_gap       = int((subrect.h - rect_height * rows) // (rows + 1 * rect_height_factor))
   
   # Calculate the grid starting offset from (0, 0) of the surface
   offset_x = subrect.left + w_gap + (cols-1) * rect_width * (1-rect_width_factor)
@@ -228,6 +229,74 @@ def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str
       
       # Create the rect, add to rects, and draw to screen
       rect = Rect(int(pos[0]), int(pos[1]), int(rect_width * rect_width_factor), int(rect_height * rect_height_factor))
+      rects.append(rect)
+      if rect_color_func is not None and rect_color_func(n) is not None:
+        pygame.draw.rect(surface, rect_color_func(n), rect)
+      
+      # Draw outline around rect if necessary
+      if outline_color_func is not None and outline_color_func(n) is not None:
+        pygame.draw.rect(surface, outline_color_func(n), rect, outline_width)
+      
+      # Create the label and draw to surface
+      if label_text[n] and label_color_func is not None and label_color_func(n) is not None:
+        if not share_font_size:
+          font, font_size = dynamic_font(rect, label_text[n], font_name, font_scale_max=font_scale_max, default_font_size=default_font_size)
+        if font is not None:
+          blit_font_to_rect(surface, font, rect, label_text[n], label_color_func(n))
+      
+      # Do extra stuff per rect if necessary
+      if extra_render_func is not None:
+        extra_render_func(surface, n, rect, font_size)
+      
+      n += 1
+  
+  return rects
+
+# no guarnetees about containment but much more directly shapeable
+def stretchy_grid(surface: Surface, subrect: Rect, labels: list[str] | list[list[str]], cols: int | None, rows: int | None,
+                  rect_color_func: Callable[[int], tuple[int, int, int] | None] | None, 
+                  label_color_func: Callable[[int], tuple[int, int, int] | None] | None,
+                  outline_color_func: Callable[[int], tuple[int, int, int] | None] | None = None, outline_width: int = 8,
+                  rect_width_factor: int | float = 1, rect_height_factor: int | float = 1, rect_width_spacing_factor: int | float = 1,
+                  rect_height_spacing_factor: int | float = 1, extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None,
+                  font_name: str = Fonts.main, font_scale_max: int | float = .95, share_font_size: bool = False, default_font_size: int = 0,
+                  scale: float = 1, forceSquare: bool = False) -> list[Rect]:
+  
+  # compensate for non-symmetric grids
+  if isinstance(labels[0], list):
+    rows = len(labels)
+    cols = max([len(l) for l in labels])
+  label_text = iter_flatten(labels)
+  
+  centerx = np.linspace(0, 1, cols + 2)[1:-1] * subrect.w
+  centery = np.linspace(0, 1, rows + 2)[1:-1] * subrect.h
+  
+  # switch to grid center coordinates
+  centerx -= subrect.w / 2
+  centery -= subrect.h / 2
+  
+  # scale rect spacing
+  centerx *= rect_width_spacing_factor
+  centery *= rect_height_spacing_factor
+  
+  w = subrect.w // (cols + 1)
+  h = subrect.h // (rows + 1)
+  if forceSquare:
+    w = h = min(w, h)
+  
+  if share_font_size:
+    fonts_and_sizes = [dynamic_font(Rect(0, 0, w, h), text, font_name, font_scale_max=font_scale_max, 
+                                  default_font_size=default_font_size) for text in label_text]
+    fonts_and_sizes = [fands if fands[1] else (None, np.inf) for fands in fonts_and_sizes]
+    font, font_size = min(fonts_and_sizes, key=lambda x: x[1])
+  
+  n = 0
+  rects = []
+  for y in centery.astype(int):
+    for x in centerx.astype(int):
+      rect = Rect(0,                     0, 
+                  w * rect_width_factor, h * rect_height_factor).scale_by(scale, scale)
+      rect.center = (subrect.centerx + x, subrect.centery + y)
       rects.append(rect)
       if rect_color_func is not None and rect_color_func(n) is not None:
         pygame.draw.rect(surface, rect_color_func(n), rect)
@@ -893,7 +962,7 @@ def draw_other_player_stats(surface: Surface, bank: Bank, otherplayers: list[Pla
   
   return None
 
-def draw_newChain_fullscreen(surface: Surface, board: Board) -> list[Rect]:
+def draw_newChain(surface: Surface, board: Board) -> list[Rect]:
   unopenedchainsgrouped = board.fetchchainsgrouped(invert_subset=True)
   
   focus_area = get_focus_area(surface)
@@ -914,7 +983,7 @@ def draw_newChain_fullscreen(surface: Surface, board: Board) -> list[Rect]:
   
   return newchain_rects
 
-def draw_mergeChainPriority_fullscreen(surface: Surface, mergeCart: list[str] | tuple[list[str], list[str]], 
+def draw_mergeChainPriority(surface: Surface, mergeCart: list[str] | tuple[list[str], list[str]], 
                                        chainoptions: list[str] | tuple[list[str], list[str]]) -> tuple[list[Rect], list[Rect], Rect | None]:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
@@ -978,8 +1047,8 @@ def draw_mergeChainPriority_fullscreen(surface: Surface, mergeCart: list[str] | 
     return Colors.chain(chainoptions[i])
   
   chain_subrect = focus_area.copy()
-  chain_subrect.height = (confirm_rect.top - mergecart_title_rect.bottom)//2
-  chain_subrect.centery = focus_area.centery
+  chain_subrect.height = int((confirm_rect.top - mergecart_title_rect.bottom) * 9/10)
+  chain_subrect.centery = (bigchain_cart_rect.bottom + confirm_rect.top) // 2
   cols, rows = create_square_dims(chainoptions)
   chain_rects = gridifier(surface, chain_subrect, chainoptions, cols, rows, rect_color_func, lambda x: Colors.BLACK, 
                           allignment="center", share_font_size=True)
@@ -988,7 +1057,7 @@ def draw_mergeChainPriority_fullscreen(surface: Surface, mergeCart: list[str] | 
   
   return chain_rects, mergecart_rects, None if color is None else confirm_rect
 
-def draw_defunctPayout_fullscreen(surface: Surface, statementsTup: tuple[str | None, str | None, str | None], iofnStatement: list[int]) -> Rect:
+def draw_defunctPayout(surface: Surface, statementsTup: tuple[str | None, str | None, str | None], iofnStatement: list[int]) -> Rect:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
   title_rect = top_rect_title(surface, f'Defunct Chain Payout ({iofnStatement[0]}/{iofnStatement[1]})', surface_subrect=focus_area)
@@ -1004,7 +1073,7 @@ def draw_defunctPayout_fullscreen(surface: Surface, statementsTup: tuple[str | N
   
   return confirm_rect
 
-def draw_defunctMode_fullscreen(surface: Surface, bank: Bank, knob1_x: int, knob2_x: int, tradeBanned: bool, 
+def draw_defunctMode(surface: Surface, bank: Bank, knob1_x: int, knob2_x: int, tradeBanned: bool, 
                                 pDefuncting: Player, defunctChain: str, bigchain: str) -> tuple[Rect, tuple[Rect, Rect, Rect]]:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
@@ -1063,7 +1132,7 @@ def draw_defunctMode_fullscreen(surface: Surface, bank: Bank, knob1_x: int, knob
   
   return confirm_rect, (knob1_rect, knob2_rect, slider_rect)
 
-def draw_stockbuy_fullscreen(surface: Surface, board: Board, bank: Bank, p: Player, stockcart: list[str]) -> list[Rect]:
+def draw_stockbuy(surface: Surface, board: Board, bank: Bank, p: Player, stockcart: list[str]) -> list[Rect]:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
   title_rect = top_rect_title(surface, 'Which Stock Would You Like To Buy?', surface_subrect=focus_area)
@@ -1135,8 +1204,8 @@ def draw_stockbuy_fullscreen(surface: Surface, board: Board, bank: Bank, p: Play
     def rect_color_func(i):
       return Colors.BLACK if stock_plusmin_label[i] else None
     
-    stock_plusmin_rect = gridifier(surface, plus_min_subrect, stock_plusmin_label, 2, 1, rect_color_func, lambda x: Colors.WHITE,
-                            allignment="center", share_font_size=True, rect_width_spacing_factor=11, rect_width_factor=.5)
+    stock_plusmin_rect = stretchy_grid(surface, plus_min_subrect, stock_plusmin_label, 2, 1, rect_color_func, lambda x: Colors.WHITE,
+                                       share_font_size=True, rect_width_spacing_factor=1.75, scale=1.25, forceSquare=True)
     stock_plusmin_rects.extend(stock_plusmin_rect)
   # endregion
   

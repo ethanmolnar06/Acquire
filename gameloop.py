@@ -5,7 +5,7 @@ from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
 from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update, iter_flatten
-from gui import GUI_area, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen, draw_mergeChainPriority_fullscreen, draw_defunctPayout_fullscreen, draw_focus_area_select, draw_defunctMode_fullscreen
+from gui import GUI_area, draw_main_screen, draw_game_board, draw_newChain, draw_other_player_stats, draw_stockbuy, draw_mergeChainPriority, draw_defunctPayout, draw_focus_area_select, draw_defunctMode
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
              clientMode: str, my_uuid: UUID | None, host_uuid: UUID | None) -> tuple[bool, bytes]:
@@ -240,12 +240,13 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         # Clear the screen
         screen.fill((255, 255, 255))
         
-        # Draw Sidebar Area
+        # region Sidebar Area
         display_player = (pDefuncting if defunctMode else p) if clientMode == "hostLocal" else P
         indicate_player_turn = iAmPlayer and not clientMode == "hostLocal"
         prohibitedTiles = board.contraceptcheck(display_player.tiles, checkChainAvail=True)
         tilehider_rect, tile_rects, _, popup_select_rects = draw_main_screen(screen, display_player, showTiles, prohibitedTiles, 
                                                                           defunctMode, indicate_player_turn, focus_content)
+        # endregion
         
         # region Focus Area
         if focus_content.game_board:
@@ -253,13 +254,13 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif focus_content.other_player_stats:
           draw_other_player_stats(screen, bank, [player for player in players if player is not (P if not clientMode == "hostLocal" else p)])
         elif choosingNewChain and focus_content.newchain:
-          newchain_rects = draw_newChain_fullscreen(screen, board)
+          newchain_rects = draw_newChain(screen, board)
         elif mergeChainPriority and focus_content.mergeChainPriority:
-          mergeChain_rects, mergecart_rects, stopmerger_button_rect = draw_mergeChainPriority_fullscreen(screen, mergeCart, chainoptions)
+          mergeChain_rects, mergecart_rects, stopmerger_button_rect = draw_mergeChainPriority(screen, mergeCart, chainoptions)
         elif defunctPayout and focus_content.defunctPayout:
-          stopdefunctpayout_button_rect = draw_defunctPayout_fullscreen(screen, statementsList[0], iofnStatement)
+          stopdefunctpayout_button_rect = draw_defunctPayout(screen, statementsList[0], iofnStatement)
         elif defunctMode and focus_content.defunctMode:
-          stopdefunct_button_rect, knobs_slider_rects = draw_defunctMode_fullscreen(screen, bank, knob1_x, knob2_x, tradeBanned, pDefuncting, defunctChain, bigchain)
+          stopdefunct_button_rect, knobs_slider_rects = draw_defunctMode(screen, bank, knob1_x, knob2_x, tradeBanned, pDefuncting, defunctChain, bigchain)
           knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
           slider_x = slider_rect.x; slider_width = slider_rect.width
         elif endGameConfirm and focus_content.endGameConfirm:
@@ -267,7 +268,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif askToBuy and focus_content.askToBuy:
           yesandno_rects = draw_focus_area_select(screen, 'askToBuy')
         elif buyPhase and focus_content.stockbuy:
-          stockbuy_confirm_rect, stock_plusmin_rects = draw_stockbuy_fullscreen(screen, board, bank, display_player, stockcart)
+          stockbuy_confirm_rect, stock_plusmin_rects = draw_stockbuy(screen, board, bank, display_player, stockcart)
         # endregion
         
         pygame.display.flip()
@@ -583,6 +584,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   focus_content.clear("stockbuy")
                 else:
                   buyPhase = False
+                  focus_content.clear()
         
         #Waiting to Buy and Handle Events in Buy Mode
         elif buyPhase:
