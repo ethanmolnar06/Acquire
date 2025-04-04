@@ -90,25 +90,6 @@ def get_focus_area(surface: Surface) -> Rect:
   
   return focus_area
 
-# TODO maybe remake these two?
-# resize rects to fit font
-def horizontal_refontsizer(rect_width: int, default_font_size: int, labels: list[str], font_name: str = Fonts.main, spacer_allocated: int = 250) -> tuple[Font, int]:
-  # resize all font across grid to fit largest entry
-  longestheader = max([len(h) for h in labels])
-  font_size = default_font_size
-  if longestheader * default_font_size * len(labels) + spacer_allocated > rect_width:
-    font_size = int(1.7 * (rect_width - spacer_allocated) / (longestheader * len(labels)))
-  header_font = pygame.font.Font(font_name, font_size)
-  return header_font, font_size
-
-def vertical_refontsizer(rect_height: int, default_font_size: int, pos_y: int, labels: list[str], font_name: str = Fonts.main) -> tuple[Font, int]:
-  col_stand_height = pos_y + (2 + len(labels)) * default_font_size * 11/10
-  font_size = default_font_size
-  if col_stand_height >= rect_height:
-    font_size = int(default_font_size * (1 - (col_stand_height - rect_height)/rect_height) )
-  info_font = pygame.font.Font(font_name, font_size)
-  return info_font, font_size
-
 # resize font to fit in a rect
 def dynamic_font(rect: Rect, label: str, font_name: str, font_scale_max: int | float = .95, default_font_size: int = 0) -> tuple[Font, int]:
   if not label:
@@ -163,7 +144,7 @@ def create_square_dims(list: list) -> tuple[int, int]:
   rows = len(list)//cols + (1 if len(list)%cols != 0 else 0)
   return cols, rows
 
-# guarentees that all items will fit within its subrect
+# guarantees that all rects will fit within its subrect
 def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str]], cols: int | None, rows: int | None,
               rect_color_func: Callable[[int], tuple[int, int, int] | None] | None, 
               label_color_func: Callable[[int], tuple[int, int, int] | None] | None,
@@ -252,7 +233,7 @@ def gridifier(surface: Surface, subrect: Rect, labels: list[str] | list[list[str
   
   return rects
 
-# no guarnetees about containment but much more directly shapeable
+# no guarantee about containment but much more directly shapeable
 def stretchy_grid(surface: Surface, subrect: Rect, labels: list[str] | list[list[str]], cols: int | None, rows: int | None,
                   rect_color_func: Callable[[int], tuple[int, int, int] | None] | None, 
                   label_color_func: Callable[[int], tuple[int, int, int] | None] | None,

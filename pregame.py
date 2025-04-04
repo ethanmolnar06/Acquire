@@ -343,7 +343,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
               # minimum names filled
               if sum(['' != box for box in settings["playernames"]]) >= 2:
                 setPlayerNamesLocal = False; forceRender = True
-          
+        
       elif event.type == pygame.KEYDOWN and clicked_textbox_int is not None and pygame.key.get_focused():
         clicked_textbox_int = text.nav_handler(event, settings["playernames"], clicked_textbox_int, 2)
         settings["playernames"][clicked_textbox_int] = text.crunch_playername(event, settings["playernames"][clicked_textbox_int])
@@ -363,6 +363,10 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
                 settings["playernames"][0] = playernameTxtbx
                 gameState = None
       elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
+        if event.dict["key"] in {pygame.K_RETURN, pygame.K_KP_ENTER} and len(playernameTxtbx) >= 1:
+          setPlayerNameHost = False; forceRender = True
+          settings["playernames"][0] = playernameTxtbx
+          gameState = None
         playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
     
     else: #prep for lobby
@@ -447,7 +451,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       except:
         # Connection not yet assigned to player
         pass
-    
+  
   else:
     # sync client's version of host uuid to host's version of host uuid
     conn_dict["server"].uuid = host_uuid
@@ -596,7 +600,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = event.dict["pos"]
-        if confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 2:
+        if confirm_rect.collidepoint(pos) and len(playernameTxtbx) >= 1:
           setPlayerNameJoin = False
           waitingForJoin = True
           P = HOST.copy()
@@ -609,6 +613,18 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
           forceRender = True
           clicked_player_int: int | None = None
       elif event.type == pygame.KEYDOWN and pygame.key.get_focused():
+        if event.dict["key"] in {pygame.K_RETURN, pygame.K_KP_ENTER} and len(playernameTxtbx) >= 1:
+          setPlayerNameJoin = False
+          waitingForJoin = True
+          P = HOST.copy()
+          P.conn = conn_dict[my_uuid]
+          P.name = (playernameTxtbx, len(players)+1)
+          players.append(P)
+          HOST.conn.send(Command("set player name", P))
+          connected_players: list[Player] = [p for p in players if p.connClaimed]
+          unclaimed_players: list[Player] = [p for p in players if not p.connClaimed]
+          forceRender = True
+          clicked_player_int: int | None = None
         playernameTxtbx: str = text.crunch_playername(event, playernameTxtbx)
     
     elif waitingForJoin:
