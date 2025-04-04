@@ -382,11 +382,11 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
       successfullBoot = True
       return successfullBoot, clientMode, newGame, gameState
     
-    clock.tick(MAX_FRAMERATE if pygame.key.get_focused() else 1)
+    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
 
 
-def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection], clientMode: str, newGame: bool,
-          gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None,  UUID | None]:  
+def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection],
+          clientMode: str, newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank] | None) -> tuple[bool, tuple[TileBag, Board, list[Player], Bank], UUID | None, UUID | None]:  
   
   if clientMode == "hostLocal":
     successfulStart = True
