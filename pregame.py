@@ -390,7 +390,7 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
   
   if clientMode == "hostLocal":
     successfulStart = True
-    return successfulStart, gameState, None
+    return successfulStart, gameState, None, None
   elif clientMode == "join":
     waitingForHandshake = True
     while waitingForHandshake:
