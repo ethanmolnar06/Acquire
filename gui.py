@@ -310,7 +310,7 @@ def dropdown(surface: Surface, subrect: Rect, header: str, choices: list[str] | 
              header_outline_thick: int = 8, choice_outline_thick: int = 8, 
              font_name: str = Fonts.main, font_scale_max: int | float = .95, share_font_size: bool = False, default_font_size: int = 0,
              allignment: str = "left", header_justification: str = "centered", choice_justification: str = "centered", 
-             extras_index: int | None = None, extras_justification: str = "centered",
+             extras_index: int | None = None, extras_justification: str = "centered", extras_share_font_size_labels: list[str] | None = None,
              header_extra_render_func: Callable[[Surface, Rect, int], None] | None = None,
              choice_extra_render_func: Callable[[Surface, int, Rect, int], None] | None = None) -> tuple[Rect, list[Rect]]:
   
@@ -319,6 +319,8 @@ def dropdown(surface: Surface, subrect: Rect, header: str, choices: list[str] | 
     rows = 6
   else:
     rows = max(len(choices), 6)
+    realextras = len([c for c in choices[extras_index:] if c])
+    lastNonExtra = len(choices[:extras_index])
   
   # Calculate rect sizing and arangement spacing
   new_w     = int(subrect.w // 1.1)
@@ -348,11 +350,18 @@ def dropdown(surface: Surface, subrect: Rect, header: str, choices: list[str] | 
     header_extra_render_func(surface, header_rect, font_size)
   
   # Draw the Choices
+  useExtrasFont = False
   if share_font_size:
     fonts_and_sizes = [dynamic_font(header_rect, text, font_name, font_scale_max=font_scale_max, 
                                   default_font_size=default_font_size) for text in choices[:extras_index]]
     fonts_and_sizes = [fands if fands[1] else (None, np.inf) for fands in fonts_and_sizes]
     font, font_size = min(fonts_and_sizes, key=lambda x: x[1])
+    if extras_share_font_size_labels and realextras > 1:
+      useExtrasFont = True
+      fonts_and_sizes = [dynamic_font(header_rect, text, font_name, font_scale_max=font_scale_max, 
+                                    default_font_size=default_font_size) for text in extras_share_font_size_labels]
+      fonts_and_sizes = [fands if fands[1] else (None, np.inf) for fands in fonts_and_sizes]
+      extras_font, extras_font_size = min(fonts_and_sizes, key=lambda x: x[1])
   
   choice_rects = None
   if choices is not None:
@@ -375,10 +384,10 @@ def dropdown(surface: Surface, subrect: Rect, header: str, choices: list[str] | 
         
         # Create the label and blit to surface
         if choice_label_color_func is not None and choice_label_color_func(i) is not None:
-          if not share_font_size or i >= len(choices[:extras_index]):
+          if not share_font_size or (not useExtrasFont and i >= lastNonExtra):
             font, font_size = dynamic_font(header_rect, choice, font_name, default_font_size=default_font_size)
           if font is not None:
-            justification = choice_justification if i < len(choices[:extras_index]) else extras_justification
+            justification = choice_justification if i < lastNonExtra else extras_justification
             font_offset_div = 0
             if i < len(choices) - 1 and choices[i + 1] == "":
               # I know this is a terrible, horrible way to do this
@@ -388,7 +397,8 @@ def dropdown(surface: Surface, subrect: Rect, header: str, choices: list[str] | 
               pygame.draw.rect(surface, choice_rect_color_func(i + 1), choice_rect, 0)
               choice_rect.y -= choice_rect.height
               font_offset_div = 2
-            blit_font_to_rect(surface, font, choice_rect, choice, choice_label_color_func(i), justification=justification, font_offset_div=font_offset_div)
+            
+            blit_font_to_rect(surface, extras_font if useExtrasFont and i >= lastNonExtra else font, choice_rect, choice, choice_label_color_func(i), justification=justification, font_offset_div=font_offset_div)
         
         # Do extra stuff per rect if necessary
         if choice_extra_render_func is not None:
@@ -553,7 +563,7 @@ def single_button(surface: Surface, label: str, color: tuple[int, int, int] | No
 
 def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = None, extra_text: list[str] | None = None,
                      header_justification: str = "right", choice_justification: str = "right",
-                     highlight_player_name: bool = False) -> tuple[Rect, list[Rect]]:
+                     highlight_player_name: bool = False, extras_share_font_size_labels: list[str] | None = None) -> tuple[Rect, list[Rect]]:
   surface_width, surface_height = surface.get_size()
   
   if subrect is None:
@@ -579,7 +589,7 @@ def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = 
   
   header_rect, choice_rects = dropdown(surface, subrect, p.name, choices, None, 
                                        header_label_color, choice_rect_color_func, lambda x: Colors.BLACK, share_font_size=True, 
-                                       header_justification=header_justification, choice_justification=choice_justification, extras_index=extras_index)
+                                       header_justification=header_justification, choice_justification=choice_justification, extras_index=extras_index, extras_share_font_size_labels=extras_share_font_size_labels)
   
   return header_rect, choice_rects
 
@@ -844,6 +854,7 @@ def draw_customSettings(surface: Surface, drawnSettings: dict, clicked_textbox_k
 
 
 # region gameloop gui
+
 def draw_focus_area_select(surface: Surface, drawinfo: str) -> Rect:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
@@ -884,8 +895,9 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
     
     def extra_render_func(surface, i: int, rect: Rect, font_size: int):
       if prohibitedTiles[i]:
-        font = pygame.font.Font(Fonts.oblivious, int(font_size*4.5))
-        label_surface = font.render("x", 1, Colors.RED)
+        label = "x"
+        font, _ = dynamic_font(rect, label, Fonts.oblivious)
+        label_surface = font.render(label, 1, Colors.RED)
         label_rect = label_surface.get_rect()
         label_rect.center = rect.center
         label_rect.centery = rect.centery - rect.height//20
@@ -899,7 +911,9 @@ def draw_main_screen(surface: Surface, p: Player, showTiles: bool, prohibitedTil
   # endregion
   
   popup_select_labels = focus_content.dropdown()
-  header_rect, choice_rects = draw_player_info(surface, p, extra_text=popup_select_labels, highlight_player_name=highlight_player_name)
+  all_dropdown_options = list(focus_content.dropdown_text().values())
+  header_rect, choice_rects = draw_player_info(surface, p, extra_text=popup_select_labels, highlight_player_name=highlight_player_name,
+                                               extras_share_font_size_labels=all_dropdown_options)
   player_stat_rects = [header_rect,] + choice_rects[:-len(popup_select_labels)]
   popup_select_rects = choice_rects[-len(popup_select_labels):]
   
@@ -1038,7 +1052,8 @@ def draw_mergeChainPriority(surface: Surface, mergeCart: list[str] | tuple[list[
   
   return chain_rects, mergecart_rects, None if color is None else confirm_rect
 
-def draw_defunctPayout(surface: Surface, statementsTup: tuple[str | None, str | None, str | None], iofnStatement: list[int]) -> Rect:
+def draw_defunctPayout(surface: Surface, statementsTup: tuple[str | None, str | None, str | None], iofnStatement: list[int],
+                       highlightBankTile: bool) -> Rect:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
   title_rect = top_rect_title(surface, f'Defunct Chain Payout ({iofnStatement[0]}/{iofnStatement[1]})', surface_subrect=focus_area)
@@ -1047,8 +1062,8 @@ def draw_defunctPayout(surface: Surface, statementsTup: tuple[str | None, str | 
   subrect.height = focus_area.h - title_rect.height * 2
   subrect.top = title_rect.bottom
   
-  statements_rects = dropdown(surface, subrect, statementsTup[0], statementsTup[1:], Colors.LIGHTGREEN, Colors.BLACK, None, lambda x: Colors.BLACK,
-                              share_font_size=True, allignment="center")
+  statements_rects = dropdown(surface, subrect, statementsTup[0], statementsTup[1:], Colors.LIGHTGREEN if highlightBankTile else None,
+                              Colors.BLACK, None, lambda x: Colors.BLACK, share_font_size=True, allignment="center")
   
   confirm_rect = single_button(surface, "ACKNOWLEDGE", surface_subrect=focus_area, rect_width_div=5, rect_offset_x=8, rect_offset_y=6)
   

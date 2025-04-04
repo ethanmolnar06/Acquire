@@ -258,7 +258,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif mergeChainPriority and focus_content.mergeChainPriority:
           mergeChain_rects, mergecart_rects, stopmerger_button_rect = draw_mergeChainPriority(screen, mergeCart, chainoptions)
         elif defunctPayout and focus_content.defunctPayout:
-          stopdefunctpayout_button_rect = draw_defunctPayout(screen, statementsList[0], iofnStatement)
+          stopdefunctpayout_button_rect = draw_defunctPayout(screen, statementsList[0], iofnStatement, highlightBankTile)
         elif defunctMode and focus_content.defunctMode:
           stopdefunct_button_rect, knobs_slider_rects = draw_defunctMode(screen, bank, knob1_x, knob2_x, tradeBanned, pDefuncting, defunctChain, bigchain)
           knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
@@ -402,6 +402,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           bankdrawntile, statementsList = bank.chainpayout(players, defunctchains)
           
           if bankdrawntile is not None:
+            highlightBankTile = True
             if board.deadduckcheck(bankdrawntile):
               bankdrawntile = None
             else:
@@ -446,6 +447,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 statementsList = statementsList[1:]
               else:
                 statementsList = None; iofnStatement = None
+                highlightBankTile = False
                 defunctPayout = False
                 if not setupDefunctVars:
                   focus_content.clear(); forceRender = True
