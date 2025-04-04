@@ -4,8 +4,8 @@ from uuid import UUID
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update
-from gui import GUI_area, draw_popup, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen, draw_mergeChainPriority_fullscreen
+from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update, iter_flatten
+from gui import GUI_area, draw_main_screen, draw_game_board, draw_newChain_fullscreen, draw_other_player_stats, draw_stockbuy_fullscreen, draw_mergeChainPriority_fullscreen, draw_defunctPayout_fullscreen, draw_focus_area_select, draw_defunctMode_fullscreen
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
              clientMode: str, my_uuid: UUID | None, host_uuid: UUID | None) -> tuple[bool, bytes]:
@@ -13,14 +13,14 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   tilebag, board, players, bank = gameState
   
   def cycle_pDefuncting(pDefunctingLoop: list[Player], defunctchains: list[str],
-                        turntile: str, bigchain: str, defunctchain: str, pendingTileHandler: str | tuple[str] | None) -> tuple[str, Player]:
+                        turntile: str, bigchain: str, defunctChain: str, pendingTileHandler: str | tuple[str] | None) -> tuple[str, Player]:
     if len(pDefunctingLoop):
       pDefuncting = pDefunctingLoop.pop(0)
     elif len(defunctchains):
-      chaingrowth = board.tileprop(turntile, bigchain, defunctchain, pendingTileHandler)
+      chaingrowth = board.tileprop(turntile, bigchain, defunctChain, pendingTileHandler)
       p.stats.mostExpandedChain[bigchain][-1] += chaingrowth
-      defunctchain = defunctchains.pop(0)
-      pDefunctingLoop = [p for p in players if p.stocks[defunctchain] > 0 ]
+      defunctChain = defunctchains.pop(0)
+      pDefunctingLoop = [p for p in players if p.stocks[defunctChain] > 0 ]
       pDefuncting = pDefunctingLoop.pop(0)
     else:
       chaingrowth = board.tileprop(turntile, bigchain, ignoreTile=pendingTileHandler)
@@ -32,9 +32,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           chaingrowth = board.tileprop(pendingTileHandler[0], pendingTileHandler[1])
           p.stats.mostExpandedChain[pendingTileHandler[1]][-1] += chaingrowth
           pendingTileHandler = None
-      defunctchain = None
+      defunctChain = None
       pDefuncting = None
-    return pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler
+    return pDefunctingLoop, pDefuncting, defunctchains, defunctChain, pendingTileHandler
   
   if newGame and "host" in clientMode:
     players = setPlayerOrder(tilebag, board, players)
@@ -63,13 +63,13 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     ongoingTurn: bool = True
     showTiles: bool = False if clientMode == "hostLocal" else True
     turntile: bool = None
-    gameEndable: bool = None
+    endGameConfirm: bool = None
     bankdrawntile: bool = None
     pendingTileHandler: bool = None
     
     placePhase: bool = True if clientMode == "hostLocal" else False
     choosingNewChain: bool = False
-    tiebreakMerge: bool = False
+    mergeChainPriority: bool = False
     prepForMerge: bool = False
     defunctPayout: bool = False
     setupDefunctVars: bool = False
@@ -79,8 +79,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     buyPhase: bool = False
     turnWrapup: bool = False
     
-    popup_open: bool = False
-    popupToClose: bool = False
     dragging_knob1, dragging_knob2 = [False]*2
     # endregion
     
@@ -137,21 +135,22 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             turntile, bigchain, defunctchains, pendingTileHandler, statementsList, iofnStatement = datatup
             defunctPayout = True
             toPropagate.append(Command("set bank merge", (statementsList, iofnStatement)))
+            focus_content.clear("defunctPayout")
             
-            defunctchain = defunctchains.pop(0)
-            pDefunctingLoop = [p for p in players if p.stocks[defunctchain] > 0 ]
+            defunctChain = defunctchains.pop(0)
+            pDefunctingLoop = [p for p in players if p.stocks[defunctChain] > 0 ]
             pDefuncting = pDefunctingLoop.pop(0)
             if pDefuncting.uuid == my_uuid:
               setupDefunctVars = True
             toPropagate.append(Command("set player defunct", pDefuncting.uuid))
           
           elif comm.dump() == "set player defunct" and not comm.val: # expecting u_overflow
-            pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
-                                                                                                              bigchain, defunctchain, pendingTileHandler)
+            pDefunctingLoop, pDefuncting, defunctchains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
+                                                                                                              bigchain, defunctChain, pendingTileHandler)
             if pDefuncting is not None:
               if pDefuncting.uuid == my_uuid:
                 setupDefunctVars = True
-              toPropagate.append(Command("set player defunct", (bigchain, defunctchain, pDefuncting.uuid)))
+              toPropagate.append(Command("set player defunct", (bigchain, defunctChain, pDefuncting.uuid)))
             else:
               if p.uuid == my_uuid:
                 if pendingTileHandler is not None:
@@ -190,13 +189,14 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               placePhase = False
           
           elif comm.dump() == "set bank merge":
-            datatup: tuple[str | None, list[str]] = comm.val
+            datatup: tuple[list[tuple[str | None, str | None, str | None]], list[int]] = comm.val
             statementsList, iofnStatement = datatup
             defunctPayout = True
+            focus_content.clear("defunctPayout")
           
           elif comm.dump() == "set player defunct" and comm.val:
             datatup: tuple[str, str, UUID] = comm.val
-            bigchain, defunctchain, p_uuid = datatup
+            bigchain, defunctChain, p_uuid = datatup
             if my_uuid == p_uuid:
               pDefuncting = P
               setupDefunctVars = True
@@ -247,44 +247,34 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         tilehider_rect, tile_rects, _, popup_select_rects = draw_main_screen(screen, display_player, showTiles, prohibitedTiles, 
                                                                           defunctMode, indicate_player_turn, focus_content)
         
-        # Focus Area
+        # region Focus Area
         if focus_content.game_board:
           draw_game_board(screen, board)
         elif focus_content.other_player_stats:
           draw_other_player_stats(screen, bank, [player for player in players if player is not (P if not clientMode == "hostLocal" else p)])
         elif choosingNewChain and focus_content.newchain:
           newchain_rects = draw_newChain_fullscreen(screen, board)
-        elif tiebreakMerge and focus_content.mergeChainPriority:
-          mergeChain_rects, mergecart_rects, stopmerger_button_rect = draw_mergeChainPriority_fullscreen(screen, board, mergeCart, chainoptions)
+        elif mergeChainPriority and focus_content.mergeChainPriority:
+          mergeChain_rects, mergecart_rects, stopmerger_button_rect = draw_mergeChainPriority_fullscreen(screen, mergeCart, chainoptions)
+        elif defunctPayout and focus_content.defunctPayout:
+          stopdefunctpayout_button_rect = draw_defunctPayout_fullscreen(screen, statementsList[0], iofnStatement)
+        elif defunctMode and focus_content.defunctMode:
+          stopdefunct_button_rect, knobs_slider_rects = draw_defunctMode_fullscreen(screen, bank, knob1_x, knob2_x, tradeBanned, pDefuncting, defunctChain, bigchain)
+          knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
+          slider_x = slider_rect.x; slider_width = slider_rect.width
+        elif endGameConfirm and focus_content.endGameConfirm:
+          yesandno_rects = draw_focus_area_select(screen, 'endGameConfirm')
+        elif askToBuy and focus_content.askToBuy:
+          yesandno_rects = draw_focus_area_select(screen, 'askToBuy')
         elif buyPhase and focus_content.stockbuy:
           stockbuy_confirm_rect, stock_plusmin_rects = draw_stockbuy_fullscreen(screen, board, bank, display_player, stockcart)
+        # endregion
         
-        if not popup_open:
-          # TODO fewer pop-sized events, make more full screen with option to view board and/or stats
-          #Draw ask to end game popup
-          if gameEndable:
-            _, yesandno_rects = draw_popup(screen, 'endGameConfirm', None)
-          elif defunctPayout:
-            stopdefunctpayout_button_rect, _ = draw_popup(screen, 'defunctPayout', (statementsList[0], iofnStatement))
-          # Draw defunct stock allocation if defunctMode is True
-          elif defunctMode:
-            stopdefunct_button_rect, knobs_slider_rects = draw_popup(screen, 'defuncter', (bank, knob1_x, knob2_x, tradeBanned, defunctingStocks, pDefuncting, defunctchain, bigchain))
-            knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
-            slider_x = slider_rect.x; slider_width = slider_rect.width
-          #Draw ask to buy popup if askToBuy == True
-          elif askToBuy and not gameEndable:
-            _, yesandno_rects = draw_popup(screen, 'askToBuy', None)
-          # elif buyPhase and not gameEndable:
-            # stopbuy_button_rect, stock_plusmin_rects = draw_popup(screen, 'stockBuy', [board, bank, stockcart, p])
-        # Update the display
         pygame.display.flip()
       skipRender = False
       # endregion
       
       # region Handle common events
-      if popupToClose: #fixes double-counting popup-closing as game-event closing
-        popupToClose = False
-        popup_open = False
       if event.type == pygame.QUIT:
         if not clientMode == "hostLocal":
           for p_DISCONN in players:
@@ -298,8 +288,6 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       elif event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = event.dict["pos"]
-        # if popup_open and close_button_rect.collidepoint(pos): # Check if popup_close was clicked
-        #   popupToClose = True
         for i, popup_select_rect in enumerate(popup_select_rects): # Check if any of the popup_selects were clicked
           if popup_select_rect.collidepoint(pos):
             # propagate(players, None, Command("test test test", False)) # DEBUG NETWORK COMMAND
@@ -354,7 +342,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               if isinstance(mergeCartInit, list): # Feeds Directly to prepForMerge
                 mergeCart = mergeCartInit
               else: # Merge needs player tiebreaking first
-                tiebreakMerge = True
+                mergeChainPriority = True
                 mergeCart = mergeCartInit[0] 
                 chainoptions = mergeCartInit[1]
                 defunctchains = bigchain = None
@@ -380,7 +368,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               break
         
         # Waiting to Choose Merger Prioritization if necessary
-        elif tiebreakMerge:
+        elif mergeChainPriority:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = event.dict["pos"]
@@ -398,15 +386,18 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 elif mergeCart[i] != '': 
                   mergeCart[i] = ''
                 send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-            if stopmerger_button_rect is not None and stopmerger_button_rect.collidepoint(pos) and not popup_open:
-              tiebreakMerge = False
+            if stopmerger_button_rect is not None and stopmerger_button_rect.collidepoint(pos):
+              if isinstance(mergeCart, tuple):
+                mergeCart = iter_flatten(mergeCart)
+              mergeChainPriority = False
+              skipRender = True
         
         # Setup Variables for Merging
         elif prepForMerge:
           prepForMerge = False
           bigchain = mergeCart[0]
           defunctchains = mergeCart[1:]
-          defunctchains.reverse() # mergeCart displays as largest to smallest, we want to merge smallest to largest
+          defunctchains.reverse() # mergeCart displays as largest to smallest, we want to merge from smallest to largest defunctChain
           bankdrawntile, statementsList = bank.chainpayout(players, defunctchains)
           
           if bankdrawntile is not None:
@@ -427,12 +418,9 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           p.stats.mergersMade[-1] += len(defunctchains)
           
           if clientMode == "hostLocal":
-            defunctchain = defunctchains.pop(0)
-            pDefunctingLoop = [p for p in players if p.stocks[defunctchain] > 0 ]
+            defunctChain = defunctchains.pop(0)
+            pDefunctingLoop = [p for p in players if p.stocks[defunctChain] > 0 ]
             pDefuncting = pDefunctingLoop.pop(0)
-            
-            defunctPayout = True
-            setupDefunctVars = True
           elif clientMode == "hostServer":
             send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             overflow_update(u, u_overflow, (my_uuid, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
@@ -441,43 +429,49 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             send_gameStateUpdate(tilebag, board, players, bank, clientMode)
             propagate(players, None, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
                                                                 statementsList, iofnStatement)))
+          
+          defunctPayout = True
+          setupDefunctVars = True
+          focus_content.clear("defunctPayout")
         
         # Waiting to player to dismiss all merge payout popups
         elif defunctPayout:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = event.dict["pos"]
-            if stopdefunctpayout_button_rect.collidepoint(pos) and not popup_open:
+            if stopdefunctpayout_button_rect.collidepoint(pos):
               iofnStatement[0] += 1
               if len(statementsList) > 1:
                 statementsList = statementsList[1:]
               else:
                 statementsList = None; iofnStatement = None
                 defunctPayout = False
+                if not setupDefunctVars:
+                  focus_content.clear(); forceRender = True
         
         # Setup Variables for Defuncting
         elif setupDefunctVars:
           setupDefunctVars = False
           defunctMode = True
-          defunctingStocks = pDefuncting.stocks[defunctchain]
           knob1_x = 0
-          knob2_x = defunctingStocks
-          tradeBanned = (defunctingStocks - knob2_x)/2 >= bank.stocks[bigchain]
+          knob2_x = pDefuncting.stocks[defunctChain]
+          tradeBanned = bank.stocks[bigchain] == 0 or knob2_x < 2
+          focus_content.clear("defunctMode")
         
         # Waiting for each Player to Handle Defunct Decision
         elif defunctMode:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = event.dict["pos"]
-            if not popup_open:
-              if knob1_rect.collidepoint(event.pos):
-                dragging_knob1 = True
-              elif knob2_rect.collidepoint(event.pos) and bank.stocks[bigchain] > 0:
-                dragging_knob2 = True
+            if knob1_rect.collidepoint(event.pos):
+              dragging_knob1 = True
+            elif knob2_rect.collidepoint(event.pos) and bank.stocks[bigchain] > 0:
+              dragging_knob2 = True
           elif event.type == pygame.MOUSEBUTTONUP:
             dragging_knob1 = False
             dragging_knob2 = False
           elif event.type == pygame.MOUSEMOTION:
+            defunctingStocks = pDefuncting.stocks[defunctChain]
             if dragging_knob1 or dragging_knob2:
               forceRender = True
             if dragging_knob1:
@@ -488,103 +482,107 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               knob2_x = (round((event.pos[0] - slider_x) * (defunctingStocks / slider_width))// 2)*2 + defunctingStocks % 2 #Make knob2_x odd if defunctingStocks is odd
               knob2_x = max(knob2_x, ((knob1_x + (defunctingStocks+1)%2) // 2)*2 + defunctingStocks%2 )  #Ensure knob2_x is greater than knob1_x
               knob2_x = min(knob2_x, defunctingStocks)  #Ensure knob2_x doesn't exceed defunctingStocks
-              tradeBanned = (defunctingStocks - knob2_x)/2 >= bank.stocks[bigchain]
+              tradeBanned = (defunctingStocks - knob2_x)/2 >= bank.stocks[bigchain] or knob2_x < 2
               if (tradeBanned):
                 knob2_x = max(knob2_x, defunctingStocks - (bank.stocks[bigchain]*2) )
           defunctStockInv = {'keep': knob1_x,
-                            'sell': defunctingStocks - (defunctingStocks - knob2_x + knob1_x),
-                            'trade': defunctingStocks - knob2_x}
+                             'sell': knob2_x - knob1_x,
+                             'trade': pDefuncting.stocks[defunctChain] - knob2_x} # unhalved trade value
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = event.dict["pos"]
-            if not popup_open:
-              if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): # Player finished
-                # region move stocks
-                #sell
-                pDefuncting.stocks[defunctchain] -= defunctStockInv['sell']
-                bank.stocks[defunctchain] += defunctStockInv['sell']
-                pDefuncting.bal += bank.stockcost(defunctchain, board.fetchchainsize(defunctchain))*defunctStockInv['sell']
-                #trade
-                pDefuncting.stocks[defunctchain] -= defunctStockInv['trade']
-                bank.stocks[defunctchain] += defunctStockInv['trade']
-                pDefuncting.stocks[bigchain] += int(defunctStockInv['trade']/2)
-                bank.stocks[bigchain] -= int(defunctStockInv['trade']/2)
-                #stats
-                pDefuncting.stats.stocksSold[-1] += defunctStockInv['sell']
-                pDefuncting.stats.stocksTradedAway[-1] += defunctStockInv['trade']
-                pDefuncting.stats.stocksAcquired[-1] += int(defunctStockInv['trade']/2)
-                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-                # endregion
-                
-                #cycle pDefuncting
-                if clientMode == "hostLocal":
-                  pDefunctingLoop, pDefuncting, defunctchains, defunctchain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
-                                                                                                                    bigchain, defunctchain, pendingTileHandler)
-                  if pDefuncting is not None:
-                    defunctingStocks = pDefuncting.stocks[defunctchain]
-                    knob1_x = 0
-                    knob2_x = defunctingStocks
-                  else:
-                    defunctMode = False
-                    checkGameEndable = True; skipRender = True
-                    if pendingTileHandler is not None:
-                      turntile = pendingTileHandler
-                      pendingTileHandler = None
-                elif clientMode == "hostServer":
-                  defunctMode = False
-                  send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-                  overflow_update(u, u_overflow, (my_uuid, Command("set player defunct", False)))
+            if stopdefunct_button_rect is not None and stopdefunct_button_rect.collidepoint(pos): # Player finished
+              # region move stocks
+              #sell
+              pDefuncting.stocks[defunctChain] -= defunctStockInv['sell']
+              bank.stocks[defunctChain] += defunctStockInv['sell']
+              pDefuncting.bal += bank.stockcost(defunctChain, board.fetchchainsize(defunctChain))*defunctStockInv['sell']
+              #trade
+              pDefuncting.stocks[defunctChain] -= defunctStockInv['trade']
+              bank.stocks[defunctChain] += defunctStockInv['trade']
+              pDefuncting.stocks[bigchain] += int(defunctStockInv['trade']/2)
+              bank.stocks[bigchain] -= int(defunctStockInv['trade']/2)
+              #stats
+              pDefuncting.stats.stocksSold[-1] += defunctStockInv['sell']
+              pDefuncting.stats.stocksTradedAway[-1] += defunctStockInv['trade']
+              pDefuncting.stats.stocksAcquired[-1] += int(defunctStockInv['trade']/2)
+              send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+              # endregion
+              
+              # region cycle pDefuncting
+              if clientMode == "hostLocal":
+                pDefunctingLoop, pDefuncting, defunctchains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
+                                                                                                                  bigchain, defunctChain, pendingTileHandler)
+                if pDefuncting is not None:
+                  knob1_x = 0
+                  knob2_x = pDefuncting.stocks[defunctChain]
+                  tradeBanned = bank.stocks[bigchain] == 0 or knob2_x < 2
                 else:
+                  defunctMode = False
+                  checkGameEndable = True; skipRender = True
+                  if pendingTileHandler is not None:
+                    turntile = pendingTileHandler
+                    pendingTileHandler = None
+              elif clientMode == "hostServer":
+                defunctMode = False
+                send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+                overflow_update(u, u_overflow, (my_uuid, Command("set player defunct", False)))
+              else:
                   defunctMode = False
                   send_gameStateUpdate(tilebag, board, players, bank, clientMode)
                   propagate((my_uuid, Command("set player defunct", False)))
+              # endregion
         
         #Post Draw Endgame and Buyability Check - SHOULD BE HIT EVERY TURN W/O FAIL
         elif checkGameEndable:
           checkGameEndable = False
           turnWrapup = True
-          gameEndable = board.endgamecheck()
+          endGameConfirm = board.endgamecheck()
           buyPhase = len(board.fetchactivechains()) > 0 and any([bank.stocks[chain] for chain in board.fetchactivechains()]) and p.bal >= bank.fetchcheapeststock()[1]
-          # print(gameEndable, buyPhase)
+          
           if buyPhase:
-            askToBuy = True; forceRender = True
-          if not gameEndable and not askToBuy:
+            askToBuy = True
+            focus_content.clear("askToBuy"); forceRender = True
+          if endGameConfirm:
+            focus_content.clear("endGameConfirm"); forceRender = True
+          if not endGameConfirm and not askToBuy:
             skipRender = True
         
         #Waiting for Player to Choose to End Game
-        elif gameEndable:
+        elif endGameConfirm:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = event.dict["pos"]
-            if not popup_open:
-              # Check ask to end the game
-              for i, yesorno_rect in enumerate(yesandno_rects):
-                if yesorno_rect.collidepoint(pos):
-                  gameEndable = False
-                  if i == 1:
-                    gameCompleted = True
-                    propagate(players, None, Command("set game completed", gameCompleted))
-                    if not clientMode == "hostLocal":
-                      cyclingPlayers = False
+            # Check ask to end the game
+            for i, yesorno_rect in enumerate(yesandno_rects):
+              if yesorno_rect.collidepoint(pos):
+                endGameConfirm = False
+                focus_content.clear()
+                if askToBuy:
+                  focus_content.clear("askToBuy")
+                if i == 1:
+                  gameCompleted = True
+                  propagate(players, None, Command("set game completed", gameCompleted))
+                  if not clientMode == "hostLocal":
+                    cyclingPlayers = False
         
         #Waiting for Player to Choose to Buy Stocks
         elif askToBuy:
           if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             pos = event.dict["pos"]
-            if not popup_open:
-              # Check if askToBuy was clicked
-              for i, yesorno_rect in enumerate(yesandno_rects):
-                if yesorno_rect.collidepoint(pos):
-                  askToBuy = False
-                  if i == 1:
-                    boughtthisturn = 0
-                    stockcart = []
-                    buyablechains = [chain for chain in board.fetchactivechains() if bank.stocks[chain] or chain in stockcart]
-                    preBuyBal = p.bal
-                    focus_content.clear("stockbuy")
-                  else:
-                    buyPhase = False
+            # Check if askToBuy was clicked
+            for i, yesorno_rect in enumerate(yesandno_rects):
+              if yesorno_rect.collidepoint(pos):
+                askToBuy = False
+                if i == 1:
+                  boughtthisturn = 0
+                  stockcart = []
+                  buyablechains = [chain for chain in board.fetchactivechains() if bank.stocks[chain] or chain in stockcart]
+                  preBuyBal = p.bal
+                  focus_content.clear("stockbuy")
+                else:
+                  buyPhase = False
         
         #Waiting to Buy and Handle Events in Buy Mode
         elif buyPhase:
@@ -593,7 +591,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             pos = event.dict["pos"]
             for i, stock_plusmin_rect in enumerate(stock_plusmin_rects):
               # print(newchain_rect, pos, newchain_rect.collidepoint(pos))
-              if stock_plusmin_rect is not None and stock_plusmin_rect.collidepoint(pos) and buyablechains and not popup_open:
+              if stock_plusmin_rect is not None and stock_plusmin_rect.collidepoint(pos) and buyablechains:
                 buykey = buyablechains[i//2]
                 if i%2 == 0: #minus
                   if buykey in stockcart: 
@@ -619,7 +617,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                     # print('no cheating :(')
                     pass
             # Check if stockbuy close was clicked
-            if stockbuy_confirm_rect.collidepoint(pos) and not popup_open:
+            if stockbuy_confirm_rect.collidepoint(pos):
               p.stats.moneySpent[-1] += preBuyBal - p.bal
               p.stats.stocksAcquired[-1] += len(stockcart)
               for buykey in stockcart:

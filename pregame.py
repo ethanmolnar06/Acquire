@@ -6,7 +6,7 @@ from copy import deepcopy
 from objects import *
 from objects.networking import fetch_updates, propagate, DISCONN
 from common import DIR_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
-from gui_fullscreen import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
+from gui import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: bool = True) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
   screen, clock = gameUtils

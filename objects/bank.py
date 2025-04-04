@@ -99,7 +99,7 @@ class Bank:
       if self.stocks[chain] > 0:
         pass
   
-  def chainpayout(self, players: list[Player], defunctchains: list[str]) -> tuple[str | None, list[str]]:
+  def chainpayout(self, players: list[Player], defunctchains: list[str]) -> tuple[str | None, list[tuple[str | None, str | None, str | None]]]:
     # adds payout directly to players' balance internally
     statementsList = []
     for chain in defunctchains:
