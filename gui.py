@@ -475,13 +475,19 @@ def draw_slider(surface: Surface, slider_vec):
 # region gui prebuilts
 
 def default_dropdown_rect(surface: Surface) -> Rect:
-  window_width, window_height = surface.get_size()
+  surface_width, surface_height = surface.get_size()
   
-  width = int(window_width * (11/28))
-  height = window_height - window_height // 24
-  top_left = (window_width//120, window_height // 24)
+  width = int(surface_width * (11/28))
+  height = surface_height - surface_height // 12
+  top_left = (surface_width//120, surface_height // 16)
   
   return Rect(top_left[0], top_left[1], width, height)
+
+def default_player_info_rect(surface: Surface) -> Rect:
+  surface_width, surface_height = surface.get_size()
+  
+  return Rect(surface_width * 25/32, 0,
+              surface_width * 7/32, surface_height * 16/24)
 
 def top_rect_title(surface: Surface, title: str, y_offset_div: int = 0, font_offset_div: int = 50, surface_subrect: Rect = None, justification: str = "centered") -> Rect:
   if surface_subrect:
@@ -567,8 +573,7 @@ def draw_player_info(surface: Surface, p: Player | Bank, subrect: Rect | None = 
   surface_width, surface_height = surface.get_size()
   
   if subrect is None:
-    subrect = Rect(surface_width * 25/32, 0,
-                   surface_width * 7/32, surface_height * 16/24)
+    subrect = default_player_info_rect()
   
   balance = p.balance if 'balance' in p.__dict__.keys() else f'${p.bal}'
   choices = [balance,] + [f'{stock}: {p.stocks[stock]}' for stock in p.stocks.keys()]
@@ -786,7 +791,7 @@ def draw_selectPlayerFromSave(surface: Surface, drawinfo: tuple[int, int], uncla
   def choice_outline_color_func(i: int) -> tuple[int, int, int]:
     return Colors.GREEN if i == hover_player_int else None
   
-  header_rect, player_rects = dropdown(surface, drect, "  Players  ", unclaimed_players,
+  header_rect, player_rects = dropdown(surface, drect, "  Players  ", [p.name for p in unclaimed_players],
                                        Colors.RED, Colors.BLACK, 
                                        choice_rect_color_func, lambda x: Colors.BLACK, 
                                        Colors.BLACK, choice_outline_color_func)
@@ -794,9 +799,11 @@ def draw_selectPlayerFromSave(surface: Surface, drawinfo: tuple[int, int], uncla
   
   # Draw player info and select player button if player clicked
   load_rect = None
+  subrect = default_player_info_rect(surface)
+  subrect.centerx -= subrect.w // 4
   if clicked_player_int is not None:
-    draw_player_info(surface, unclaimed_players[clicked_player_int])
-    load_rect = single_button(surface, "SELECT")
+    draw_player_info(surface, unclaimed_players[clicked_player_int], subrect=subrect)
+    load_rect = single_button(surface, "SELECT", rect_offset_x=2.25)
   
   # Create an "x" button to back out of menu
   back_button_rect = top_right_corner_x_button(surface)

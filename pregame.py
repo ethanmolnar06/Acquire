@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from objects import *
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import DIR_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
+from common import DIR_PATH, SAVES_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 from gui import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: bool = True) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
@@ -101,7 +101,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
         yesandno_rects = draw_fullscreenSelect(screen, 'loadSave')
       elif selectSaveFile:
         drawinfo: tuple[bool, int, bool, int] = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
-        saveinfo: tuple[str, list[str]] = (saves_path, savefiles)
+        saveinfo: tuple[str, list[str]] = (SAVES_PATH, savefiles)
         save_rects_vec = draw_selectSaveFile(screen, drawinfo, saveinfo)
         directory_rect, savefile_rects, load_rect, back_button_rect = save_rects_vec
       elif selectPlayerFromSave:
@@ -220,10 +220,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
             if i == 1:
               selectSaveFile = True; watchMousePos = True
               newGame = False
-              saves_path = DIR_PATH + r'\saves'
-              if not os.path.exists(saves_path):
-                os.makedirs(saves_path, exist_ok=True)
-              savefiles = os.listdir(saves_path); savefiles.sort(reverse=True)
+              savefiles = os.listdir(SAVES_PATH); savefiles.sort(reverse=True)
               hover_directory, clicked_directory = [False]*2
               hover_save_int, clicked_save_int = [None]*2
             else:
@@ -257,13 +254,12 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
         elif clicked_directory and hover_save_int is not None:
           clicked_save_int = (hover_save_int if clicked_save_int != hover_save_int else None)
         elif clicked_save_int is not None and load_rect.collidepoint(pos):
-          selectSaveFile = False; watchMousePos = False
+          selectSaveFile = False; watchMousePos = False; forceRender = True
           if clientMode == "hostServer":
             selectPlayerFromSave = True; watchMousePos = True
             hover_player_int, clicked_player_int = [None]*2
-          
           savefile = savefiles[clicked_save_int]
-          with open(rf'{saves_path}\{savefile}', 'rb') as file:
+          with open(rf'{SAVES_PATH}\{savefile}', 'rb') as file:
             saveData = file.read()
           tilebag, board, players, bank = unpack_gameState(saveData)
           for p in players:
@@ -282,8 +278,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
         if back_button_rect.collidepoint(pos):
           selectPlayerFromSave = False
           selectSaveFile = True; watchMousePos = True
-          saves_path = DIR_PATH + r'\saves'
-          savefiles = os.listdir(DIR_PATH + r'\saves'); savefiles.sort()
+          savefiles = os.listdir(SAVES_PATH); savefiles.sort()
           hover_directory, clicked_directory = [False]*2
           hover_save_int, clicked_save_int = [None]*2
         if hover_player_int is not None:

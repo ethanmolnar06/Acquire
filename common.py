@@ -26,6 +26,9 @@ PRINT_PROXY_DEBUG = False
 
 
 DIR_PATH = os.path.realpath(os.curdir)
+SAVES_PATH = saves_path = DIR_PATH + r'\saves'
+if not os.path.exists(saves_path):
+  os.makedirs(saves_path, exist_ok=True)
 NO_RENDER_EVENTS = {0, 770, 1024, 1027,
                     32768, 32783, 32784, 32785, 32786, 32770}
 
