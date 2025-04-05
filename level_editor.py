@@ -22,7 +22,7 @@ if not successfullBoot:
   sys.exit()
 
 from objects import *
-from common import NO_RENDER_EVENTS, VARIABLE_FRAMERATE, MAX_FRAMERATE, pack_gameState, write_save
+from common import CONFIG, pack_gameState, write_save
 from gui import GUI_area, draw_main_screen, draw_game_board, draw_other_player_stats
 
 tilebag, board, players, bank = gameState
@@ -36,7 +36,7 @@ skipRender: bool = False
 while levelEditing:
   event = pygame.event.poll()
   # region Render Process
-  if (forceRender or event.type not in NO_RENDER_EVENTS) and not skipRender:
+  if (forceRender or event.type not in CONFIG.NO_RENDER_EVENTS) and not skipRender:
     forceRender = False
     
     # Clear the screen
@@ -158,4 +158,4 @@ while levelEditing:
     # endregion
   
   
-  clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+  clock.tick(1 if CONFIG.VARIABLE_FRAMERATE and not pygame.key.get_focused() else CONFIG.MAX_FRAMERATE)

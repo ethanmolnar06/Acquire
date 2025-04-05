@@ -4,7 +4,7 @@ from uuid import UUID
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update, overflow, iter_flatten
+from common import CONFIG, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update, overflow, iter_flatten
 from gui import GUI_area, draw_main_screen, draw_game_board, draw_newChain, draw_other_player_stats, draw_stockbuy, draw_mergeChainPriority, draw_defunctPayout, draw_focus_area_select, draw_defunctMode
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
@@ -100,7 +100,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         bank.stats.bankTilesDrawn += [bank.stats.bankTilesDrawn[-1]]
       saveData = pack_gameState(tilebag, board, players, bank)
       
-      if ALLOW_QUICKSAVES:
+      if CONFIG.ALLOW_QUICKSAVES:
         write_save(saveData, [p._truename for p in players], bank.stats.turnCounter[-1], quicksave=True)
       
       p = players.pop(0)
@@ -252,7 +252,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       event = pygame.event.poll()
       # region Render Process
-      if (forceRender or event.type not in NO_RENDER_EVENTS) and not skipRender:
+      if (forceRender or event.type not in CONFIG.NO_RENDER_EVENTS) and not skipRender:
         forceRender = False
         
         # Clear the screen
@@ -663,7 +663,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       
       # endregion
       
-      clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+      clock.tick(1 if CONFIG.VARIABLE_FRAMERATE and not pygame.key.get_focused() else CONFIG.MAX_FRAMERATE)
     
     # Host Iter Stats & Sync & Endgame
     if "host" in clientMode:

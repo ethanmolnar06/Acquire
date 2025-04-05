@@ -1,36 +1,52 @@
 import os
+import sys
 import pickle
 import pygame
 import pkgutil
+import json
 from datetime import date
 from uuid import UUID
-from copy import copy
 
 from objects import *
 from objects.networking import extrctConns, propagate
 
-# TODO move these permisions to config.json & add argparse for cmd line launching
-# GLOBAL GAME PERMISSIONS & CONFIG
-HIDE_PERSONAL_INFO = False
-ALLOW_SAVES = True
-ALLOW_QUICKSAVES = True
-VARIABLE_FRAMERATE = True
-MAX_FRAMERATE = 120
+class DefaultConfig:
+  # GLOBAL GAME PERMISSIONS
+  HIDE_PERSONAL_INFO: bool = False
+  ALLOW_SAVES: bool = True
+  ALLOW_QUICKSAVES: bool = True
+  VARIABLE_FRAMERATE: bool = True
+  MAX_FRAMERATE: int = 120
+  # MULTIPLAYER
+  ALLOW_REJOIN: bool = True
+  ALLOW_PUBLIC_IP: bool = True
+  ALLOW_REVERSE_PROXY: bool = False
+  PRINT_NETWORKING_DEBUG: bool = False
+  PRINT_PROXY_DEBUG: bool = False
 
-# MULTIPLAYER CONFIG
-ALLOW_REJOIN = True
-ALLOW_PUBLIC_IP = True
-ALLOW_REVERSE_PROXY = False
-PRINT_NETWORKING_DEBUG = False
-PRINT_PROXY_DEBUG = False
-
-
-DIR_PATH = os.path.realpath(os.curdir)
-SAVES_PATH = saves_path = DIR_PATH + r'\saves'
-if not os.path.exists(saves_path):
-  os.makedirs(saves_path, exist_ok=True)
-NO_RENDER_EVENTS = {0, 770, 1024, 1027,
+class CONFIG(DefaultConfig):
+  NO_RENDER_EVENTS = {0, 770, 1024, 1027,
                     32768, 32783, 32784, 32785, 32786, 32770}
+  DIR_PATH = os.path.realpath(os.curdir)
+  SAVES_PATH = os.path.join(DIR_PATH, 'saves')
+  if not os.path.exists(SAVES_PATH):
+    os.makedirs(SAVES_PATH, exist_ok=True)
+  CONFIG_PATH = os.path.join(DIR_PATH, 'config.json')
+  
+  @classmethod
+  def load(cls):
+    if not os.path.exists(cls.CONFIG_PATH):
+      with open(cls.CONFIG_PATH, 'x') as file:
+        json.dump({k: v for k, v in DefaultConfig.__dict__.items() if "__" not in k}, file)
+    
+    try:
+      with open(cls.CONFIG_PATH, 'r') as file:
+        cls._config_data: dict = json.load(file)
+        for k, v in cls._config_data.items():
+          setattr(cls, k, v)
+    except json.JSONDecodeError as e:
+      print(f"[CONFIG ERROR] Error Decoding config.json @ {cls.CONFIG_PATH}")
+      sys.exit(1)
 
 class Colors:
   BLACK = (0, 0, 0)
@@ -193,7 +209,7 @@ def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int =
     if turnnumber is not None:
       save_file_new += f'_turn{turnnumber}'
   
-  save_folder = os.path.join(DIR_PATH, "saves")
+  save_folder = os.path.join(CONFIG.DIR_PATH, "saves")
   if not os.path.exists(save_folder):
     os.makedirs(save_folder)
   

@@ -2,7 +2,7 @@ import pygame
 from plotly import graph_objects as ptgo
 
 from objects import *
-from common import ALLOW_SAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, unpack_gameState, write_save
+from common import CONFIG, unpack_gameState, write_save
 from gui import draw_fullscreenSelect, draw_endGameStats
 
 def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted: bool, saveData: bytes):
@@ -24,12 +24,12 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
   while postGaming:
     event = pygame.event.poll()
     # region Render Process
-    if forceRender or event.type not in NO_RENDER_EVENTS:
+    if forceRender or event.type not in CONFIG.NO_RENDER_EVENTS:
       forceRender = False
       # Clear the screen
       screen.fill((255, 255, 255))
       #Draw ask to make savestate
-      if ALLOW_SAVES and askMakeSave:
+      if CONFIG.ALLOW_SAVES and askMakeSave:
         yesandno_rects = draw_fullscreenSelect(screen, 'makeSave')
       elif askShowStats:
         yesandno_rects = draw_fullscreenSelect(screen,'endGameStats')
@@ -48,7 +48,7 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
       screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
     # endregion
     
-    if ALLOW_SAVES and askMakeSave:
+    if CONFIG.ALLOW_SAVES and askMakeSave:
       if event.type == pygame.MOUSEBUTTONDOWN:
         # Get the mouse position
         pos = event.dict["pos"]
@@ -133,4 +133,4 @@ def postgame(gameUtils: tuple[pygame.Surface, pygame.time.Clock], gameCompleted:
               else:
                 graphfig = graphrends[stat]
     
-    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+    clock.tick(1 if CONFIG.VARIABLE_FRAMERATE and not pygame.key.get_focused() else CONFIG.MAX_FRAMERATE)

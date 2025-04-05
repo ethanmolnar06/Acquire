@@ -64,8 +64,8 @@ class Proxy():
     self.thread.start()
   
   def _proxy_print(self, *var):
-    from common import PRINT_PROXY_DEBUG
-    if PRINT_PROXY_DEBUG:
+    from common import CONFIG
+    if CONFIG.PRINT_PROXY_DEBUG:
       print(*var)
   
   def kill(self):
@@ -121,7 +121,7 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   print(f"[SERVER INITALIZED]")
   
   # region Get IPs
-  from common import ALLOW_PUBLIC_IP, ALLOW_REVERSE_PROXY
+  from common import CONFIG
   ip = None
   possibleips = [ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")]
   ipFilterPrio = ["192.168.0.", "172.16.0.", "10.0.0.",
@@ -139,9 +139,9 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   listening_str = f"Listening at {ip} (local)"
   
   reverseProxy = None
-  if ALLOW_PUBLIC_IP:
+  if CONFIG.ALLOW_PUBLIC_IP:
     # region localhost.run reverse proxy
-    if ALLOW_REVERSE_PROXY and shutil.which("ssh"):
+    if CONFIG.ALLOW_REVERSE_PROXY and shutil.which("ssh"):
       reverseProxy = Proxy()
       while reverseProxy.thread.is_alive():
         if reverseProxy.tunnelBuilt and reverseProxy.addr is not None:
@@ -149,7 +149,7 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
           break
     # endregion
     
-    if not ALLOW_REVERSE_PROXY or reverseProxy is None:
+    if not CONFIG.ALLOW_REVERSE_PROXY or reverseProxy is None:
       publicip = get('https://api.ipify.org').text
       listening_str += f" & {publicip} (public)"
   # endregion

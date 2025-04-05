@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -7,7 +8,7 @@ parser.add_argument("--debug", action="store_true")
 options = parser.parse_args()
 
 added_files = [
-        ('assets/fonts', 'fonts'),
+        (os.path.join("assets", "fonts"), 'fonts'),
         ]
 
 a = Analysis( # type: ignore
@@ -31,7 +32,7 @@ if options.debug:
         a.scripts,
         exclude_binaries=True,
         name='Acquire',
-        icon="assets/acquire_boxart_glitching.ico",
+        icon=os.path.join("assets", "acquire_boxart_glitching.ico"),
         debug=True,
         bootloader_ignore_signals=False,
         strip=False,
@@ -56,7 +57,7 @@ else:
         a.binaries,
         a.datas,
         name='Acquire',
-        icon="assets/acquire_boxart_glitching.ico",
+        icon=os.path.join("assets", "acquire_boxart_glitching.ico"),
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,

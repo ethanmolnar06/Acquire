@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from objects import *
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import DIR_PATH, SAVES_PATH, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, ALLOW_REVERSE_PROXY, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
+from common import CONFIG, unpack_gameState, send_gameStateUpdate, find_player, overflow_update
 from gui import draw_fullscreenSelect, draw_singleTextBox, draw_setPlayerNamesLocal, draw_selectSaveFile, draw_customSettings, draw_selectPlayerFromSave, draw_setPlayerNameJoin, draw_waitingForJoin
 
 def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: bool = True) -> tuple[bool, str, bool | None, tuple[TileBag, Board, list[Player], Bank] | str]:
@@ -77,7 +77,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
   while acquireSetup:
     event = pygame.event.poll()
     # region Render Process
-    if forceRender or (watchMousePos and event.type) or event.type not in NO_RENDER_EVENTS:
+    if forceRender or (watchMousePos and event.type) or event.type not in CONFIG.NO_RENDER_EVENTS:
       forceRender = False
       # Clear the screen
       screen.fill((255, 255, 255))
@@ -101,8 +101,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
         yesandno_rects = draw_fullscreenSelect(screen, 'loadSave')
       elif selectSaveFile:
         drawinfo: tuple[bool, int, bool, int] = (hover_directory, hover_save_int, clicked_directory, clicked_save_int)
-        saveinfo: tuple[str, list[str]] = (SAVES_PATH, savefiles)
-        save_rects_vec = draw_selectSaveFile(screen, drawinfo, saveinfo)
+        save_rects_vec = draw_selectSaveFile(screen, drawinfo, savefiles)
         directory_rect, savefile_rects, load_rect, back_button_rect = save_rects_vec
       elif selectPlayerFromSave:
         drawinfo = (hover_player_int, clicked_player_int)
@@ -137,7 +136,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
           if yesorno_rect.collidepoint(pos):
             askHostJoin = False; forceRender = True
             if i == 1:
-              if ALLOW_REVERSE_PROXY:
+              if CONFIG.ALLOW_REVERSE_PROXY:
                 askProxyNAT = True
               else:
                 askNATIP = True
@@ -224,7 +223,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
             if i == 1:
               selectSaveFile = True; watchMousePos = True
               newGame = False
-              savefiles = os.listdir(SAVES_PATH); savefiles.sort(reverse=True)
+              savefiles = os.listdir(CONFIG.SAVES_PATH); savefiles.sort(reverse=True)
               hover_directory, clicked_directory = [False]*2
               hover_save_int, clicked_save_int = [None]*2
             else:
@@ -263,7 +262,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
             selectPlayerFromSave = True; watchMousePos = True
             hover_player_int, clicked_player_int = [None]*2
           savefile = savefiles[clicked_save_int]
-          with open(rf'{SAVES_PATH}\{savefile}', 'rb') as file:
+          with open(os.path.join(CONFIG.SAVES_PATH, savefile), 'rb') as file:
             saveData = file.read()
           tilebag, board, players, bank = unpack_gameState(saveData)
           for p in players:
@@ -282,7 +281,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
         if back_button_rect.collidepoint(pos):
           selectPlayerFromSave = False
           selectSaveFile = True; watchMousePos = True
-          savefiles = os.listdir(SAVES_PATH); savefiles.sort()
+          savefiles = os.listdir(CONFIG.SAVES_PATH); savefiles.sort()
           hover_directory, clicked_directory = [False]*2
           hover_save_int, clicked_save_int = [None]*2
         if hover_player_int is not None:
@@ -387,7 +386,7 @@ def config(gameUtils: tuple[pygame.Surface, pygame.time.Clock], allowNonLocal: b
       successfullBoot = True
       return successfullBoot, clientMode, newGame, gameState
     
-    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+    clock.tick(1 if CONFIG.VARIABLE_FRAMERATE and not pygame.key.get_focused() else CONFIG.MAX_FRAMERATE)
 
 
 def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[UUID, Connection],
@@ -695,6 +694,6 @@ def lobby(gameUtils: tuple[pygame.Surface, pygame.time.Clock], conn_dict: dict[U
       inLobby = False
       gameState = (tilebag, board, players, bank)
     
-    clock.tick(1 if VARIABLE_FRAMERATE and not pygame.key.get_focused() else MAX_FRAMERATE)
+    clock.tick(1 if CONFIG.VARIABLE_FRAMERATE and not pygame.key.get_focused() else CONFIG.MAX_FRAMERATE)
   
   return successfulStart, gameState, my_uuid, host_uuid

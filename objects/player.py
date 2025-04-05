@@ -31,8 +31,8 @@ class Player:
   
   @property
   def name(self) -> str:
-    from common import HIDE_PERSONAL_INFO
-    return self._falsename if HIDE_PERSONAL_INFO else self._truename
+    from common import CONFIG
+    return self._falsename if CONFIG.HIDE_PERSONAL_INFO else self._truename
   
   @name.setter
   def name(self, nametup: tuple[str, int]):

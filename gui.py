@@ -9,7 +9,7 @@ from io import BytesIO
 from typing import Callable
 
 from objects import *
-from common import HIDE_PERSONAL_INFO, Colors, Fonts, iter_flatten
+from common import CONFIG, Colors, Fonts, iter_flatten
 
 # region gui components
 
@@ -740,20 +740,19 @@ def draw_waitingForJoin(surface: Surface, clientMode: str, connected_players: li
   return player_rects, button_rects
 
 # dropdown-based
-def draw_selectSaveFile(surface: Surface, drawinfo: tuple[bool, int, bool, int], saveinfo) -> tuple[Rect, list[Rect], Rect, Rect]:
+def draw_selectSaveFile(surface: Surface, drawinfo: tuple[bool, int, bool, int], savefiles: list[str]) -> tuple[Rect, list[Rect], Rect, Rect]:
   hover_directory, hover_save_int, clicked_directory, clicked_save_int = drawinfo
-  saves_path, savefiles = saveinfo
   
   title_rect = top_rect_title(surface, "Select Save File")
   
   # region Create save dropdown
   drect: Rect = default_dropdown_rect(surface)
   
-  header = saves_path if not HIDE_PERSONAL_INFO else "Saves Directory"
+  header = CONFIG.SAVES_PATH if not CONFIG.HIDE_PERSONAL_INFO else "Saves Directory"
   header_rect_color = Colors.RED if clicked_directory else Colors.GRAY
   header_outline_color =  Colors.GREEN if hover_directory else Colors.BLACK
   
-  choices = savefiles if not HIDE_PERSONAL_INFO else [f"Save {i+1}" for i in range(len(savefiles))]
+  choices = savefiles if not CONFIG.HIDE_PERSONAL_INFO else [f"Save {i+1}" for i in range(len(savefiles))]
   
   def choice_rect_color_func(i: int) -> tuple[int, int, int]:
     return Colors.LIGHTGREEN if i == clicked_save_int and clicked_directory else Colors.GRAY

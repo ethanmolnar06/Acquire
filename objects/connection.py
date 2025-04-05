@@ -113,8 +113,8 @@ class Connection:
     print(f"[CONNECTION ERROR] {err}")
   
   def _network_print(self, *var):
-    from common import PRINT_NETWORKING_DEBUG
-    if PRINT_NETWORKING_DEBUG:
+    from common import CONFIG
+    if CONFIG.PRINT_NETWORKING_DEBUG:
       print(*var)
   
   def _listen(self, kill_event: threading.Event):

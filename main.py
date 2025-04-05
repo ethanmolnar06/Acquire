@@ -14,6 +14,7 @@ gameUtils = (screen, clock)
 # endregion
 
 # region Pregame Config
+from common import CONFIG; CONFIG.load()
 from pregame import config
 from objects.networking import start_client, start_server, Connection
 
@@ -67,8 +68,7 @@ if not successfulStart:
   clean_quit(conn_dict)
 
 # Stop Looking for New Client Connections
-from common import ALLOW_REJOIN
-if clientMode == "hostServer" and not ALLOW_REJOIN:
+if clientMode == "hostServer" and not CONFIG.ALLOW_REJOIN:
   serverThread.kill()
 
 pygame.display.set_caption('Acquire')
