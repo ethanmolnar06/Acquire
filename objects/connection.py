@@ -27,8 +27,8 @@ class Command:
     else:
       raise TypeError(f"Invalid Command action {action}")
     
-    if obj in {"server", "client", "game", "test", "recv", "hist",
-               "tilebag", "board", "player", "stats", "bank",}:
+    if obj in {"server", "client", "game", "test", "hist",
+               "tilebag", "board", "player", "stats", "bank", "defunct",}:
       self.obj = obj
     else:
       raise NameError(f"Invalid Command object {obj}")
@@ -41,7 +41,14 @@ class Command:
     self.val = val
   
   def __str__(self) -> str:
-    command_text = "gameState" if "gameState" in self.key else ("handshake" if isinstance(self.val, tuple) else self.val)
+    if "gameState" in self.key:
+      command_text = "gameState"
+    elif self.dump() == "set client connection":
+      command_text = "handshake"
+    elif isinstance(self.val, tuple):
+      command_text = "DataTuple"
+    else:
+      command_text = self.val
     return f"{self.dump()} == {command_text} @ {self.timestamp}"
   
   def pack(self) -> bytes:
@@ -169,11 +176,11 @@ class Connection:
         if self.sock is None:
           raise ConnectionError("Attempting to Send to Empty Socket")
         if not self.outbox:
-          sleep(tries/10.)
-          tries += 1.
+          sleep(tries/10.); tries += 1.
           if tries > 30:
             tries = 1.
             self.outbox.append(Command(PING, False))
+            self._network_print(f"[CONNECTION IDLE] Pinging {self} to Verify Integrity")
           continue
         
         tries = 1.

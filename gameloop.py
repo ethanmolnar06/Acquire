@@ -4,7 +4,7 @@ from uuid import UUID
 from objects import *
 from objects.player import setPlayerOrder, statIncrement, assignStatVals
 from objects.networking import fetch_updates, propagate, DISCONN
-from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update, iter_flatten
+from common import ALLOW_QUICKSAVES, MAX_FRAMERATE, VARIABLE_FRAMERATE, NO_RENDER_EVENTS, pack_gameState, unpack_gameState, write_save, send_gameStateUpdate, overflow_update, overflow, iter_flatten
 from gui import GUI_area, draw_main_screen, draw_game_board, draw_newChain, draw_other_player_stats, draw_stockbuy, draw_mergeChainPriority, draw_defunctPayout, draw_focus_area_select, draw_defunctMode
 
 def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool, gameState: tuple[TileBag, Board, list[Player], Bank], 
@@ -12,20 +12,26 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
   screen, clock = gameUtils
   tilebag, board, players, bank = gameState
   
-  def cycle_pDefuncting(pDefunctingLoop: list[Player], defunctchains: list[str],
-                        turntile: str, bigchain: str, defunctChain: str, pendingTileHandler: str | tuple[str] | None) -> tuple[str, Player]:
+  def create_pDefunctingLoop(p, players, defunctChain) -> tuple[Player, list[Player]]:
+    # move the current player (popped to back when set) back to front
+    pDefunctingLoop: list[Player] = [p,] + players[:-1]
+    pDefunctingLoop = [p for p in pDefunctingLoop if p.stocks[defunctChain] > 0]
+    pDefuncting = pDefunctingLoop.pop(0)
+    return pDefuncting, pDefunctingLoop
+  
+  def cycle_pDefuncting(pDefunctingLoop: list[Player], defunctChains: list[str],
+                        turntile: str, bigChain: str, defunctChain: str, pendingTileHandler: str | tuple[str] | None) -> tuple[str, Player]:
     if len(pDefunctingLoop):
       pDefuncting = pDefunctingLoop.pop(0)
-    elif len(defunctchains):
-      chaingrowth = board.tileprop(turntile, bigchain, defunctChain, pendingTileHandler)
-      p.stats.mostExpandedChain[bigchain][-1] += chaingrowth
-      defunctChain = defunctchains.pop(0)
-      pDefunctingLoop = [p for p in players if p.stocks[defunctChain] > 0 ]
-      pDefuncting = pDefunctingLoop.pop(0)
+    elif len(defunctChains):
+      chaingrowth = board.tileprop(turntile, bigChain, defunctChain, pendingTileHandler)
+      p.stats.mostExpandedChain[bigChain][-1] += chaingrowth
+      defunctChain = defunctChains.pop(0)
+      pDefuncting, pDefunctingLoop = create_pDefunctingLoop(p, players, defunctChain)
     else:
-      chaingrowth = board.tileprop(turntile, bigchain, ignoreTile=pendingTileHandler)
-      p.stats.mostExpandedChain[bigchain][-1] += chaingrowth
-      board.chaindict[turntile] = bigchain
+      chaingrowth = board.tileprop(turntile, bigChain, ignoreTile=pendingTileHandler)
+      p.stats.mostExpandedChain[bigChain][-1] += chaingrowth
+      board.chaindict[turntile] = bigChain
       if pendingTileHandler is not None:
         if isinstance(pendingTileHandler, tuple):
           board.chaindict[pendingTileHandler[0]] = pendingTileHandler[1]
@@ -34,10 +40,11 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           pendingTileHandler = None
       defunctChain = None
       pDefuncting = None
-    return pDefunctingLoop, pDefuncting, defunctchains, defunctChain, pendingTileHandler
+    return pDefunctingLoop, pDefuncting, defunctChains, defunctChain, pendingTileHandler
   
-  if newGame and "host" in clientMode:
-    players = setPlayerOrder(tilebag, board, players)
+  if "host" in clientMode:
+    if newGame:
+      players = setPlayerOrder(tilebag, board, players)
     send_gameStateUpdate(tilebag, board, players, bank, clientMode)
   else:
     # confirm to host that this client is in the gameloop and ready for play
@@ -79,6 +86,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
     buyPhase: bool = False
     turnWrapup: bool = False
     
+    activeDefunct = False
     dragging_knob1, dragging_knob2 = [False]*2
     # endregion
     
@@ -109,7 +117,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       # endregion
       
       # region Network Update Commands
-      u = fetch_updates(players) if not u_overflow else u_overflow
+      u = fetch_updates(players) if not u_overflow else overflow(u_overflow)
       toPropagate = []
       while len(u):
         uuid, comm = u.pop(0)
@@ -130,43 +138,50 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           elif comm.dump() == "set game completed" and comm.val:
             gameCompleted = True
           
-          elif comm.dump() == "set bank merge": # expecting u_overflow
-            datatup: tuple[str, str, list[str], str | tuple[str], list[str], list[int, int]] = comm.val
-            turntile, bigchain, defunctchains, pendingTileHandler, statementsList, iofnStatement = datatup
-            defunctPayout = True
-            toPropagate.append(Command("set bank merge", (statementsList, iofnStatement)))
+          elif comm.dump() == "set bank payout":
+            datatup: tuple[list[tuple[str | None, str | None, str | None]], list[int], bool] = comm.val
+            statementsList, iofnStatement, highlightBankTile = datatup
+            activeDefunct = True
+            defunctPayout = True; forceRender = True
             focus_content.clear("defunctPayout")
             
-            defunctChain = defunctchains.pop(0)
-            pDefunctingLoop = [p for p in players if p.stocks[defunctChain] > 0 ]
-            pDefuncting = pDefunctingLoop.pop(0)
-            if pDefuncting.uuid == my_uuid:
-              setupDefunctVars = True
-            toPropagate.append(Command("set player defunct", pDefuncting.uuid))
+            toPropagate.append((uuid, Command("set bank payout", (statementsList, iofnStatement, highlightBankTile))))
           
-          elif comm.dump() == "set player defunct" and not comm.val: # expecting u_overflow
-            pDefunctingLoop, pDefuncting, defunctchains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
-                                                                                                              bigchain, defunctChain, pendingTileHandler)
+          elif comm.dump() == "set defunct order": # possible to reach by u_overflow
+            datatup: tuple[str, list[str]] = comm.val
+            bigChain, defunctChains = datatup
+            defunctChain = defunctChains.pop(0)
+            pDefuncting, pDefunctingLoop = create_pDefunctingLoop(p, players, defunctChain)
+            toPropagate.append((uuid, Command("set player defunct", (bigChain, defunctChain, pDefuncting.uuid))))
+            
+            if P == pDefuncting:
+              setupDefunctVars = True
+            else:
+              setupDefunctVars = False
+          
+          elif comm.dump() == "set player defunct" and not comm.val: # possible to reach by u_overflow
+            pDefunctingLoop, pDefuncting, defunctChains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctChains, turntile, bigChain, defunctChain, pendingTileHandler)
             if pDefuncting is not None:
               if pDefuncting.uuid == my_uuid:
                 setupDefunctVars = True
-              toPropagate.append(Command("set player defunct", (bigchain, defunctChain, pDefuncting.uuid)))
+              toPropagate.append((uuid, Command("set player defunct", (bigChain, defunctChain, pDefuncting.uuid))))
             else:
+              activeDefunct = False
               if p.uuid == my_uuid:
                 if pendingTileHandler is not None:
                   turntile = pendingTileHandler
                   placePhase = True
                 else:
                   checkGameEndable = True
-              toPropagate.append(Command("set player resume", (pendingTileHandler, p.uuid)))
+              toPropagate.append((uuid, Command("set player resume", (pendingTileHandler, p.uuid))))
           
           else: # unexpected / unknown command
             print("[UNEXPECTED COMMAND] : ", comm)
             continue
           
           send_gameStateUpdate(tilebag, board, players, bank, clientMode, uuid)
-          for prop in toPropagate:
-            propagate(players, None, prop)
+          for uuid, prop in toPropagate:
+            propagate(players, uuid, prop)
         
         else:
           # command recieved from server
@@ -188,15 +203,16 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               p = None
               placePhase = False
           
-          elif comm.dump() == "set bank merge":
-            datatup: tuple[list[tuple[str | None, str | None, str | None]], list[int]] = comm.val
-            statementsList, iofnStatement = datatup
-            defunctPayout = True
+          elif comm.dump() == "set bank payout":
+            datatup: tuple[list[tuple[str | None, str | None, str | None]], list[int], bool] = comm.val
+            statementsList, iofnStatement, highlightBankTile = datatup
+            activeDefunct = True
+            defunctPayout = True; forceRender = True
             focus_content.clear("defunctPayout")
           
           elif comm.dump() == "set player defunct" and comm.val:
             datatup: tuple[str, str, UUID] = comm.val
-            bigchain, defunctChain, p_uuid = datatup
+            bigChain, defunctChain, p_uuid = datatup
             if my_uuid == p_uuid:
               pDefuncting = P
               setupDefunctVars = True
@@ -207,6 +223,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           elif comm.dump() == "set player resume" and comm.val:
             datatup: tuple[str | None, UUID] = comm.val
             pendingTileHandler, p_uuid = datatup
+            activeDefunct = False; pDefuncting = None
             if my_uuid == p_uuid:
               p = P
               if pendingTileHandler is not None:
@@ -230,7 +247,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         forceRender = True
       # endregion
       
-      iAmPlayer = (p is not None and p.uuid == my_uuid) or (pDefuncting is not None and pDefuncting.uuid == my_uuid)
+      iAmPlayer = (not activeDefunct and p is not None and p.uuid == my_uuid) or \
+                  (activeDefunct and pDefuncting is not None and pDefuncting.uuid == my_uuid)
       
       event = pygame.event.poll()
       # region Render Process
@@ -260,7 +278,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         elif defunctPayout and focus_content.defunctPayout:
           stopdefunctpayout_button_rect = draw_defunctPayout(screen, statementsList[0], iofnStatement, highlightBankTile)
         elif defunctMode and focus_content.defunctMode:
-          stopdefunct_button_rect, knobs_slider_rects = draw_defunctMode(screen, bank, knob1_x, knob2_x, tradeBanned, pDefuncting, defunctChain, bigchain)
+          stopdefunct_button_rect, knobs_slider_rects = draw_defunctMode(screen, bank, knob1_x, knob2_x, tradeBanned, pDefuncting, defunctChain, bigChain)
           knob1_rect, knob2_rect, slider_rect = knobs_slider_rects
           slider_x = slider_rect.x; slider_width = slider_rect.width
         elif endGameConfirm and focus_content.endGameConfirm:
@@ -296,7 +314,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
       # endregion
       
       # region gameState elifs
-      if clientMode == "hostLocal" or iAmPlayer:
+      if clientMode == "hostLocal" or iAmPlayer or defunctPayout:
         
         # Hide Tiles from Players if clientMode == "hostLocal"
         if not showTiles:
@@ -346,7 +364,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 mergeChainPriority = True
                 mergeCart = mergeCartInit[0] 
                 chainoptions = mergeCartInit[1]
-                defunctchains = bigchain = None
+                defunctChains = bigChain = None
                 focus_content.clear("mergeChainPriority")
         
         # Waiting to Choose New Chain
@@ -396,10 +414,10 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
         # Setup Variables for Merging
         elif prepForMerge:
           prepForMerge = False
-          bigchain = mergeCart[0]
-          defunctchains = mergeCart[1:]
-          defunctchains.reverse() # mergeCart displays as largest to smallest, we want to merge from smallest to largest defunctChain
-          bankdrawntile, statementsList = bank.chainpayout(players, defunctchains)
+          bigChain = mergeCart[0]
+          defunctChains = mergeCart[1:]
+          defunctChains.reverse() # mergeCart displays as largest to smallest, we want to merge from smallest to largest defunctChain
+          bankdrawntile, statementsList = bank.chainpayout(players, defunctChains)
           
           if bankdrawntile is not None:
             highlightBankTile = True
@@ -417,24 +435,23 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             bankdrawntile = None
           
           iofnStatement = [1, len(statementsList)]
-          p.stats.mergersMade[-1] += len(defunctchains)
+          p.stats.mergersMade[-1] += len(defunctChains)
+          
+          defunctPayout = True; forceRender = True
+          activeDefunct = True
+          focus_content.clear("defunctPayout")
+          send_gameStateUpdate(tilebag, board, players, bank, clientMode)
+          statementsList, iofnStatement, highlightBankTile
+          propagate(players, None, Command("set bank payout", (statementsList, iofnStatement, highlightBankTile)))
           
           if clientMode == "hostLocal":
-            defunctChain = defunctchains.pop(0)
-            pDefunctingLoop = [p for p in players if p.stocks[defunctChain] > 0 ]
-            pDefuncting = pDefunctingLoop.pop(0)
+            defunctChain = defunctChains.pop(0)
+            pDefuncting, pDefunctingLoop = create_pDefunctingLoop(p, players, defunctChain)
+            setupDefunctVars = True
           elif clientMode == "hostServer":
-            send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-            overflow_update(u, u_overflow, (my_uuid, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
-                                                               statementsList, iofnStatement))))
+            overflow_update(u, u_overflow, (P.uuid, Command("set defunct order", (bigChain, defunctChains))))
           else:
-            send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-            propagate(players, None, Command("set bank merge", (turntile, bigchain, defunctchains, pendingTileHandler,
-                                                                statementsList, iofnStatement)))
-          
-          defunctPayout = True
-          setupDefunctVars = True
-          focus_content.clear("defunctPayout")
+            propagate(players, None, Command("set defunct order", (bigChain, defunctChains)))
         
         # Waiting to player to dismiss all merge payout popups
         elif defunctPayout:
@@ -451,14 +468,18 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                 defunctPayout = False
                 if not setupDefunctVars:
                   focus_content.clear(); forceRender = True
+                else:
+                  skipRender = True
         
         # Setup Variables for Defuncting
         elif setupDefunctVars:
           setupDefunctVars = False
-          defunctMode = True
+          
           knob1_x = 0
           knob2_x = pDefuncting.stocks[defunctChain]
-          tradeBanned = bank.stocks[bigchain] == 0 or knob2_x < 2
+          tradeBanned = bank.stocks[bigChain] == 0 or knob2_x < 2
+          
+          defunctMode = True; forceRender = True
           focus_content.clear("defunctMode")
         
         # Waiting for each Player to Handle Defunct Decision
@@ -468,7 +489,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
             pos = event.dict["pos"]
             if knob1_rect.collidepoint(event.pos):
               dragging_knob1 = True
-            elif knob2_rect.collidepoint(event.pos) and bank.stocks[bigchain] > 0:
+            elif knob2_rect.collidepoint(event.pos) and bank.stocks[bigChain] > 0:
               dragging_knob2 = True
           elif event.type == pygame.MOUSEBUTTONUP:
             dragging_knob1 = False
@@ -481,13 +502,13 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               knob1_x = round((event.pos[0] - slider_x) * (defunctingStocks / slider_width))
               knob1_x = max(knob1_x, 0)  #Ensure knob1_x doesn't go beyond the slider's left side
               knob1_x = min(knob1_x, knob2_x)  #Ensure knob1_x doesn't go beyond knob2_x
-            elif dragging_knob2 and bank.stocks[bigchain] > 0:
+            elif dragging_knob2 and bank.stocks[bigChain] > 0:
               knob2_x = (round((event.pos[0] - slider_x) * (defunctingStocks / slider_width))// 2)*2 + defunctingStocks % 2 #Make knob2_x odd if defunctingStocks is odd
               knob2_x = max(knob2_x, ((knob1_x + (defunctingStocks+1)%2) // 2)*2 + defunctingStocks%2 )  #Ensure knob2_x is greater than knob1_x
               knob2_x = min(knob2_x, defunctingStocks)  #Ensure knob2_x doesn't exceed defunctingStocks
-              tradeBanned = (defunctingStocks - knob2_x)/2 >= bank.stocks[bigchain] or knob2_x < 2
+              tradeBanned = (defunctingStocks - knob2_x)/2 >= bank.stocks[bigChain] or knob2_x < 2
               if (tradeBanned):
-                knob2_x = max(knob2_x, defunctingStocks - (bank.stocks[bigchain]*2) )
+                knob2_x = max(knob2_x, defunctingStocks - (bank.stocks[bigChain]*2) )
           defunctStockInv = {'keep': knob1_x,
                              'sell': knob2_x - knob1_x,
                              'trade': pDefuncting.stocks[defunctChain] - knob2_x} # unhalved trade value
@@ -503,8 +524,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               #trade
               pDefuncting.stocks[defunctChain] -= defunctStockInv['trade']
               bank.stocks[defunctChain] += defunctStockInv['trade']
-              pDefuncting.stocks[bigchain] += int(defunctStockInv['trade']/2)
-              bank.stocks[bigchain] -= int(defunctStockInv['trade']/2)
+              pDefuncting.stocks[bigChain] += int(defunctStockInv['trade']/2)
+              bank.stocks[bigChain] -= int(defunctStockInv['trade']/2)
               #stats
               pDefuncting.stats.stocksSold[-1] += defunctStockInv['sell']
               pDefuncting.stats.stocksTradedAway[-1] += defunctStockInv['trade']
@@ -514,26 +535,28 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               
               # region cycle pDefuncting
               if clientMode == "hostLocal":
-                pDefunctingLoop, pDefuncting, defunctchains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctchains, turntile,
-                                                                                                                  bigchain, defunctChain, pendingTileHandler)
+                pDefunctingLoop, pDefuncting, defunctChains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctChains, turntile,
+                                                                                                                  bigChain, defunctChain, pendingTileHandler)
                 if pDefuncting is not None:
                   knob1_x = 0
                   knob2_x = pDefuncting.stocks[defunctChain]
-                  tradeBanned = bank.stocks[bigchain] == 0 or knob2_x < 2
+                  tradeBanned = bank.stocks[bigChain] == 0 or knob2_x < 2
                 else:
+                  activeDefunct = False
                   defunctMode = False
                   checkGameEndable = True; skipRender = True
                   if pendingTileHandler is not None:
                     turntile = pendingTileHandler
                     pendingTileHandler = None
-              elif clientMode == "hostServer":
-                defunctMode = False
+              else :
+                defunctMode = False; forceRender = True
+                focus_content.clear()
                 send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-                overflow_update(u, u_overflow, (my_uuid, Command("set player defunct", False)))
-              else:
-                  defunctMode = False
-                  send_gameStateUpdate(tilebag, board, players, bank, clientMode)
-                  propagate((my_uuid, Command("set player defunct", False)))
+                if clientMode == "hostServer":
+                  overflow_update(u, u_overflow, (my_uuid, Command("set player defunct", False)))
+                else:
+                  pDefuncting = None
+                  propagate(players, None, Command("set player defunct", False))
               # endregion
         
         #Post Draw Endgame and Buyability Check - SHOULD BE HIT EVERY TURN W/O FAIL

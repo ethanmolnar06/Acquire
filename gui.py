@@ -1025,10 +1025,10 @@ def draw_mergeChainPriority(surface: Surface, mergeCart: list[str] | tuple[list[
     return Colors.chain(mergeCart[i+1])
   
   mergecart_rects = gridifier(surface, subrect, ["None",]*len(mergeCart[:-1]), len(mergeCart[:-1]), 1, rect_color_func, None, forceSquare=True)
-  bigchain_cart_rect = mergecart_rects[0].copy().scale_by(2, 2)
-  bigchain_cart_rect.left = focus_area.centerx
-  pygame.draw.rect(surface, rect_color_func(-1), bigchain_cart_rect)
-  mergecart_rects.insert(0, bigchain_cart_rect)
+  bigChain_cart_rect = mergecart_rects[0].copy().scale_by(2, 2)
+  bigChain_cart_rect.left = focus_area.centerx
+  pygame.draw.rect(surface, rect_color_func(-1), bigChain_cart_rect)
+  mergecart_rects.insert(0, bigChain_cart_rect)
   
   if quadMerge_2_2:
     # paint over the three small rects to do two pairs of big & small
@@ -1053,7 +1053,7 @@ def draw_mergeChainPriority(surface: Surface, mergeCart: list[str] | tuple[list[
   
   chain_subrect = focus_area.copy()
   chain_subrect.height = int((confirm_rect.top - mergecart_title_rect.bottom) * 9/10)
-  chain_subrect.centery = (bigchain_cart_rect.bottom + confirm_rect.top) // 2
+  chain_subrect.centery = (bigChain_cart_rect.bottom + confirm_rect.top) // 2
   cols, rows = create_square_dims(chainoptions)
   chain_rects = gridifier(surface, chain_subrect, chainoptions, cols, rows, rect_color_func, lambda x: Colors.BLACK, 
                           allignment="center", share_font_size=True)
@@ -1080,7 +1080,7 @@ def draw_defunctPayout(surface: Surface, statementsTup: tuple[str | None, str | 
   return confirm_rect
 
 def draw_defunctMode(surface: Surface, bank: Bank, knob1_x: int, knob2_x: int, tradeBanned: bool, 
-                                pDefuncting: Player, defunctChain: str, bigchain: str) -> tuple[Rect, tuple[Rect, Rect, Rect]]:
+                                pDefuncting: Player, defunctChain: str, bigChain: str) -> tuple[Rect, tuple[Rect, Rect, Rect]]:
   focus_area = get_focus_area(surface)
   pygame.draw.rect(surface, Colors.GRAY, focus_area)
   title_rect = top_rect_title(surface, f"{pDefuncting.name}'s {defunctChain} Stock Defunct Allocation", surface_subrect=focus_area)
@@ -1112,14 +1112,14 @@ def draw_defunctMode(surface: Surface, bank: Bank, knob1_x: int, knob2_x: int, t
   # Draw everything
   pygame.draw.rect(surface, Colors.chain(defunctChain), keep_bar_rect)
   pygame.draw.rect(surface, Colors.BLACK, sell_bar_rect)
-  pygame.draw.rect(surface, Colors.chain(bigchain), trade_bar_rect)
+  pygame.draw.rect(surface, Colors.chain(bigChain), trade_bar_rect)
   
   pygame.draw.rect(surface, Colors.RED, knob1_rect)
   if knob1_x == knob2_x:
     pygame.draw.rect(surface, Colors.BLACK, knob1_rect, 2)
   
-  pygame.draw.rect(surface, Colors.RED if bank.stocks[bigchain] > 0 else Colors.UNSELECTABLEGRAY, knob2_rect)
-  if tradeBanned and bank.stocks[bigchain] > 0:
+  pygame.draw.rect(surface, Colors.RED if bank.stocks[bigChain] > 0 else Colors.UNSELECTABLEGRAY, knob2_rect)
+  if tradeBanned and bank.stocks[bigChain] > 0:
     tradeBanned_rect = knob2_rect.copy()
     tradeBanned_rect.width = tradeBanned_rect.width//2
     tradeBanned_rect.left = tradeBanned_rect.left

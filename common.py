@@ -120,12 +120,18 @@ def colortest(screen: pygame.Surface, clock: pygame.time.Clock):
         break
       clock.tick(1)
 
-def overflow_update(u, u_overflow, update: tuple[UUID, Command] | None = None):
+def overflow_update(u: list[tuple[UUID, Command]], u_overflow: list[tuple[UUID, Command]], update: tuple[UUID, Command] | None = None):
+  # send to self as update
   # try to be super safe, not drop any updates in either queue
   if update is not None:
-    u_overflow = u_overflow + [update,]
-  u_overflow = u_overflow + copy(u) 
-  u = []
+    u_overflow.append(update)
+  u_overflow = u_overflow.extend(u)
+  u.clear()
+
+def overflow(u_overflow: list[tuple[UUID, Command]]) -> list[tuple[UUID, Command]]:
+  u = u_overflow.copy()
+  u_overflow.clear()
+  return u
 
 def pack_gameState(tilebag:TileBag, board:Board, players:list[Player], bank:Bank) -> bytes:
   conn_list = [p.conn for p in players]
@@ -200,6 +206,8 @@ def write_save(saveData: bytes, playernames: list[str] = None, turnnumber: int =
   return
 
 def send_gameStateUpdate(tilebag, board, players, bank, clientMode, source: UUID | None = None):
+  if clientMode == "hostLocal":
+    return
   gameStateUpdate = pack_gameState(tilebag, board, players, bank)
   target = "client" if clientMode == "hostServer" else "server"
   propagate(players, source, Command(f"set {target} gameState", gameStateUpdate))

@@ -1,10 +1,15 @@
-saves/*
-test.ipynb
-__pycache__/
+# Legacy
 oldVers/
+test.ipynb
+
+# Runtime
+__pycache__/
 .vscode/
-# Python
 
 # PyInstaller
 dist/
 build/
+
+# User
+config.json
+saves/*

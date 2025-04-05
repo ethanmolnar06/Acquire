@@ -155,7 +155,7 @@ def start_server(conn_dict:dict[uuid.UUID, Connection], newGame: bool, gameState
   # endregion
   
   server.listen()
-  print("[LISTENING]" + listening_str)
+  print("[LISTENING] " + listening_str)
   
   from common import pack_gameState
   def accept_conn(kill_event:threading.Event, newGame: bool, gameState: tuple):
