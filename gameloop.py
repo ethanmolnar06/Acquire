@@ -536,8 +536,8 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
               
               # region cycle pDefuncting
               if clientMode == "hostLocal":
-                pDefunctingLoop, pDefuncting, defunctChains, defunctChain, pendingTileHandler = cycle_pDefuncting(pDefunctingLoop, defunctChains, turntile,
-                                                                                                                  bigChain, defunctChain, pendingTileHandler)
+                pDefunctingLoop, pDefuncting, defunctChains, defunctChain, pendingTileHandler = cycle_pDefuncting(
+                  pDefunctingLoop, defunctChains, turntile, bigChain, defunctChain, pendingTileHandler)
                 if pDefuncting is not None:
                   knob1_x = 0
                   knob2_x = pDefuncting.stocks[defunctChain]
