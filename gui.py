@@ -1252,7 +1252,7 @@ def draw_endGameStats(surface: Surface, players: list[Player], statlist, hover_s
     surface.blit(graph_surface, graph_surface.get_rect(right=window_width, centery=window_height//2))
   
   # Draw button to change viewmode
-  label = "View by Field" if viewByField else "View by Player"
+  label = "View by Field" if not viewByField else "View by Player"
   color = Colors.LIGHTGREEN if viewByField else Colors.RED
   viewByField_rect = single_button(surface, label, color, rect_width_div=6, rect_height_div=10, rect_offset_y=8/9)
   

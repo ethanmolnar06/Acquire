@@ -543,6 +543,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
                   knob2_x = pDefuncting.stocks[defunctChain]
                   tradeBanned = bank.stocks[bigChain] == 0 or knob2_x < 2
                 else:
+                  focus_content.clear()
                   activeDefunct = False
                   defunctMode = False
                   checkGameEndable = True; skipRender = True
