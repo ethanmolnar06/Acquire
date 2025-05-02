@@ -419,6 +419,7 @@ def gameloop(gameUtils: tuple[pygame.Surface, pygame.time.Clock], newGame: bool,
           defunctChains.reverse() # mergeCart displays as largest to smallest, we want to merge from smallest to largest defunctChain
           bankdrawntile, statementsList = bank.chainpayout(players, defunctChains)
           
+          highlightBankTile = False
           if bankdrawntile is not None:
             highlightBankTile = True
             if board.deadduckcheck(bankdrawntile):
