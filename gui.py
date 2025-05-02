@@ -1203,7 +1203,7 @@ def draw_stockbuy(surface: Surface, board: Board, bank: Bank, p: Player, stockca
     stock_plusmin_label = ["", ""] 
     if chains[i] in stockcart:
       stock_plusmin_label[0] = "-"
-    if bank.stocks[chains[i]] and stockprice < p.bal and "" in stockcart:
+    if bank.stocks[chains[i]] and stockprice <= p.bal and "" in stockcart:
       stock_plusmin_label[1] = "+"
     
     def rect_color_func(i):
