@@ -16,7 +16,7 @@ Install Python 3.12.7 @ <https://www.python.org/downloads/release/python-3127/>
 
 Install Required Packages: `pip install .`
 
-Run: `python main.py`
+Run: `python src/main.py`
 
 ## To Build From Source (using PyInstaller)
 
