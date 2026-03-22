@@ -4,19 +4,25 @@
 
 Digital remaster of the 1964 board game *Acquire*, originally published by 3M. Written in Python.
 
-## To Run
+## To Run From Aqcuire.exe
 
 Install Python 3.12.7 @ <https://www.python.org/downloads/release/python-3127/>
 
-Install Required Packages: `pip install -r requirements.txt`
+Run: `Aqcuire.exe`
+
+## To Run From Source
+
+Install Python 3.12.7 @ <https://www.python.org/downloads/release/python-3127/>
+
+Install Required Packages: `pip install .`
 
 Run: `python main.py`
 
-## To Build (using PyInstaller)
+## To Build From Source (using PyInstaller)
 
-### NOTE: Built .exe file still requires Python 3.12.7 installed, but does not require independent package installation
+### NOTE: Built Aqcuire.exe file still requires Python 3.12.7 installed, but does not require independent package installation
 
-Install PyInstaller: `pip install pyinstaller`
+Install PyInstaller: `pip install .[build-exe]`
 
 Run: `pyinstaller build.spec`
 

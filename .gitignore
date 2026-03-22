@@ -4,12 +4,17 @@ test.ipynb
 
 # Runtime
 __pycache__/
+venv/
+.venv/
 .vscode/
 
 # PyInstaller
 dist/
 build/
 
+# uv
+.python-version
+
 # User
 config.json
-saves/*
+saves/

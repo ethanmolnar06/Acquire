@@ -1,0 +1,18 @@
+[project]
+name = "acquire"
+version = "0.4.1"
+description = "Digital remaster of the 1964 board game Acquire, originally published by 3M."
+readme = "README.md"
+requires-python = ">=3.12.7"
+dependencies = [
+    "kaleido==0.1.0.post1",
+    "numpy>=2.4.3",
+    "plotly>=6.6.0",
+    "pygame>=2.6.1",
+    "requests>=2.32.5",
+]
+
+[project.optional-dependencies]
+build-exe = [
+    "pyinstaller>=6.19.0",
+]
